@@ -368,8 +368,8 @@ class strategy_data(data):
         :param original_expo: (pd.Panel) original factor exposure data
         :param holding_matrix: (pd.DataFrame) holding matrix of the benchmark or benchmark related portfolio.
             note that after returning the adjusted factor exposure, you are expected to get factor exposure of
-            portfolio using this holding matrix, or error may come out. This parameter may has different index as 
-            original expo.
+            portfolio using this holding matrix, or error may come out. This parameter may has different index
+            compared to original expo.
         :param if_tradable: (pd.DataFrame) marks indicate if this stock is tradabale at a time. Must have the same index
             as original expo.
         :return: (pd.Panel) the adjusted factor exposure data, which is expected to be used to get portfolio factor
@@ -409,6 +409,7 @@ class strategy_data(data):
         return adjusted_expo
 
     # 计算净利润增长率的函数, 因为净利润增长, 涉及净利润是负数的情况比较麻烦, 所以专门写一个函数来计算
+    # lag为传入序列要计算的成长率, 1则是计算每隔一期的成长, 2则是每隔两期(注意这样会少一些数据)
     # annualize_term为年化增长率的参数, 若增长率为每天, 则参数为1/252, 若为2年, 则为2
     @staticmethod
     def get_ni_growth(ni_data, *, lag=1, annualize_term=0):

@@ -27,7 +27,8 @@ class performance_attribution(object):
     foo
     """
 
-    def __init__(self, input_position, portfolio_returns, *, benchmark_weight='default'):
+    def __init__(self, input_position, portfolio_returns, *, benchmark_weight='default',
+                 intra_holding_deviation=pd.Series(), trans_cost=pd.Series()):
         self.pa_position = position(input_position.holding_matrix)
         # 如果传入基准持仓数据，则归因超额收益
         if type(benchmark_weight) != str:
@@ -43,8 +44,27 @@ class performance_attribution(object):
         elif benchmark_weight == 'default':
             self.pa_position.holding_matrix = input_position.holding_matrix
 
-        # 如果有传入组合收益，则直接用这个组合收益，如果没有则自己计算
+        # 传入的组合收益
         self.port_returns = portfolio_returns
+
+        # 有可能被传入的调仓期间的偏离, 即由于调仓期内多头与空头涨幅不一致带来的组合价值的偏离,
+        # 这会导致country factor的暴露不总是, 只有在使用真实世界的超额归因的时候, 才会用到这个数据
+        self.intra_holding_diviation = intra_holding_deviation
+        # 如果传入了这个参数, 但确做的不是超额归因, 要报错
+        if not self.intra_holding_diviation.empty and type(benchmark_weight) == str:
+            print('Warning: intra-holding deviation be passed but no benchmark weight. The pa system '
+                  'has automatically ignored the intra-holding deviation, since it is implied by'
+                  'no benchmark weight being passed that the pa will not be based on active part! \n')
+            self.intra_holding_diviation = pd.Series()
+        # 有可能传入的手续费带来的负收益序列, 在真实归因时用到
+        # 如果传入了手续费序列, 但是其都是0, 则自动不画手续费曲线
+        self.trans_cost = trans_cost
+        if not self.trans_cost.empty and (self.trans_cost == 0).all():
+            print('Warning: transaction cost series has been passed but is an all-zeros series. The pa'
+                  'system has automatically ignored this series, since it is implied that there is no '
+                  'transaction cost! \n')
+            self.trans_cost = pd.Series()
+
 
         self.pa_returns = pd.DataFrame()
         self.port_expo = pd.DataFrame()
@@ -60,7 +80,7 @@ class performance_attribution(object):
         self.discarded_stocks_wgt = pd.DataFrame()
 
     # 建立barra因子库，有些时候可以直接用在其他地方（如策略中）已计算出的barra因子库，就可以不必计算了
-    def construnct_bb(self, *, outside_bb='Empty'):
+    def construct_bb(self, *, outside_bb='Empty'):
         if outside_bb == 'Empty':
             self.bb.construct_barra_base()
         else:
@@ -124,6 +144,14 @@ class performance_attribution(object):
         self.port_expo = self.port_expo.reindex(self.pa_position.holding_matrix.index)
         self.port_pa_returns = self.port_pa_returns.reindex(self.pa_position.holding_matrix.index)
 
+        # 注意, 如果进行的是真实世界的超额收益归因, 如果传入了偏离度序列, 则要将country factor因子的暴露重新
+        # 调整为偏离度序列, 然后重新计算收益, 注意, 这里的调整是原始的暴露加上偏离度序列,
+        # 因为原始的暴露可能因为调仓日和起始回测日的原因, 导致最开始的几天是-1.
+        if not self.intra_holding_diviation.empty:
+            self.port_expo['country_factor'] += self.intra_holding_diviation
+            self.port_pa_returns['country_factor'] = self.pa_returns['country_factor'].\
+                mul(self.port_expo['country_factor'].shift(1))
+
         # 计算各类因子的总收益情况
         # 注意, 由于计算组合收益的时候, 组合暴露要用上一期的暴露, 因此第一期统一没有因子收益
         # 这一部分收益会被归到residual return中去, 从而提升residual return
@@ -139,6 +167,9 @@ class performance_attribution(object):
         # 注意下面会提到，缺失数据会使得残余收益变大
         self.residual_returns = self.port_returns - (self.style_factor_returns+self.industry_factor_returns+
                                                      self.country_factor_return)
+        # 如果有手续费序列, 则残余收益应当是减去手续费的(手续费为负, 因此残余收益会变大)
+        if not self.trans_cost.empty:
+            self.residual_returns -= self.trans_cost
         pass
 
     # 处理那些没有归因的股票，即有些股票被策略选入，但因没有因子暴露值，而无法纳入归因的股票
@@ -195,7 +226,10 @@ class performance_attribution(object):
         plt.plot(self.style_factor_returns.cumsum()*100, label='style')
         plt.plot(self.industry_factor_returns.cumsum()*100, label='industry')
         plt.plot(self.country_factor_return.cumsum()*100, label='country')
-        # plt.plot(self.residual_returns.cumsum()*100, label='residual')
+        plt.plot(self.residual_returns.cumsum()*100, label='residual')
+        # 如果有手续费序列, 则画出手续费序列
+        if not self.trans_cost.empty:
+            plt.plot(self.trans_cost.cumsum()*100, label='trans_cost')
         ax1.set_xlabel('Time')
         ax1.set_ylabel('Cumulative Log Return (%)')
         ax1.set_title('The Cumulative Log Return of Factor Groups')
@@ -309,9 +343,9 @@ class performance_attribution(object):
         indus_rank = self.port_expo.ix[:, 10:38].mean(0).rank(ascending=False)
         for i, j in enumerate(self.port_expo.ix[:, 10:38].columns):
             if indus_rank[j] in qualified_rank:
-                plt.plot((self.port_expo.ix[:, j] * 100), label=j+str(indus_rank[j]))
+                plt.plot((self.port_expo.ix[:, j]), label=j+str(indus_rank[j]))
             else:
-                plt.plot((self.port_expo.ix[:, j] * 100), label='_nolegend_')
+                plt.plot((self.port_expo.ix[:, j]), label='_nolegend_')
         ax7.set_xlabel('Time')
         ax7.set_ylabel('Factor Exposures')
         ax7.set_title('The Industrial Factor Exposures of the Portfolio')
@@ -341,7 +375,7 @@ class performance_attribution(object):
     # 进行业绩归因
     def execute_performance_attribution(self, *, outside_bb='Empty', discard_factor=[], show_warning=True, 
                                         foldername='', enable_reading_pa_return=True):
-        self.construnct_bb(outside_bb=outside_bb)
+        self.construct_bb(outside_bb=outside_bb)
         self.get_pa_return(discard_factor=discard_factor, enable_reading_pa_return=enable_reading_pa_return)
         self.analyze_pa_outcome()
         self.handle_discarded_stocks(show_warning=show_warning, foldername=foldername)

@@ -51,12 +51,13 @@ class backtest(object):
         
         # 初始化回测用到的股价数据类
         self.bkt_data = backtest_data()
-        # 初始化股价数据，包括收盘开盘价等
+        # 初始化股价数据，包括收盘价, vwap(交易量加权平均价)等
         if bkt_stock_data == 'default':
-            self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','OpenPrice_adj'], 
-                                                  ['ClosePrice_adj','OpenPrice_adj'])
+            self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','vwap_adj'],
+                                                  ['ClosePrice_adj','vwap_adj'])
         else:
             self.bkt_data.stock_price = data.read_data(bkt_stock_data)
+        # self.bkt_data.stock_price['vwap_adj'] = self.bkt_data.stock_price['vwap_adj'].shift(1)
         # 初始化基准价格数据，默认设为中证500，只需要收盘数据, 开盘数据只是为了初始化序列的第一个值
         # 注意, 因为做空期货实际上做空的是指数的全收益序列, 因此我们要计算基准的全收益价格序列
         # 基准指数的全收益价格序列没有开盘价, 因此只能全部用收盘价替代
@@ -66,6 +67,8 @@ class backtest(object):
             self.bkt_data.benchmark_price = data.read_data([bkt_benchmark_data], [bkt_benchmark_data])
         # 读取股票上市退市停牌数据，并生成标记股票是否可交易的矩阵
         self.bkt_data.generate_if_tradable()
+        # 生成标记股票是否涨跌停, 是否可买入卖出的矩阵
+        self.bkt_data.generate_if_buyable_sellable()
             
         # 根据传入的持仓类，校准回测股价和基准股价的数据，将股票代码对齐
         self.bkt_data.stock_price = data.align_index(self.bkt_position.holding_matrix, self.bkt_data.stock_price, 
@@ -96,10 +99,10 @@ class backtest(object):
             assert self.bkt_data.stock_price.major_axis[-1]>self.bkt_position.holding_matrix.index[-1], \
                    'The default end time of backtest is later than the end time in backtest database, '\
                    'please try to set an earlier end time which must be a trading day\n'
-            # 回测数据中的最后一天在最后一个调仓日后，现在判断是否之后有60个交易日可取
+            # 回测数据中的最后一天在最后一个调仓日后，现在判断是否之后有21个交易日可取
             last_holding_loc = self.bkt_data.stock_price.major_axis.get_loc(self.bkt_position.holding_matrix.index[-1])
             total_size = self.bkt_data.stock_price.major_axis.size
-            assert total_size>=last_holding_loc+1+60, \
+            assert total_size>=last_holding_loc+1+21, \
                    'The default end time of backtest is later than the end time in backtest database, '\
                    'please try to set an earlier end time which must be a trading day\n'
         else:
@@ -109,14 +112,16 @@ class backtest(object):
         
         # 设置回测的起止时间，这里要注意默认的时间可能超过回测数据的范围
         # 起始时间：默认为第一个调仓日，如有输入数据，则为输入数据和默认时间的较晚日期
-        default_start = self.bkt_data.stock_price.major_axis[self.bkt_data.stock_price.major_axis.get_loc(self.bkt_position.holding_matrix.index[0])]
+        default_start = self.bkt_data.stock_price.major_axis[self.bkt_data.stock_price.major_axis.
+                            get_loc(self.bkt_position.holding_matrix.index[0])]
         if bkt_start == 'default':
             self.bkt_start = default_start
         else:
             self.bkt_start = max(default_start, bkt_start)
         # 停止时间：默认为最后一个调仓日后的21个交易日，如有输入数据，则以输入数据为准
         if bkt_end == 'default':
-            default_end = self.bkt_data.stock_price.major_axis[self.bkt_data.stock_price.major_axis.get_loc(self.bkt_position.holding_matrix.index[-1])+21]
+            default_end = self.bkt_data.stock_price.major_axis[self.bkt_data.stock_price.major_axis.
+                            get_loc(self.bkt_position.holding_matrix.index[-1])+21]
             self.bkt_end = default_end
         else:
             self.bkt_end = bkt_end
@@ -163,7 +168,8 @@ class backtest(object):
         # 初始化其他信息序列，包括换手率，持有的股票数等
         self.info_series = pd.DataFrame(0, index=self.cash.index, columns=['holding_value', 'sell_value',
                                             'buy_value', 'trading_value', 'turnover_ratio', 'cost_value',
-                                            'holding_num'])
+                                            'holding_num', 'holding_sus', 'target_sus', 'buy_cap',
+                                            'sell_bottom', 'holding_diff'])
         
         # 暂时用一个警告的string初始化performance对象，防止提前调用此对象出错
         self.bkt_performance = 'The performance object of this backtest object has NOT been initialized, '\
@@ -173,7 +179,9 @@ class backtest(object):
         # 传入的bkt_position股票索引是一样的，但是时间索引为调仓日的时间
 
         # 控制回测对象是否需要输出提示用户的警告
-        self.enable_warning = True
+        self.show_warning = True
+        # 标记是否执行本次换仓
+        self.if_exec_this_trading = True
 
         print('The backtest system has been successfully initialized!\n')
         
@@ -211,11 +219,10 @@ class backtest(object):
                 # 首先必须有对当天退市股票的处理
                 self.deal_with_held_delisted(curr_time, cursor)
 
-                if self.enable_warning:
-                    # 检查当前持仓的股票是否有已经停牌的, 输出提示
-                    self.check_if_holding_tradable(curr_time)
-                    # 检查目标买入股票是否有不可交易的, 输出提示
-                    self.check_if_tar_holding_tradable(curr_tar_pct_holding, curr_time)
+                # 检查当前持仓的股票是否有已经停牌的, 输出提示
+                self.check_if_holding_tradable(curr_time)
+                # 检查目标买入股票是否有不可交易的, 输出提示
+                self.check_if_tar_holding_tradable(curr_tar_pct_holding, curr_time)
                 
                 # 计算预计持仓量矩阵，以确定当期的交易计划
                 proj_vol_holding = self.get_proj_vol_holding(curr_tar_pct_holding, cursor)
@@ -246,7 +253,13 @@ class backtest(object):
 
         # 计算每天的持股数
         self.info_series['holding_num'] = (self.real_vol_position.holding_matrix != 0).sum(1)
-    
+        # 计算手续费所占总价值序列的比例, 注意是占上个交易日的账户价值的比例,
+        # 以及不要第一项(即加入的回测开始前1秒那一项)
+        self.info_series['cost_ratio'] = (self.info_series['cost_value']/self.account_value.shift(1)).dropna()
+        # 计算真实的股票仓位的持仓比例和目标持仓比例的差别
+        self.info_series['holding_diff'] = self.real_pct_position.holding_matrix.sub(
+            self.tar_pct_position.holding_matrix).abs().sum(1)
+
     # 单独处理回测的第一期，因为这一期没有cursor-1项
     def deal_with_first_day(self, curr_time, curr_tar_pct_holding):
         
@@ -262,9 +275,8 @@ class backtest(object):
             # 可以交易的股票，即那些已上市，未退市，未停牌的股票
             tradable = self.bkt_data.if_tradable.ix['if_tradable', 0, :]
 
-            if self.enable_warning:
-                # 检查目标买入股票是否有不可交易的, 输出提示
-                self.check_if_tar_holding_tradable(curr_tar_pct_holding, curr_time)
+            # 检查目标买入股票是否有不可交易的, 输出提示
+            self.check_if_tar_holding_tradable(curr_tar_pct_holding, curr_time)
             
             if not curr_tar_pct_holding.ix[tradable].empty:
                 # 对可买入的股票进行权重的重新归一计算，直接就用这个百分比买入股票
@@ -272,33 +284,60 @@ class backtest(object):
                 tradable_pct = position.to_percentage_func(curr_tar_pct_holding[tradable]).fillna(0.0)
                 # 预计买入，卖出的量
                 projected_vol = pd.to_numeric(self.cash.ix[0] * tradable_pct /
-                                              self.bkt_data.stock_price.ix['OpenPrice_adj', 0, tradable] * 100)
+                                              (self.bkt_data.stock_price.ix['vwap_adj', 0, tradable] * 100))
                 projected_vol = np.floor(projected_vol.abs()) * np.sign(projected_vol)
                 projected_vol_holding = projected_vol.reindex(self.real_vol_position.holding_matrix.columns, fill_value=0)
+
+                # 对交易计划中的涨跌停股票的数量进行检查, 如果占比超过阈值, 则输出警告
+                self.check_if_plan_buyable_sellable(projected_vol_holding, curr_time)
+                # 如果涨跌停股票达到某个阈值, 则不进行这次换仓
+                if not self.if_exec_this_trading:
+                    self.if_exec_this_trading = True
+                    return
+
                 # 处理做空
-                sell_plan = -(projected_vol_holding.ix[projected_vol_holding<0])
+                # 注意, 跌停股票不能卖出
+                sell_plan = -(projected_vol_holding.ix[np.logical_and(projected_vol_holding<0,
+                                self.bkt_data.if_tradable.ix['if_sellable', 0, :])])
                 if not sell_plan.empty:
                     # 做空股票的总额
-                    sell_value = (sell_plan * self.bkt_data.stock_price.ix['OpenPrice_adj', 0, :] * 100).sum()
+                    self.info_series.ix[0, 'sell_value'] = (sell_plan * self.bkt_data.stock_price.
+                                                            ix['vwap_adj', 0, :] * 100).sum()
                     # 卖出后的资金
-                    self.cash.ix[0] += sell_value * (1-self.sell_cost)
+                    self.cash.ix[0] += self.info_series.ix[0, 'sell_value'] * (1-self.sell_cost)
                     # 卖出后的持仓
                     self.real_vol_position.subtract_holding(curr_time, sell_plan)
-                buy_plan = projected_vol_holding.ix[projected_vol_holding>0]
+                # 处理买入
+                # 注意, 涨停股票不能买入
+                buy_plan = projected_vol_holding.ix[np.logical_and(projected_vol_holding>0,
+                                self.bkt_data.if_tradable.ix['if_buyable', 0, :])]
                 # 买入量的价值的百分比
-                buy_plan_value = buy_plan * self.bkt_data.stock_price.ix['OpenPrice_adj', 0, :] * 100
+                buy_plan_value = buy_plan * self.bkt_data.stock_price.ix['vwap_adj', 0, :] * 100
                 buy_plan_value_pct = buy_plan_value / buy_plan_value.sum()
                 # 计算买入的量
                 real_buy_vol = (self.cash.ix[0] * buy_plan_value_pct / (1+self.buy_cost) /
-                                (self.bkt_data.stock_price.ix['OpenPrice_adj', 0, :] * 100))
+                                (self.bkt_data.stock_price.ix['vwap_adj', 0, :] * 100))
                 real_buy_vol = np.floor(real_buy_vol)
                 # 买入股票的总额
-                buy_value = (real_buy_vol * 100 * self.bkt_data.stock_price.ix['OpenPrice_adj', 0, :]).sum()
+                self.info_series.ix[0, 'buy_value'] = (real_buy_vol * 100 * self.bkt_data.stock_price.
+                                                       ix['vwap_adj', 0, :]).sum()
                 # 买入后的资金
-                self.cash.ix[0] -= buy_value * (1+self.buy_cost)
+                self.cash.ix[0] -= self.info_series.ix[0, 'buy_value'] * (1+self.buy_cost)
                 # 买入后的持仓
                 self.real_vol_position.add_holding(curr_time, real_buy_vol)
-     
+
+                # 调仓后的持仓价值, 用来计算交易成本
+                new_holding_value = (self.real_vol_position.holding_matrix.ix[0, :] *
+                                     self.bkt_data.stock_price.ix['vwap_adj', 0, :] * 100).sum()
+                self.info_series.ix[0, 'cost_value'] = (new_holding_value + self.cash.iloc[0]) - \
+                    self.initial_money * self.trade_ratio
+                # 总交易额, 及总换手率
+                self.info_series.ix[0, 'trading_value'] = self.info_series.ix[0, 'sell_value'] + \
+                    self.info_series.ix[0, 'buy_value']
+                # 算换手率时, 由于第一天没有持仓, 因此用初始资金做分母
+                self.info_series.ix[0, 'turnover_ratio'] = self.info_series.ix[0, 'trading_value'] / \
+                    (self.initial_money * self.trade_ratio)
+
     # 处理持有的当日退市的股票
     def deal_with_held_delisted(self, curr_time, cursor):
         # 如果实际持仓中有当日退市的股票，则以上一个交易日的收盘价卖掉这些股票，这里计算了交易费
@@ -313,16 +352,19 @@ class backtest(object):
         
     # 计算预计持仓量矩阵，即预计的要持有的股票数量（单位：手）
     def get_proj_vol_holding(self, curr_tar_pct_holding, cursor):
-        # 预估要买入的量，先预估卖出可卖出的股票后的资金量
+        # 预估要买入的量，先预估卖出可交易的股票后的资金量
         # 可以交易的股票，即那些已上市，未退市，未停牌的股票
         tradable = self.bkt_data.if_tradable.ix['if_tradable',cursor,:]
                            
-        # 以当期的开盘价，卖出上一期持有的可以交易的股票，加上之前的可用现金，得到当期可用的资金
-        # 预估交易和此后的实际交易中，股票买卖价格均为开盘价，即假设开盘时一瞬间，就计算出了预计交易量和进行了实际交易
-        # 另一个关于此的假设是，在实际交易中，会考虑到涨跌停问题，但是在预估交易时不用到涨跌停信息，即使可能只用开盘价也能得到这些信息，这里日后可进行调整
-        # 这里预估的时候，卖价没有计算交易费用，这样会导致对当期可用资金的高估，从而高估预计买入的量，因此这里还需要日后调整
+        # 以当期的vwap价，卖出上一期持有的可以卖出的股票，加上之前的可用现金，得到当期可用的资金
+        # 预估交易和此后的实际交易中，股票买卖价格均为vwap价，即假设vwap时一瞬间，就计算出了预计交易量和进行了实际交易
+        # 这里预估的时候暂时不用到涨跌停限制, 因为这里用到涨跌停限制会不正确, 买卖是相对上一期而言的,
+        # 因此一定要算出了交易计划后才能使用涨跌停限制
+        # 这里预估的时候，卖价没有计算交易费用，这样会导致对当期可用资金的高估，从而高估预计买入的量
+        # 因此两个原因都会导致实际持仓与目标持仓不同, 一个是不可交易股票, 涨跌停股票的限制,
+        # 一个是手续费导致的对预计买入量的高估
         curr_cash_available = (self.real_vol_position.holding_matrix.ix[cursor, tradable] *
-                               self.bkt_data.stock_price.ix['OpenPrice_adj', cursor, tradable] *
+                               self.bkt_data.stock_price.ix['vwap_adj', cursor, tradable] *
                                100).sum() + self.cash.ix[cursor]
                                                        
         # 对目标持仓股票中，可以交易的股票进行权重的重新归一计算
@@ -330,7 +372,7 @@ class backtest(object):
                 
         # 计算预计买入的量，注意这里依然不计算交易费用
         projected_vol = pd.to_numeric(curr_cash_available * tradable_pct /
-                         (self.bkt_data.stock_price.ix['OpenPrice_adj', cursor, tradable] *100))
+                         (self.bkt_data.stock_price.ix['vwap_adj', cursor, tradable] *100))
         projected_vol = np.floor(projected_vol.abs()) * np.sign(projected_vol)
         
         # 预计的当期新持仓量向量，注意这里与上面的不同在于这里包含所有股票的代码
@@ -340,25 +382,33 @@ class backtest(object):
         
     # 根据预计持仓量，进行真实的交易
     def execute_real_trading(self, curr_time, cursor, proj_vol_holding):
-        # 持仓中可交易的股票, 不能交易的股票是无法卖出的
-        # proj_vol_holding中已经确保了没有不可交易的股票
-        tradable_holding = self.real_vol_position.holding_matrix.ix[cursor, :].where(
-            self.bkt_data.if_tradable.ix['if_tradable', cursor, :], 0.0)
         # 预计的交易量，即交易计划，大于0为买入，小于0为卖出
-        trade_plan = proj_vol_holding - tradable_holding
+        # 预计交易量为计划持仓减去现有持仓, 注意现有持仓中有不可交易的股票, 这些股票现在在这里先不处理
+        # 一会在卖出和买入的时候, 会分别进行处理
+        # 预计交易量中的股票(proj_vol_holding)已经确保了其没有不可交易的股票, 但有可能有涨跌停的股票
+        trade_plan = proj_vol_holding - self.real_vol_position.holding_matrix.ix[cursor, :]
+
+        # 对交易计划中的涨跌停股票的数量进行检查, 如果占比超过阈值, 则输出警告
+        self.check_if_plan_buyable_sellable(trade_plan, curr_time)
+        # 如果涨跌停的达到某个阈值, 这次换仓不执行
+        if not self.if_exec_this_trading:
+            self.if_exec_this_trading = True
+            return
                 
         # 开始真正的交易，先卖后买
 
-        # 用调仓当天的开盘价来计算当天持有股票的价值，用这个价值来计算换手率
+        # 用调仓当天的vwap价来计算当天持有股票的价值，用这个价值来计算换手率
         self.info_series.ix[cursor, 'holding_value'] = (self.real_vol_position.holding_matrix.ix[cursor, :] *
-            self.bkt_data.stock_price.ix['OpenPrice_adj', cursor, :] * 100).sum()
+            self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100).sum()
                 
         # 处理卖出
-        sell_plan = -(trade_plan.ix[trade_plan<0])
+        # 注意, 能卖出的为1.计划卖出的, 且2. 可以卖的(即可交易且未跌停的)
+        sell_plan = -(trade_plan.ix[np.logical_and(trade_plan<0,
+                                                   self.bkt_data.if_tradable.ix['if_sellable', cursor, :])])
         # 有卖出
         if not sell_plan.empty:
             # 卖出的股票的总额
-            self.info_series.ix[cursor, 'sell_value'] = (sell_plan * self.bkt_data.stock_price.ix['OpenPrice_adj',
+            self.info_series.ix[cursor, 'sell_value'] = (sell_plan * self.bkt_data.stock_price.ix['vwap_adj',
                 cursor, :] * 100).sum()
             # 卖出后的资金
             self.cash.ix[cursor] += self.info_series.ix[cursor, 'sell_value'] * (1-self.sell_cost)
@@ -366,35 +416,43 @@ class backtest(object):
             self.real_vol_position.subtract_holding(curr_time, sell_plan)
                 
         # 处理买入
-        buy_plan = trade_plan.ix[trade_plan>0]
+        # 注意, 能买入的为1.计划买入的, 且2. 可以买的(即可交易且未涨停的)
+        buy_plan = trade_plan.ix[np.logical_and(trade_plan>0,
+                                                self.bkt_data.if_tradable.ix['if_buyable', cursor, :])]
         # 有买入
         if not buy_plan.empty:
             # 计算买入量的价值的百分比
             # 这是因为，有实际操作以及刚刚提到的交易费用的原因，计划的买入量和实际的买入量会不同，只能按比例买
-            buy_plan_value = buy_plan * self.bkt_data.stock_price.ix['OpenPrice_adj', cursor, :] * 100
+            buy_plan_value = buy_plan * self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100
             buy_plan_value_pct = buy_plan_value / buy_plan_value.sum()
             # 实际买入的量，用实际的现金，以buy_plan的比例买入股票
             real_buy_vol = self.cash.ix[cursor] * buy_plan_value_pct / (1+self.buy_cost) / \
-                            (self.bkt_data.stock_price.ix['OpenPrice_adj', cursor, :] * 100)
+                            (self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100)
             real_buy_vol = np.floor(real_buy_vol)
 
             # 买入的股票的总额
-            self.info_series.ix[cursor, 'buy_value'] = (real_buy_vol *100 *
-                self.bkt_data.stock_price.ix['OpenPrice_adj', cursor, :]).sum()
+            self.info_series.ix[cursor, 'buy_value'] = (real_buy_vol * 100 *
+                self.bkt_data.stock_price.ix['vwap_adj', cursor, :]).sum()
             # 买入后的资金
             self.cash.ix[cursor] -= self.info_series.ix[cursor, 'buy_value'] * (1+self.buy_cost)
             # 买入后的持仓
             self.real_vol_position.add_holding(curr_time, real_buy_vol)
 
-        # 调仓后的持仓价值，同样用开盘价算出，这样可以计算交易成本的花费
+        # 调仓后的持仓价值，同样用vwap价算出，这样(加上现金后)可以计算交易成本的花费
         new_holding_value = (self.real_vol_position.holding_matrix.ix[cursor, :] *
-            self.bkt_data.stock_price.ix['OpenPrice_adj', cursor, :] * 100).sum()
-        self.info_series.ix[:, 'cost_value'] = self.info_series.ix[:, 'holding_value'] - new_holding_value
+            self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100).sum()
+        self.info_series.ix[cursor, 'cost_value'] = (new_holding_value + self.cash.ix[cursor]) - \
+            (self.info_series.ix[cursor, 'holding_value'] + self.cash.ix[cursor-1])
         # 计算总交易额，以及换手率
-        self.info_series.ix[:, 'trading_value'] = self.info_series.ix[:, 'sell_value'] +\
-            self.info_series.ix[:, 'buy_value']
-        self.info_series.ix[:, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] /\
-            self.info_series.ix[cursor, 'holding_value']
+        self.info_series.ix[cursor, 'trading_value'] = self.info_series.ix[cursor, 'sell_value'] +\
+            self.info_series.ix[cursor, 'buy_value']
+        # 遇到回测期第一天非调仓日的, 持仓价值可能为0, 因此用cash代替
+        if self.info_series.ix[cursor, 'holding_value'] == 0:
+            self.info_series.ix[cursor, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] / \
+                self.cash.iloc[cursor-1]
+        else:
+            self.info_series.ix[cursor, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] /\
+                self.info_series.ix[cursor, 'holding_value']
             
     # 仅仅初始化performance类，只得到净值和收益数据，而不输出指标和画图
     def initialize_performance(self):
@@ -423,19 +481,20 @@ class backtest(object):
         if is_real_world:
             if real_world_type == 0:
                 self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.log_return,
-                                                      benchmark_weight=benchmark_weight)
+                    benchmark_weight=benchmark_weight)
             elif real_world_type == 1:
-                assert type(benchmark_weight) != str, 'No benchmark weight passed while executing pa on excess return!'
-                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.excess_return,
-                                                      benchmark_weight=benchmark_weight)
+                assert type(benchmark_weight) != str, 'No benchmark weight passed while executing pa on active return!'
+                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_return,
+                    benchmark_weight=benchmark_weight)
             elif real_world_type == 2:
-                assert type(benchmark_weight) != str, 'No benchmark weight passed while executing pa on excess return!'
-                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.excess_nv_return,
-                                                      benchmark_weight=benchmark_weight)
+                assert type(benchmark_weight) != str, 'No benchmark weight passed while executing pa on active return!'
+                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_nv_return,
+                    benchmark_weight=benchmark_weight, trans_cost=self.info_series['cost_ratio'],
+                    intra_holding_deviation=self.bkt_performance.intra_holding_diviation)
         else:
             # 理想世界的简单回测, 先计算理想世界下的组合收益序列
             ideal_port_return = backtest.ideal_world_backtest(self.tar_pct_position.holding_matrix,
-                                                              trading_cost=0)
+                self.bkt_position.holding_matrix.index, trading_cost=0)
             # 判断是否进行超额归因, 如果是超额归因, 还需要减去基准指数的收益
             if type(benchmark_weight) != str:
                 # 注意理想世界简单回测的超额收益, 就直接用两者收益相减了, 这意味着超额收益是基于每日再平衡的
@@ -457,6 +516,12 @@ class backtest(object):
         self.cash.ix[0] = self.initial_money * self.trade_ratio
         self.account_value = []
         self.benchmark_value = self.bkt_data.benchmark_price.ix['ClosePrice_adj', :, 0]
+        # 重置info series信息序列
+        self.info_series = pd.DataFrame(0, index=self.cash.index, columns=['holding_value', 'sell_value',
+                                'buy_value', 'trading_value', 'turnover_ratio', 'cost_value',
+                                'holding_num', 'holding_sus', 'target_sus', 'buy_cap', 'sell_bottom',
+                                'holding_diff'])
+
 
     # 重置传入的持仓矩阵参数的函数，当要测试同一个策略的不同参数对其的影响时，会用到，这样可以不必重新创建一个回测对象
     # 注意这里只改变了传入的持仓矩阵，包括回测时间，股票id，benchmark等其余参数一律不变
@@ -497,6 +562,7 @@ class backtest(object):
                                    np.logical_not(self.bkt_data.if_tradable.ix['if_tradable', curr_time, :]))
         nontradable_tar = curr_tar_holding[condition]
         nontradable_tar_weight = nontradable_tar.sum()
+        self.info_series.ix[curr_time, 'target_sus'] = nontradable_tar_weight * 1
         # 如果存在这样的股票, 且总权重达到某一阈值
         if (not nontradable_tar.empty) and (nontradable_tar_weight>=threshold):
             # 输出这些股票的代码, 提示用户
@@ -504,10 +570,12 @@ class backtest(object):
                          'at that time. The backtest system has automatically droped these stocks out of the ' \
                          'target portfolio. Please make sure your strategy will not select stocks nontradable ' \
                          'into target portfolio. Some info about these stocks: \n' \
-                         'Total Weight of these stocks: {1}\n'.format(curr_time, nontradable_tar_weight)
+                         'Total Weight of these stocks (relative to target holding vector): {1}\n'.\
+                format(curr_time, nontradable_tar_weight)
             for stock_code, weight in nontradable_tar.iteritems():
                 output_str += 'Stock code: {0}, weight: {1}\n'.format(stock_code, weight)
-            print(output_str)
+            if self.show_warning:
+                print(output_str)
 
     # 对应上面的函数, 这次是每次调仓时, 检查现在持有的股票中, 有多少是不可交易的股票
     # 由于每天会清理退市股票, 因此这类股票肯定是停牌股
@@ -516,9 +584,9 @@ class backtest(object):
     # 这样也无法调整这支股票, 但是因为目标持仓也有这支股票, 因此其影响会相对较小
     def check_if_holding_tradable(self, curr_time, *, threshold=0.05):
         # 当前持有, 且不可交易的股票
-        # 注意这些股票的价值比重用调仓日的开盘价来计算
+        # 注意这些股票的价值比重用调仓日的vwap价来计算
         curr_holding_vol = self.real_vol_position.holding_matrix.ix[curr_time, :]
-        curr_holding = curr_holding_vol.mul(self.bkt_data.stock_price.ix['OpenPrice_adj', curr_time, :]).fillna(0.0)
+        curr_holding = curr_holding_vol.mul(self.bkt_data.stock_price.ix['vwap_adj', curr_time, :]).fillna(0.0)
         if (curr_holding == 0).all():
             pass
         else:
@@ -527,6 +595,7 @@ class backtest(object):
                                    np.logical_not(self.bkt_data.if_tradable.ix['if_tradable', curr_time, :]))
         nontradable_holding = curr_holding[condition]
         nontradable_holding_weight = nontradable_holding.sum()
+        self.info_series.ix[curr_time, 'holding_sus'] = nontradable_holding_weight * 1
         # 如果存在这样的股票, 且总权重达到某一阈值
         if (not nontradable_holding.empty) and (nontradable_holding_weight>=threshold):
             # 输出这些股票的代码, 提示用户
@@ -535,27 +604,128 @@ class backtest(object):
                          'until next holding day, and used the remaining portfolio to construct target portfolio. ' \
                          'Note that, this may make the real holding portfolio significantly different from the target ' \
                          'portfolio. Some info about these stocks: \n' \
-                         'Total Weight of these stocks (using OpenPrice_adj of current trading day): {1}\n'. \
+                         'Total Weight of these stocks (using vwap_adj of current trading day, ' \
+                         'and relative to total stock holdings): {1}\n'. \
                 format(curr_time, nontradable_holding_weight)
             for stock_code, weight in nontradable_holding.iteritems():
                 output_str += 'Stock code: {0}, weight: {1}\n'.format(stock_code, weight)
-            print(output_str)
+            if self.show_warning:
+                print(output_str)
+
+    # 同样是对应上面的函数, 每次有了交易计划, 准备执行交易时, 会因为要卖出的股票跌停无法卖出,
+    # 或者要买入的股票涨停无法买入, 造成实际持仓和目标持仓的差异. 因此要提示用户有多少要卖的股票跌停无法卖出
+    # 有多少要买的股票涨停无法买入, 注意, 这些股票并不包含不可交易的股票, 因为不可交易的股票提示在前两个函数中已经做了
+    def check_if_plan_buyable_sellable(self, trade_plan, curr_time, *, threshold=0.01):
+        # 首先去除交易计划中那些不可交易的股票, 这些在之前两个函数中已经检查过了
+        tradable_plan = trade_plan.where(self.bkt_data.if_tradable.ix['if_tradable', curr_time, :], 0.0)
+        # 用可交易的交易量乘以价格得到要交易的值, 注意股票价值要用调仓日的vwap计算
+        plan_value = tradable_plan.mul(self.bkt_data.stock_price.ix['vwap_adj', curr_time, :]).mul(100).fillna(0.0)
+        # 当前持仓的总价值, 用这个价值来计算比例
+        total_holding_value = self.real_vol_position.holding_matrix.ix[curr_time, :].mul(
+            self.bkt_data.stock_price.ix['vwap_adj', curr_time, :]).mul(100).sum()
+        # 第一期股票仓位价值是0, 因此用现金替代
+        if total_holding_value == 0:
+            total_holding_value = self.cash.iloc[0] * 1
+
+        # 首先判断跌停, 先取出要卖的股票, 然后判断其中跌停不能卖的股票所占总持仓的比例
+        sell_plan_value = -(plan_value.where(plan_value<0, 0.0))
+        total_sell_plan_value = sell_plan_value.sum()
+        # 储存每支因跌停不能卖出股票的占比
+        unsellable_sell_weight_total = 0
+        if total_sell_plan_value != 0:
+            unsellable_sell_weight = sell_plan_value.where(np.logical_not(
+                self.bkt_data.if_tradable.ix['if_sellable', curr_time, :]), 0.0).div(total_holding_value)
+            unsellable_sell_weight_total = unsellable_sell_weight.sum()
+        self.info_series.ix[curr_time, 'sell_bottom'] = unsellable_sell_weight_total * 1
+        # 如果因跌停不能卖出的股票总值占所有的要卖出股票的价值超过某一阈值, 则输出警告提示用户
+        if total_sell_plan_value != 0  and unsellable_sell_weight_total >= threshold:
+            # 输出警告, 以及这些股票的代码, 提示用户
+            output_str_s = 'Warning: Some stocks you plan to sell at time {0} can not be sold since they ' \
+                           'have touched the 10% down bottom. The backtest system has automatically let them ' \
+                           'remained in the portfolio until next holding day, and used the remaining portfolio ' \
+                           'to construct target portfolio. Note that, this may make the real holding portfolio ' \
+                           'significantly different from the target portfolio. Some info about these stocks: \n' \
+                           'Total Weight of these stocks (using vwap_adj of current trading day ' \
+                           'and relative to total stock holdings): {1}\n'. \
+                  format(curr_time, unsellable_sell_weight_total)
+            for stock_code, weight in unsellable_sell_weight[unsellable_sell_weight!=0].iteritems():
+                output_str_s += 'Stock code: {0}, weight: {1}\n'.format(stock_code, weight)
+            if self.show_warning:
+                print(output_str_s)
+
+        # 然后判断涨停, 过程和跌停的过程基本一致
+        buy_plan_value = plan_value.where(plan_value>0, 0.0)
+        total_buy_plan_value = buy_plan_value.sum()
+        # 储存每支因涨停不能买入的股票的占比
+        unbuyable_buy_weight_total = 0
+        if  total_buy_plan_value != 0:
+            unbuyable_buy_weight = buy_plan_value.where(np.logical_not(
+                self.bkt_data.if_tradable.ix['if_buyable', curr_time, :]), 0.0).div(total_holding_value)
+            unbuyable_buy_weight_total = unbuyable_buy_weight.sum()
+        self.info_series.ix[curr_time, 'buy_cap'] = unbuyable_buy_weight_total * 1
+        # 如果因涨停不能买入的股票总值占所有的要买入股票的价值超过某一阈值, 则输出警告提示用户
+        if  total_buy_plan_value != 0 and unbuyable_buy_weight_total >= threshold:
+            # 输出警告, 以及这些股票的代码, 提示用户
+            output_str_b = 'Warning: Some stocks you plan to buy at time {0} can not be bought since they ' \
+                           'have touched the 10% up cap. The backtest system has automatically dropped them ' \
+                           'out of the target portfolio. Please make sure that your strategy will not ' \
+                           'explicitly select this kind of stocks. Note that, this may make the real ' \
+                           'holding portfolio significantly different from the target portfolio.' \
+                           'Some info about these stocks: \n' \
+                           'Total Weight of these stocks (using vwap_adj of current trading day ' \
+                           'and relative to total stock holdings): {1}\n'. \
+                format(curr_time, unbuyable_buy_weight_total)
+            for stock_code, weight in unbuyable_buy_weight[unbuyable_buy_weight!=0].iteritems():
+                output_str_b += 'Stock code: {0}, weight: {1}\n'.format(stock_code, weight)
+            if self.show_warning:
+                print(output_str_b)
+
+        # 如果涨跌停比例占总比例超过某一阈值, 则不进行换仓.
+        if (unsellable_sell_weight_total + unbuyable_buy_weight_total) >= 0.1:
+            self.if_exec_this_trading = False
+            output_str = 'Warning: The total weight of up&bottom stocks in your trading plan relative ' \
+                         'to holding value exceeds {0:.2f}%, thus the trading at time {1} will not be ' \
+                         'executed, and the holding matrix will be the same as before until the next' \
+                         'holding day. \n'.format(0.1*100, curr_time)
+            if self.show_warning:
+                print(output_str)
+
 
     # 此函数为进行理想情况下的简单回测, 即直接用持仓乘以收盘价得到组合的净值和收益序列
     # 此回测方法可以用来对策略本身进行研究, 因为现实交易中遇到的问题大部分不是一个策略可控的, 与策略无关
     # 二来, 此回测方法可以用来与真实模拟的回测做对比, 以观察理想交易和现实交易情况下的差异及区别
-    # 注意1, 此处所有的价值都是用收盘价来评估的, 调仓价格也是调仓当天的收盘价(而不是现实回测的开盘价)
+    # 注意1, 此处所有的价值都是用收盘价来评估的, 调仓价格也是调仓当天的收盘价(而不是现实回测的vwap价)
     # 注意2, 此回测一样不支持做空, 因此也不能对超额持仓进行回测, 因此对超额持仓进行理想归因时
     # 仍需用此函数算组合的收益, 减去基准收益, 得到超额收益
     @staticmethod
-    def ideal_world_backtest(tar_holding_matrix, *, trading_cost=0):
+    def ideal_world_backtest(tar_holding_matrix, holding_days, *, trading_cost=0):
         # 读取收盘价数据
         ClosePrice_adj = data.read_data(['ClosePrice_adj'])
-        ClosePrice_adj = ClosePrice_adj['ClosePrice_adj'].reindex(tar_holding_matrix.index)
-        # 每支股票的日价值变化
-        daily_value_change = ClosePrice_adj/ClosePrice_adj.shift(1) - 1
-        # 组合每期的价值变化, 即每支股票的当期价值变化用持仓比例相加
-        port_value_change = tar_holding_matrix.mul(daily_value_change).sum(1)
+        ClosePrice_adj = ClosePrice_adj['ClosePrice_adj']
+        # 每支股票的日简单收益率
+        daily_return = ClosePrice_adj.pct_change().\
+            reindex(tar_holding_matrix.index, columns=tar_holding_matrix.columns)
+        # 根据调仓日生成所属调仓日的标签
+        holding_days = pd.Series(holding_days.values, index=holding_days.values)
+        holding_mark = holding_days.asof(daily_return.index).replace(pd.tslib.NaT, tar_holding_matrix.index[0])
+
+        p = pd.Panel({'return':daily_return, 'holding':tar_holding_matrix})
+        # 计算组合的每日增加值, 即每日简单收益, 但是在调仓日内要进行累计计算
+        def intra_holding_func(x):
+            r = x['return']
+            h = x['holding']
+            # 累计收益
+            cum_r = (1+r).cumprod()-1
+            # 累计净值变化, 注意, 这期的收益是上一期持仓带来的
+            cum_value_change = (h.shift(1) * cum_r).sum(1)
+            # 每天的净值变化
+            daily_value_change = cum_value_change - cum_value_change.shift(1).fillna(0)
+            return pd.DataFrame({'a':daily_value_change, 'b':daily_value_change})
+
+        # 需要对输出的数据结构进行整理, 以得到每日增加值序列
+        port_value_change = p.groupby(holding_mark).apply(intra_holding_func)
+        port_value_change = port_value_change.loc[:, (slice(None), 'a')]
+        port_value_change = port_value_change.fillna(axis=1, method='bfill').iloc[:, 0]
 
         if trading_cost != 0:
             # 计算每期的换仓的总价值

@@ -34,6 +34,8 @@ class barra_base(object):
         self.bb_data.stock_pool = stock_pool
         # 提示是否为数据更新
         self.is_update = False
+        # 提示数据计算中是否尝试读取现有文件
+        self.try_to_read = True
         
     # 建立指数加权序列
     @staticmethod
@@ -140,7 +142,7 @@ class barra_base(object):
     # 计算市值对数因子，市值需要第一个计算以确保各个panel有index和column
     def get_lncap(self):
         # 如果有文件，则直接读取
-        if os.path.isfile('lncap.csv') and not self.is_update:
+        if os.path.isfile('lncap.csv') and not self.is_update and self.try_to_read:
             self.bb_data.factor = data.read_data(['lncap'], ['lncap'])
         # 没有就用市值进行计算
         else:
@@ -150,7 +152,7 @@ class barra_base(object):
 
     # 计算beta因子
     def get_beta(self):
-        if os.path.isfile('beta.csv') and not self.is_update:
+        if os.path.isfile('beta.csv') and not self.is_update and self.try_to_read:
             beta = data.read_data(['beta'], ['beta'])
             self.bb_data.factor['beta'] = beta.ix['beta']
         else:
@@ -164,7 +166,7 @@ class barra_base(object):
             # 回归函数
             def reg_func(y, *, x, weights):
                 # 如果y全是nan或只有一个不是nan，则直接返回nan，可自由设定阈值
-                if y.notnull().sum() <= 100:
+                if y.notnull().sum() <= 63:
                     return pd.Series({'beta':np.nan,'hsigma':np.nan})
                 x = sm.add_constant(x)
                 model = sm.WLS(y, x, weights=weights, missing='drop')
@@ -199,7 +201,7 @@ class barra_base(object):
 
     # beta parallel
     def get_beta_parallel(self):
-        if os.path.isfile('beta.csv') and not self.is_update:
+        if os.path.isfile('beta.csv') and not self.is_update and self.try_to_read:
             beta = data.read_data(['beta'], ['beta'])
             self.bb_data.factor['beta'] = beta.ix['beta']
         else:
@@ -214,7 +216,7 @@ class barra_base(object):
             # 回归函数
             def reg_func(y, *, x, weights):
                 # 如果y全是nan或只有一个不是nan，则直接返回nan，可自由设定阈值
-                if y.notnull().sum() <= 100:
+                if y.notnull().sum() <= 63:
                     return pd.Series({'beta': np.nan, 'hsigma': np.nan})
                 x = sm.add_constant(x)
                 model = sm.WLS(y, x, weights=weights, missing='drop')
@@ -238,7 +240,7 @@ class barra_base(object):
                 return temp
             import pathos.multiprocessing as mp
             if __name__ == '__main__':
-                ncpus = 16
+                ncpus = 20
                 p = mp.ProcessPool(ncpus)
                 # 从252期开始
                 data_size = np.arange(251, self.bb_data.stock_price.ix['daily_excess_return'].shape[0])
@@ -258,7 +260,7 @@ class barra_base(object):
 
     # 计算momentum因子 
     def get_momentum(self):
-        if os.path.isfile('momentum.csv') and not self.is_update:
+        if os.path.isfile('momentum.csv') and not self.is_update and self.try_to_read:
             momentum = data.read_data(['momentum'], ['momentum'])
             self.bb_data.factor['momentum'] = momentum.ix['momentum']
         else:
@@ -270,7 +272,11 @@ class barra_base(object):
             # 定义momentum的函数
             def func_mom(df, *, weights):
                 iweights = pd.Series(weights, index=df.index)
-                return df.mul(iweights, axis=0).sum(0)
+                mom = df.mul(iweights, axis=0).sum(0)
+                # 设定阈值, 表示至少过去两年中有多少数据才能有momentum因子
+                threshold_condition = df.notnull().sum(0) >= 63
+                mom = mom.where(threshold_condition, np.nan)
+                return mom
             momentum = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
             for cursor, date in enumerate(lag_return.index):
                 # 至少504+21期才开始计算
@@ -284,7 +290,7 @@ class barra_base(object):
         
      # 计算residual volatility中的dastd
     def get_rv_dastd(self):
-        if os.path.isfile('dastd.csv') and not self.is_update:
+        if os.path.isfile('dastd.csv') and not self.is_update and self.try_to_read:
             dastd = data.read_data(['dastd'], ['dastd'])
             dastd = dastd.ix['dastd']
         else:
@@ -307,7 +313,7 @@ class barra_base(object):
     
     # 计算residual volatility中的cmra
     def get_rv_cmra(self):
-        if os.path.isfile('cmra.csv') and not self.is_update:
+        if os.path.isfile('cmra.csv') and not self.is_update and self.try_to_read:
             cmra = data.read_data(['cmra'], ['cmra'])
             cmra = cmra.ix['cmra']
         else:
@@ -338,7 +344,7 @@ class barra_base(object):
     
     # 计算residual volatility中的hsigma
     def get_rv_hsigma(self):
-        if os.path.isfile('hsigma.csv') and not self.is_update:
+        if os.path.isfile('hsigma.csv') and not self.is_update and self.try_to_read:
             hsigma = data.read_data(['hsigma'], ['hsigma'])
             hsigma = hsigma.ix['hsigma']
         elif hasattr(self, 'temp_hsigma'):
@@ -350,7 +356,7 @@ class barra_base(object):
     
     # 计算residual volatility
     def get_residual_volatility(self):
-        if os.path.isfile('rv.csv') and not self.is_update:
+        if os.path.isfile('rv.csv') and not self.is_update and self.try_to_read:
             rv = data.read_data(['rv'], ['rv'])
             self.bb_data.factor['rv'] = rv.ix['rv']
         else:
@@ -384,7 +390,7 @@ class barra_base(object):
                            
     # 计算nonlinear size
     def get_nonlinear_size(self):
-        if os.path.isfile('nls.csv') and not self.is_update:
+        if os.path.isfile('nls.csv') and not self.is_update and self.try_to_read:
             nls = data.read_data(['nls'], ['nls'])
             self.bb_data.factor['nls'] = nls.ix['nls']
         else:
@@ -400,7 +406,7 @@ class barra_base(object):
 
     # 计算pb
     def get_pb(self):
-        if os.path.isfile('bp.csv') and not self.is_update:
+        if os.path.isfile('bp.csv') and not self.is_update and self.try_to_read:
             pb = data.read_data(['bp'], ['bp'])
             self.bb_data.factor['bp'] = pb.ix['bp']
         else:
@@ -409,7 +415,7 @@ class barra_base(object):
     
     # 计算liquidity中的stom
     def get_liq_stom(self):
-        if os.path.isfile('stom.csv') and not self.is_update:
+        if os.path.isfile('stom.csv') and not self.is_update and self.try_to_read:
             stom = data.read_data(['stom'], ['stom'])
             stom = stom.ix['stom']
         else:
@@ -421,7 +427,7 @@ class barra_base(object):
         
     # 计算liquidity中的stoq
     def get_liq_stoq(self):
-        if os.path.isfile('stoq.csv') and not self.is_update:
+        if os.path.isfile('stoq.csv') and not self.is_update and self.try_to_read:
             stoq = data.read_data(['stoq'], ['stoq'])
             stoq = stoq.ix['stoq']
         else:
@@ -443,7 +449,7 @@ class barra_base(object):
 
     # 计算liquidity中的stoa
     def get_liq_stoa(self):
-        if os.path.isfile('stoa.csv') and not self.is_update:
+        if os.path.isfile('stoa.csv') and not self.is_update and self.try_to_read:
             stoa = data.read_data(['stoa'], ['stoa'])
             stoa = stoa.ix['stoa']
         else:
@@ -465,7 +471,7 @@ class barra_base(object):
 
     # 计算liquidity
     def get_liquidity(self):
-        if os.path.isfile('liquidity.csv') and not self.is_update:
+        if os.path.isfile('liquidity.csv') and not self.is_update and self.try_to_read:
             liquidity = data.read_data(['liquidity'], ['liquidity'])
             self.bb_data.factor['liquidity'] = liquidity.ix['liquidity']
         else:
@@ -495,7 +501,7 @@ class barra_base(object):
 
     # 计算earnings yield中的epfwd
     def get_ey_epfwd(self):
-        if os.path.isfile('epfwd.csv') and not self.is_update:
+        if os.path.isfile('epfwd.csv') and not self.is_update and self.try_to_read:
             epfwd = data.read_data(['epfwd'], ['epfwd'])
             epfwd = epfwd.ix['epfwd']
         else:
@@ -522,7 +528,7 @@ class barra_base(object):
             
     # 计算earnings yield中的cetop
     def get_ey_cetop(self):
-        if os.path.isfile('cetop.csv') and not self.is_update:
+        if os.path.isfile('cetop.csv') and not self.is_update and self.try_to_read:
             cetop = data.read_data(['cetop'], ['cetop'])
             cetop = cetop.ix['cetop']
         else:
@@ -532,7 +538,7 @@ class barra_base(object):
         
     # 计算earnings yield中的etop
     def get_ey_etop(self):
-        if os.path.isfile('etop.csv') and not self.is_update:
+        if os.path.isfile('etop.csv') and not self.is_update and self.try_to_read:
             etop = data.read_data(['etop'], ['etop'])
             etop = etop.ix['etop']
         else:
@@ -542,7 +548,7 @@ class barra_base(object):
 
     # 计算earnings yield
     def get_earnings_yeild(self):
-        if os.path.isfile('ey.csv') and not self.is_update:
+        if os.path.isfile('ey.csv') and not self.is_update and self.try_to_read:
             EarningsYield = data.read_data(['ey'], ['ey'])
             self.bb_data.factor['ey'] = EarningsYield.ix['ey']
         else:
@@ -564,7 +570,7 @@ class barra_base(object):
 
     # 计算growth中的egrlf
     def get_g_egrlf(self):
-        if os.path.isfile('egrlf.csv') and not self.is_update:
+        if os.path.isfile('egrlf.csv') and not self.is_update and self.try_to_read:
             egrlf = data.read_data(['egrlf'], ['egrlf'])
             egrlf = egrlf.ix['egrlf']
         else:
@@ -574,7 +580,7 @@ class barra_base(object):
 
     # 计算growth中的egrsf
     def get_g_egrsf(self):
-        if os.path.isfile('egrsf.csv') and not self.is_update:
+        if os.path.isfile('egrsf.csv') and not self.is_update and self.try_to_read:
             egrsf = data.read_data(['egrsf'], ['egrsf'])
             egrsf = egrsf.ix['egrsf']
         else:
@@ -584,7 +590,7 @@ class barra_base(object):
 
     # 计算growth中的egro
     def get_g_egro(self):
-        if os.path.isfile('egro.csv') and not self.is_update:
+        if os.path.isfile('egro.csv') and not self.is_update and self.try_to_read:
             egro = data.read_data(['egro'], ['egro'])
             egro = egro.ix['egro']
         else:
@@ -594,7 +600,7 @@ class barra_base(object):
 
     # 计算growth中的sgro
     def get_g_sgro(self):
-        if os.path.isfile('sgro.csv') and not self.is_update:
+        if os.path.isfile('sgro.csv') and not self.is_update and self.try_to_read:
             sgro = data.read_data(['sgro'], ['sgro'])
             sgro = sgro.ix['sgro']
         else:
@@ -604,7 +610,7 @@ class barra_base(object):
 
     # 计算growth
     def get_growth(self):
-        if os.path.isfile('growth.csv') and not self.is_update:
+        if os.path.isfile('growth.csv') and not self.is_update and self.try_to_read:
             growth = data.read_data(['growth'], ['growth'])
             self.bb_data.factor['growth'] = growth.ix['growth']
         else:
@@ -629,7 +635,7 @@ class barra_base(object):
 
     # 计算leverage
     def get_leverage(self):
-        if os.path.isfile('leverage.csv') and not self.is_update:
+        if os.path.isfile('leverage.csv') and not self.is_update and self.try_to_read:
             leverage = data.read_data(['leverage'], ['leverage'])
             self.bb_data.factor['leverage'] = leverage.ix['leverage']
         else:
@@ -692,6 +698,7 @@ class barra_base(object):
             self.read_original_data()
         # 创建风格因子
         self.get_lncap()
+        print('get lncap completed...\n')
         self.get_beta_parallel()
         print('get beta completed...\n')
         self.get_momentum()
@@ -701,11 +708,13 @@ class barra_base(object):
         self.get_nonlinear_size()
         print('get nls completed...\n')
         self.get_pb()
+        print('get pb completed...\n')
         self.get_liquidity()
         print('get liquidity completed...\n')
         self.get_earnings_yeild()
         print('get ey completed...\n')
         self.get_growth()
+        print('get growth completed...\n')
         self.get_leverage()
         print('get leverage completed...\n')
         # 计算风格因子暴露之前再过滤一次
@@ -723,8 +732,9 @@ class barra_base(object):
 
         # 如果显示指定了储存数据且股票池为所有股票，则储存因子值数据
         # 注意，即便显示指定了储存数据，但股票池不是所有股票，仍不会进行储存
-        if not self.is_update and self.bb_data.stock_pool == 'all' and __name__=='__main__':
+        if not self.is_update and self.bb_data.stock_pool == 'all' and if_save:
             data.write_data(self.bb_data.factor)
+            print('Style factor data have been saved!\n')
 
     # 仅计算barra base的因子值，主要用于对于不同股票池，可以率先建立一个只有因子值而没有暴露的bb对象
     def just_get_sytle_factor(self):
@@ -809,8 +819,12 @@ class barra_base(object):
 
         # 将旧因子值的股票索引换成新的因子值的股票索引
         old_bb_factors = old_bb_factors.reindex(minor_axis=self.bb_data.factor.minor_axis)
-        # 衔接新旧因子值
-        new_factor_data = pd.concat([old_bb_factors, self.bb_data.factor], axis=1)
+        # 衔接新旧因子值, 注意, 衔接的时候一定要把last_day的老数据丢弃掉, 只用新的数据
+        # 就像database的更新一样, 最后一天的老数据, 会因更新的当时可能数据不全, 有各种问题
+        # 因此一定不能用.
+        new_factor_data = pd.concat([old_bb_factors.drop(last_day, axis=1), self.bb_data.factor], axis=1)
+        # 因为更新数据需要用到以前的数据的原因, 会导致更新的时候更新数据的起头不会是last_day
+        # 且这些数据都是nan, 因此只能要第一个数据, 即当时的老数据, 而丢弃掉那些因更新原因产生的nan的数据
         self.bb_data.factor = new_factor_data.groupby(new_factor_data.major_axis).first()
         # 储存因子值数据
         data.write_data(self.bb_data.factor)
@@ -821,8 +835,9 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
     bb = barra_base()
-#    bb.construct_barra_base(if_save=True)
-    bb.update_barra_base_factor_data()
+    bb.try_to_read = False
+    bb.construct_barra_base(if_save=True)
+#     bb.update_barra_base_factor_data()
     print("time: {0} seconds\n".format(time.time()-start_time))
     pass
 

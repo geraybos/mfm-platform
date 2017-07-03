@@ -111,7 +111,17 @@ class data(object):
                                            np.logical_not(self.if_tradable.ix['is_delisted', :, :]) * \
                                            np.logical_not(self.if_tradable.ix['is_suspended', :, :].fillna(0))).astype(np.bool)
             
-        
+    # 四舍五入的函数
+    @staticmethod
+    def round(x, *, decimal=2):
+        if np.isnan(x):
+            return np.nan
+        x_sign = np.sign(x)
+        y = np.abs(x) * (10 ** (decimal+1))
+        y = int(y) + 5
+        y = np.trunc(y/10)
+        y = y / (10 ** decimal)
+        return y * x_sign
         
             
             

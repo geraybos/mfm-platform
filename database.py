@@ -75,7 +75,8 @@ class database(object):
 
     # 设定数据的index和columns，index以交易日表为准，columns以sq中的return daily里的股票为准
     def get_labels(self):
-        sql_query = 'select distinct SecuCode from ReturnDaily order by SecuCode'
+        sql_query = "select distinct SecuCode from ReturnDaily where TradingDay <= '" + \
+                    str(self.trading_days.iloc[-1]) + "' order by SecuCode"
         column_label = self.sq_engine.get_original_data(sql_query)
         column_label = column_label.ix[:, 0]
         index_label = self.trading_days
@@ -89,25 +90,26 @@ class database(object):
 
     # 取ClosePrice_adj数据，将data中的panel数据index和columns都设置为ClosePrice_adj的index和columns
     # 先将所有的数据都取出来，之后不用再次从sq中取
-    def get_ClosePrice_adj(self):
-        sql_query = "select TradingDay, SecuCode, AdjustClosePrice as ClosePrice_adj, AdjustOpenPrice as OpenPrice_adj, " \
-                    "OpenPrice, HighPrice, LowPrice, ClosePrice, RatioAdjustFactor as AdjustFactor, "\
-                    "TurnoverVolume as Volume, TotalShares as Shares, NonRestrictedShares as FreeShares, "\
-                    "MarketCap as MarketValue, FloatMarketCap as FreeMarketValue, IndustryNameNew as Industry, "\
+    def get_sq_data(self):
+        sql_query = "select TradingDay, SecuCode, OpenPrice, HighPrice, LowPrice, ClosePrice, PrevClosePrice, "\
+                    "TurnoverVolume as Volume, TurnoverValue, TotalShares as Shares, " \
+                    "NonRestrictedShares as FreeShares, MarketCap as MarketValue, " \
+                    "FloatMarketCap as FreeMarketValue, IndustryNameNew as Industry, "\
                     "IfSuspended as is_suspended "\
                     "from ReturnDaily where "\
                     "IfTradingDay=1 and TradingDay>='" + str(self.trading_days.iloc[0]) + "' and TradingDay<='" + \
                     str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode"
         self.sq_data = self.sq_engine.get_original_data(sql_query)
-        ClosePrice_adj = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='ClosePrice_adj')
 
-        # 储存ClosePrice_adj
-        self.data.stock_price['ClosePrice_adj'] = ClosePrice_adj
-
-    # 取OpenPrice_adj
-    def get_OpenPrice_adj(self):
-        OpenPrice_adj = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='OpenPrice_adj')
-        self.data.stock_price['OpenPrice_adj'] = OpenPrice_adj
+        # 提取sq_data里所需要的各种数据
+        self.get_ochl()
+        self.get_PrevClosePrice()
+        self.get_Volume()
+        self.get_value_and_vwap()
+        self.get_total_and_free_mv()
+        self.get_total_and_free_shares()
+        self.get_Industry()
+        self.get_is_suspended()
 
     # 取open，close， high， low的价格数据
     def get_ochl(self):
@@ -116,15 +118,22 @@ class database(object):
             curr_data = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values=data_name)
             self.data.stock_price[data_name] = curr_data
 
-    # 取Adjust Factor
-    def get_AdjustFactor(self):
-        AdjustFactor = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='AdjustFactor')
-        self.data.stock_price['AdjustFactor'] = AdjustFactor
+    # 取PrevClosePrice, 可用来算涨跌停价格, 也可用来算日收益率(后复权)
+    def get_PrevClosePrice(self):
+        PrevClosePrice = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='PrevClosePrice')
+        self.data.stock_price['PrevClosePrice'] = PrevClosePrice
 
     # 取volumne
     def get_Volume(self):
         Volume = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='Volume')
         self.data.stock_price['Volume'] = Volume
+
+    # 取turnover value以及vwap
+    def get_value_and_vwap(self):
+        TurnoverValue = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='TurnoverValue')
+        self.data.stock_price['TurnoverValue'] = TurnoverValue
+        vwap = self.data.stock_price['TurnoverValue'].div(self.data.stock_price['Volume'])
+        self.data.stock_price['vwap'] = vwap
 
     # 取total shares和free shares
     def get_total_and_free_shares(self):
@@ -149,6 +158,37 @@ class database(object):
     def get_is_suspended(self):
         is_suspended = self.sq_data.pivot(index='TradingDay', columns='SecuCode', values='is_suspended')
         self.data.if_tradable['is_suspended'] = is_suspended
+
+    # 从聚源数据库里取复权因子
+    def get_AdjustFactor(self, *, first_date=pd.Timestamp('1900-01-01')):
+        sql_query = "select b.ExDiviDate, b.RatioAdjustingFactor, a.SecuCode from " \
+                    "(select distinct InnerCode, SecuCode from SmartQuant.dbo.ReturnDaily) a " \
+                    "left join (select * from JYDB.dbo.QT_AdjustingFactor where ExDiviDate >='" + \
+                    str(first_date) + "' and ExDiviDate <='" + str(self.trading_days.iloc[-1]) + "') b " \
+                    "on a.InnerCode=b.InnerCode " \
+                    "order by SecuCode, ExDiviDate"
+        AdjustFactor = self.jydb_engine.get_original_data(sql_query)
+        AdjustFactor = AdjustFactor.pivot_table(index='ExDiviDate', columns='SecuCode', values='RatioAdjustingFactor')
+        # 要处理更新数据的时候可能出现的空数据的情况
+        if AdjustFactor.empty:
+            self.data.stock_price['AdjustFactor'] = np.nan
+        else:
+            # 将数据直接储存进data.stock_price, 可以自动reindex,
+            # 注意在此之前要先ffill, 否则直接reindex会丢失掉数据2007-01-01之前的数据
+            self.data.stock_price['AdjustFactor'] = AdjustFactor.fillna(method='ffill')
+            # 填充nan, 因为reindex过了, 因此要再ffill, 最后再填充1
+            self.data.stock_price['AdjustFactor'] = self.data.stock_price['AdjustFactor']. \
+                fillna(method='ffill').fillna(1)
+        pass
+
+    # 复权因子后, 计算调整后的价格
+    def get_ochl_vwap_adj(self):
+        ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice', 'vwap']
+        for data_name in ochl:
+            curr_data_adj = self.data.stock_price[data_name].mul(self.data.stock_price['AdjustFactor'])
+            self.data.stock_price[data_name + '_adj'] = curr_data_adj
+        pass
+
 
     # 取上市退市标记，即if_enlisted & if_delisted
     # 如果是第一次取数据（非更新数据）一些数据（包括财务数据）的起始日期并不是第一个交易日，
@@ -344,7 +384,16 @@ class database(object):
         ttm_data_8q = self.sq_engine.get_original_data(sql_query)
         # 两年增长率，直接用每个时间点上的当前quarter的ttm数据除以8q以前的ttm数据减一
         grouped_data = ttm_data_8q.groupby(['DataDate', 'SecuCode'])
-        growth_data = grouped_data['ni_ttm','revenue_ttm','eps_ttm'].apply(lambda x:(x.iloc[-1]/x.iloc[0])**(1/2)-1)
+        # 定义计算两年增长率的函数
+        from strategy_data import strategy_data
+        def calc_growth(s):
+            # 数据的期数, 有些数据可能并没有8期
+            no_of_data = s.shape[0]
+            # 根据数据的期数计算annualized term
+            ann_term = no_of_data/4
+            growth = strategy_data.get_ni_growth(s, lag=no_of_data-1, annualize_term=ann_term)
+            return growth.iloc[-1]
+        growth_data = grouped_data['ni_ttm','revenue_ttm','eps_ttm'].apply(calc_growth)
         time_index = growth_data.index.get_level_values(0)
         stock_index = growth_data.index.get_level_values(1)
 
@@ -459,34 +508,28 @@ class database(object):
         self.initialize_gg()
         self.get_trading_days()
         self.get_labels()
-        self.get_ClosePrice_adj()
-        self.get_OpenPrice_adj()
-        self.get_ochl()
-        self.get_AdjustFactor()
-        self.get_Volume()
-        self.get_total_and_free_mv()
-        self.get_total_and_free_shares()
-        self.get_Industry()
-        self.get_is_suspended()
+        self.get_sq_data()
+        self.get_AdjustFactor(first_date=update_time)
+        self.get_ochl_vwap_adj()
         print('get sq data has been completed...\n')
-        self.get_list_status(first_date=update_time)
-        print('get list status has been completed...\n')
-        self.get_asset_liability_equity(first_date=update_time)
-        print('get balancesheet data has been completed...\n')
-        self.get_pb()
-        self.get_ni_fy1_fy2()
-        self.get_eps_fy1_fy2()
-        print('get forecast data has been completed...\n')
-        self.get_cash_earings_ttm()
-        print('get cash earnings ttm has been completed...\n')
-        self.get_ni_ttm()
-        print('get netincome ttm has been completed...\n')
-        self.get_pe_ttm()
-        self.get_ni_revenue_eps_growth()
-        print('get growth ttm has been completed...\n')
-        self.get_index_price()
-        self.get_index_weight(first_date=update_time)
-        print('get index data has been completed...\n')
+        # self.get_list_status(first_date=update_time)
+        # print('get list status has been completed...\n')
+        # self.get_asset_liability_equity(first_date=update_time)
+        # print('get balancesheet data has been completed...\n')
+        # self.get_pb()
+        # self.get_ni_fy1_fy2()
+        # self.get_eps_fy1_fy2()
+        # print('get forecast data has been completed...\n')
+        # self.get_cash_earings_ttm()
+        # print('get cash earnings ttm has been completed...\n')
+        # self.get_ni_ttm()
+        # print('get netincome ttm has been completed...\n')
+        # self.get_pe_ttm()
+        # self.get_ni_revenue_eps_growth()
+        # print('get growth ttm has been completed...\n')
+        # self.get_index_price()
+        # self.get_index_weight(first_date=update_time)
+        # print('get index data has been completed...\n')
 
         # 更新数据的情况先不能储存数据，只有非更新的情况才能储存
         if not self.is_update:
@@ -512,9 +555,10 @@ class database(object):
         self.get_data_from_db(update_time=self.start_date)
 
         # 读取以前的老数据
-        stock_price_name_list = ['ClosePrice_adj', 'OpenPrice_adj', 'OpenPrice', 'ClosePrice', 'HighPrice',
-                                 'LowPrice', 'AdjustFactor', 'Volume', 'Shares', 'FreeShares',
-                                 'MarketValue', 'FreeMarketValue']
+        stock_price_name_list = ['ClosePrice_adj', 'OpenPrice_adj', 'HighPrice_adj', 'LowPrice_adj',
+                                 'vwap', 'OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice',
+                                 'vwap_adj', 'PrevClosePrice', 'AdjustFactor', 'Volume', 'Shares',
+                                 'FreeShares', 'MarketValue', 'FreeMarketValue']
         raw_data_name_list = ['Industry', 'TotalAssets', 'TotalLiability', 'TotalEquity', 'PB', 'NetIncome_fy1',
                               'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'NetIncome_ttm',
                               'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
@@ -571,6 +615,11 @@ class database(object):
         for index_name in benchmark_index_name:
             self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name]\
                                                               .fillna(method='ffill')
+        self.data.stock_price['AdjustFactor'] = self.data.stock_price['AdjustFactor']. \
+            fillna(method='ffill').fillna(1)
+        # 因为衔接并向前填充了复权因子, 因此要重新计算后复权价格, 否则之前的后复权价格将是nan
+        self.get_ochl_vwap_adj()
+
         self.save_data()
 
         # 重置标记
@@ -579,9 +628,9 @@ class database(object):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    db = database(start_date='2007-01-01', end_date='2017-04-27')
-    # db.get_data_from_db()
-    db.update_data_from_db(end_date='2017-06-14')
+    db = database(start_date='2007-01-01', end_date='2017-06-21')
+    db.get_data_from_db()
+    # db.update_data_from_db(end_date='2017-06-21')
     # db.initialize_jydb()
     # db.initialize_sq()
     # db.initialize_gg()

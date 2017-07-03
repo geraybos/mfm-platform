@@ -1314,28 +1314,37 @@ class analyst_coverage(single_factor_strategy):
 
         # self.strategy_data.factor = data.read_data(['unique_coverage der'], ['unique_coverage'], shift=True)
 
-        # # 将深度报告赋予更多的权重
-        # real_report = data.read_data(['unique_coverage gold'], shift=True)
-        # all_report = data.read_data(['unique_coverage garbage'], shift=True)
-        # real_report = real_report.fillna(0)
-        # all_report = all_report.fillna(0)
-        # self.strategy_data.factor = pd.Panel({'unique_coverage' : real_report['unique_coverage gold']*1 +
-        #                                      all_report['unique_coverage garbage']*1})
-        # data.write_data(self.strategy_data.factor, file_name=['unique_coverage weighted'])
+        # 将深度报告赋予更多的权重
+        real_report = data.read_data(['unique_coverage gold'], shift=True)
+        all_report = data.read_data(['unique_coverage garbage'], shift=True)
+        real_report = real_report.fillna(0)
+        all_report = all_report.fillna(0)
+        self.strategy_data.factor = pd.Panel({'unique_coverage' : real_report['unique_coverage gold']*10 +
+                                             all_report['unique_coverage garbage']*1})
+        data.write_data(self.strategy_data.factor, file_name=['unique_coverage weighted'])
 
-        self.strategy_data.factor = data.read_data(['liquidity'], shift=True)
+        # self.strategy_data.factor = data.read_data(['growth'], shift=True)
 
-        # self.strategy_data.factor.ix['unique_coverage'] = self.strategy_data.factor.ix['unique_coverage'].fillna(0)
-        #
+        self.strategy_data.factor = self.strategy_data.factor.reindex(major_axis=
+            self.strategy_data.stock_price.major_axis, minor_axis=self.strategy_data.stock_price.minor_axis)
+        self.strategy_data.factor.ix['unique_coverage'] = self.strategy_data.factor.ix['unique_coverage'].fillna(0)
+
         # # 考虑计算分析师数量的增长率
-        # self.strategy_data.factor.ix['unique_coverage'] = self.strategy_data.factor.ix['unique_coverage']. \
-        #     div(self.strategy_data.factor.ix['unique_coverage'].shift(252) + 1e-8) - 1
+        # temp_growth = self.strategy_data.factor.ix['unique_coverage']. \
+        #     div(self.strategy_data.factor.ix['unique_coverage'].shift(252) ) - 1
         # # 一年前分析师报告数量是0, 而现在拥有分析师报告的, 默认其增长了100%
-        # self.strategy_data.factor.ix['unique_coverage'] = self.strategy_data.factor.ix['unique_coverage']. \
-        #     where(np.logical_or(self.strategy_data.factor.ix['unique_coverage']<1e6, self.\
-        #                         strategy_data.factor.ix['unique_coverage'].isnull()), 1)
+        # condition_1 = np.logical_and(self.strategy_data.factor.ix['unique_coverage'] != 0,
+        #     self.strategy_data.factor.ix['unique_coverage'].shift(252)==0)
+        # temp_growth[condition_1] = 1
+        # # 一年前和现在都是0的, 则认为是0
+        # condition_2 = np.logical_and(self.strategy_data.factor.ix['unique_coverage'] == 0,
+        #     self.strategy_data.factor.ix['unique_coverage'].shift(252) == 0)
+        # temp_growth[condition_2] = 0
+        # self.strategy_data.factor.ix['unique_coverage'] = temp_growth * 1
 
-        # self.strategy_data.factor.ix['unique_coverage'] = np.log(self.strategy_data.factor.ix['unique_coverage'] + 1)
+
+        self.strategy_data.factor.ix['unique_coverage'] = np.log(self.strategy_data.factor.ix['unique_coverage'] + 1)
+        pass
 
     # # 做对barra base的泊松回归, 用这些因子进行提纯
     # def get_pure_factor(self, bb_obj, *, do_active_bb_pure_factor=False, reg_weight=1,

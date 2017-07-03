@@ -66,8 +66,8 @@ class performance(object):
             self.cum_log_return_bench = pd.concat([base_series,self.cum_log_return_bench])
             
             # 计算超额累积收益序列以及超额日收益序列，均用对数收益序列计算
-            self.cum_excess_return = self.cum_log_return - self.cum_log_return_bench
-            self.excess_return = self.log_return - self.log_return_bench
+            self.cum_active_return = self.cum_log_return - self.cum_log_return_bench
+            self.active_return = self.log_return - self.log_return_bench
             
             # benchmark的账户净值
             # 第一个不为nan的数
@@ -90,12 +90,16 @@ class performance(object):
             # 因为每个调仓周期最后的净值，要到下一个周期内才加上
             holding_node_value_cum = holding_node_value.shift(1).cumsum().fillna(0). \
                 reindex(intra_holding.index, method='ffill')
-            self.excess_net_account_value = holding_node_value_cum + intra_holding
-            self.excess_net_account_value += 1
+            self.active_net_account_value = holding_node_value_cum + intra_holding
+            self.active_net_account_value += 1
             # 计算用超额净值得到的超额收益序列，用这个序列来计算超额收益的统计量，更符合实际
-            self.excess_nv_return = np.log(self.excess_net_account_value/self.excess_net_account_value.shift(1))
-            self.cum_excess_nv_return = self.excess_nv_return.cumsum()
+            self.active_nv_return = np.log(self.active_net_account_value/self.active_net_account_value.shift(1))
+            self.cum_active_nv_return = self.active_nv_return.cumsum()
 
+            # 每个调仓周期内的累计超额收益, 这是一个在其他地方可能会用到的数据,
+            # 因为这代表着在调仓期内, 因为超额收益带来的多头组合和空头基准的偏离度
+            # 因此把这个量提取出来, 不用shift, 因为归因里会自己shift
+            self.intra_holding_diviation = intra_holding
             
     # 定义各种计算指标的函数，这里都用对数收益来计算
     
@@ -148,22 +152,22 @@ class performance(object):
     # 接下来计算与benchmark相关的指标
     
     # 年化超额收益
-    def annual_excess_return(self):
-        return self.cum_excess_nv_return.ix[-1] * self.tradedays_one_year / \
-               (self.cum_excess_nv_return.size - 1)
+    def annual_active_return(self):
+        return self.cum_active_nv_return.ix[-1] * self.tradedays_one_year / \
+               (self.cum_active_nv_return.size - 1)
                
     # 年化超额收益波动率
-    def annual_excess_std(self):
-        return self.excess_nv_return.std() * np.sqrt(self.tradedays_one_year)
+    def annual_active_std(self):
+        return self.active_nv_return.std() * np.sqrt(self.tradedays_one_year)
         
     # 年化信息比
-    def info_ratio(self, annual_excess_return, annual_excess_std):
-        return annual_excess_return / annual_excess_std
+    def info_ratio(self, annual_active_return, annual_active_std):
+        return annual_active_return / annual_active_std
         
     # 胜率
     def win_ratio(self):
-        return self.excess_nv_return.ix[self.excess_nv_return>0].size / \
-               self.excess_nv_return.size
+        return self.active_nv_return.ix[self.active_nv_return>0].size / \
+               self.active_nv_return.size
         
     # 计算并输出各个指标
     def get_performance(self, *, foldername=''):
@@ -176,20 +180,20 @@ class performance(object):
         annual_sortino = performance.annual_sortino_ratio(self.log_return, annual_r, return_target=0.0,
                             tradedays_one_year=self.tradedays_one_year, risk_free_rate=self.risk_free_rate)
         if not self.benchmark.empty:
-            annual_ex_r = self.annual_excess_return()
-            annual_ex_std = self.annual_excess_std()
-            annual_info_ratio = self.info_ratio(annual_ex_r, annual_ex_std)
-            max_dd_ex, peak_loc_ex, low_loc_ex = performance.max_drawdown(self.excess_net_account_value)
-            annual_ex_calmar = performance.annual_calmar_ratio(annual_ex_r, max_dd_ex)
+            annual_ac_r = self.annual_active_return()
+            annual_ac_std = self.annual_active_std()
+            annual_info_ratio = self.info_ratio(annual_ac_r, annual_ac_std)
+            max_dd_ac, peak_loc_ac, low_loc_ac = performance.max_drawdown(self.active_net_account_value)
+            annual_ac_calmar = performance.annual_calmar_ratio(annual_ac_r, max_dd_ac)
             win_ratio = self.win_ratio()
         else:
-            annual_ex_r = np.nan
-            annual_ex_std = np.nan
+            annual_ac_r = np.nan
+            annual_ac_std = np.nan
             annual_info_ratio = np.nan
-            max_dd_ex = np.nan
-            peak_loc_ex = 0
-            low_loc_ex = 0
-            annual_ex_calmar = np.nan
+            max_dd_ac = np.nan
+            peak_loc_ac = 0
+            low_loc_ac = 0
+            annual_ac_calmar = np.nan
             win_ratio = np.nan
 
 
@@ -209,24 +213,35 @@ class performance(object):
 
         if not self.benchmark.empty:
             target_str = target_str + \
-                         'Annual excess log return: {0:.2f}%\n' \
-                         'Annual standard deviation of excess log return: {1:.2f}%\n' \
+                         'Annual active log return: {0:.2f}%\n' \
+                         'Annual standard deviation of active log return: {1:.2f}%\n' \
                          'Annual information ratio: {2:.2f}\n' \
-                         'Max drawdown of excess account value: {3:.2f}%\n' \
+                         'Max drawdown of active account value: {3:.2f}%\n' \
                          'Max drawdown happened between {4} and {5}\n' \
-                         'Annual excess Calmar ratio: {6:.2f}\n' \
+                         'Annual active Calmar ratio: {6:.2f}\n' \
                          'Winning ratio: {7:.2f}%\n'.format(
-            annual_ex_r * 100, annual_ex_std * 100, annual_info_ratio, max_dd_ex * 100,
-            self.cum_log_return.index[peak_loc_ex], self.cum_log_return.index[low_loc_ex],
-            annual_ex_calmar, win_ratio * 100,
+            annual_ac_r * 100, annual_ac_std * 100, annual_info_ratio, max_dd_ac * 100,
+            self.cum_log_return.index[peak_loc_ac], self.cum_log_return.index[low_loc_ac],
+            annual_ac_calmar, win_ratio * 100,
             )
 
         if type(self.info_series) != str:
             target_str = target_str + \
                          'Average turnover ratio: {0:.2f}%\n'\
-                         'Average number of stocks holding: {1:.2f}\n'.format(
-            self.info_series.ix[:, 'turnover_ratio'].replace(0, np.nan).mean() * 100,
-            self.info_series.ix[:, 'holding_num'].mean()
+                         'Average number of stocks holding: {1:.2f}\n' \
+                         'Average of untradable stocks weight in target holding: {2:.2f}% \n' \
+                         'Average of untradable stocks weight in current holding: {3:.2f}% \n' \
+                         'Average of buy-but-cap stocks weight to total holding: {4:.2f}% \n' \
+                         'Average of sell-but-bottom stocks weight to total holding: {5:.2f}% \n' \
+                         'Average holding difference between target position and real position: {6:.2f}% \n' \
+                         ''.format(
+            self.info_series.ix[self.holding_days, 'turnover_ratio'].mean() * 100,
+            self.info_series.ix[:, 'holding_num'].mean(),
+            self.info_series.ix[self.holding_days, 'target_sus'].mean() * 100,
+            self.info_series.ix[self.holding_days, 'holding_sus'].mean() * 100,
+            self.info_series.ix[self.holding_days, 'buy_cap'].mean() * 100,
+            self.info_series.ix[self.holding_days, 'sell_bottom'].mean() * 100,
+            self.info_series.ix[self.holding_days, 'holding_diff'].mean() * 100
             )
 
         target_str = target_str + \
@@ -266,10 +281,10 @@ class performance(object):
         if not self.benchmark.empty:
             f2 = plt.figure()
             ax2 = f2.add_subplot(1,1,1)
-            plt.plot(self.cum_excess_return*100, 'b-')
+            plt.plot(self.cum_active_return*100, 'b-')
             ax2.set_xlabel('Time')
             ax2.set_ylabel('Cumulative Log Return (%)')
-            ax2.set_title('The Cumulative Excess Log Return of The Strategy')
+            ax2.set_title('The Cumulative Active Log Return of The Strategy')
             plt.xticks(rotation=30)
             plt.grid()
 
@@ -300,10 +315,10 @@ class performance(object):
         if not self.benchmark.empty:
             f4 = plt.figure()
             ax4 = f4.add_subplot(1,1,1)
-            plt.plot(self.excess_net_account_value, 'b-')
+            plt.plot(self.active_net_account_value, 'b-')
             ax4.set_xlabel('Time')
-            ax4.set_ylabel('Excess Net Value')
-            ax4.set_title('The Excess Net Value of The Strategy')
+            ax4.set_ylabel('Active Net Value')
+            ax4.set_title('The Active Net Value of The Strategy')
             plt.xticks(rotation=30)
             plt.grid()
 

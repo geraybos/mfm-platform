@@ -30,22 +30,14 @@ from single_factor_strategy import single_factor_strategy
 def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', discard_factor=[], holding_freq='m',
                            stock_pools=['all', 'hs300', 'zz500', 'zz800'], bkt_start='default', bkt_end='default',
                            select_method=0, do_bb_pure_factor=False, do_active_bb_pure_factor=False,
-                           do_pa=False, do_active_pa=False, do_data_description=False):
-    # 如果传入的是str，则将其传入到single factor test中去让其自己处理，如果是dataframe，则直接传入因子
-    # 注意：这里的因子数据并不储存到self.strategy_data.factor中，因为循环股票池会丢失数据
-    if type(factor) != str:
-        factor_data = data.read_data([factor], [factor], shift=True)
-        factor = factor_data[factor]
-        # 初始化一个持仓对象，以用来初始化backtest对象，索引以factor为标准
-        temp_position = position(factor)
-    else:
-        # 如过传入的是string, 则读取closeprice_adj来初始化backtest对象
-        cp_adj = data.read_data(['ClosePrice_adj'])
-        cp_adj = cp_adj['ClosePrice_adj']
-        temp_position = position(cp_adj)
+                           do_pa=False, do_active_pa=False, do_data_description=False,
+                           do_factor_corr_test=False):
+    cp_adj = data.read_data(['ClosePrice_adj'])
+    cp_adj = cp_adj['ClosePrice_adj']
+    temp_position = position(cp_adj)
 
     # 先要初始化bkt对象
-    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000, sell_cost=1.5/1000)
+    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=0/1000, sell_cost=0/1000)
     # 建立bb对象，否则之后每次循环都要建立一次新的bb对象
     if bb_obj == 'Empty':
         bb_obj = barra_base()
@@ -72,13 +64,14 @@ def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', d
                                    do_bb_pure_factor=do_bb_pure_factor,
                                    do_active_bb_pure_factor=do_active_bb_pure_factor,
                                    do_pa=do_pa, do_active_pa=do_active_pa,
-                                   do_data_description=do_data_description)
+                                   do_data_description=do_data_description,
+                                   do_factor_corr_test=do_factor_corr_test)
 
 # 根据多个股票池进行一次完整的单因子测试, 多进程版
 def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='Empty', discard_factor=[],
                                     stock_pools=['all', 'hs300', 'zz500', 'zz800'], bkt_start='default',
                                     bkt_end='default', select_method=0, do_bb_pure_factor=False,
-                                    do_active_bb_pure_factor=False, do_pa=False,
+                                    do_active_bb_pure_factor=False, do_pa=False, do_factor_corr_test=False,
                                     do_active_pa=False, holding_freq='m', do_data_description=False):
     # 如果传入的是str，则读取同名文件，如果是dataframe，则直接传入因子
     # 注意：这里的因子数据并不储存到self.strategy_data.factor中，因为循环股票池会丢失数据
@@ -117,7 +110,8 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
                                    discard_factor=discard_factor, bkt_start=bkt_start, bkt_end=bkt_end,
                                    select_method=select_method, do_bb_pure_factor=do_bb_pure_factor,
                                    do_active_bb_pure_factor=do_active_bb_pure_factor, holding_freq=holding_freq,
-                                   do_pa=do_pa, do_active_pa=do_active_pa, do_data_description=do_data_description)
+                                   do_pa=do_pa, do_active_pa=do_active_pa, do_data_description=do_data_description,
+                                   do_factor_corr_test=do_factor_corr_test)
 
     import multiprocessing as mp
     mp.set_start_method('fork')
@@ -182,15 +176,28 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 # ac.get_abn_coverage_poisson()
 # abn_coverage = ac.strategy_data.factor.ix['abn_coverage']
 
-# sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2009-04-01'), holding_freq='w',
-#                        bkt_end=pd.Timestamp('2017-03-30'), stock_pools=['zz500'],
-#                        do_bb_pure_factor=True, do_pa=True, select_method=0, do_active_pa=True,
-#                        do_data_description=False)
+mv = data.read_data(['FreeMarketValue'])
+mv = mv['FreeMarketValue']
+# 测试经纬的sue
+sue = pd.read_csv('sue_signal500.csv', index_col=0, parse_dates=[2])
+sue = sue.pivot_table(index='TradingDay', columns='SecuCode', values='rawSignal')
+# sue = sue.shift(1)
+new_col = []
+for curr_stock in sue.columns:
+    new_col.append(str(curr_stock).zfill(6))
+sue.columns = new_col
+sue = sue.reindex(index=mv.index, columns=mv.columns, method='ffill').fillna(0.0)
+pass
 
-sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2009-04-01'),
-                                bkt_end=pd.Timestamp('2017-04-26'), stock_pools=['hs300','zz500','all','zz800'],
-                                do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
-                                do_data_description=False, holding_freq='w')
+sf_test_multiple_pools(factor=sue, direction='+', bkt_start=pd.Timestamp('2009-04-07'), holding_freq='w',
+                       bkt_end=pd.Timestamp('2017-04-26'), stock_pools=['zz500'],
+                       do_bb_pure_factor=False, do_pa=False, select_method=0, do_active_pa=False,
+                       do_data_description=False, do_factor_corr_test=False)
+
+# sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2009-04-07'),
+#                                 bkt_end=pd.Timestamp('2017-04-26'), stock_pools=['hs300','zz500'],
+#                                 do_bb_pure_factor=True, do_pa=True, select_method=1, do_active_pa=True,
+#                                 do_data_description=False, holding_freq='w', do_factor_corr_test=True)
 
 
 

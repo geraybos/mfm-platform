@@ -117,11 +117,9 @@ class single_factor_strategy(strategy):
         pass
 
     # 分行业选股，跟上面的选股方式一样，只是在每个行业里选固定比例的股票
-    # weight等于0为等权，等于1为直接市值加权，等于2则进行行业内与行业间的不同加权
-    # inner与outter weights为0，为行业内，行业间等权，为1为行业内，行业间市值加权
-    # outter weights为3，为行业间以指数权重加权（若为全市场，则改为市值加权）
-    def select_stocks_within_indus(self, *, select_ratio = [0.8, 1], direction = '+', weight=0, inner_weights=1,
-                                   outter_weights=1):
+    # weight等于0为等权，等于1为直接市值加权，等于2则行业内等权, 行业间按基准加权
+    # 等于3为行业内市值加权, 行业间按基准加权
+    def select_stocks_within_indus(self, *, select_ratio = [0.8, 1], direction = '+', weight=0):
         # 读取行业数据：
         industry = data.read_data(['Industry'], ['Industry'])
         industry = industry['Industry']
@@ -172,13 +170,17 @@ class single_factor_strategy(strategy):
             self.position.weighted_holding(self.strategy_data.stock_price.ix['FreeMarketValue',
                                            self.position.holding_matrix.index, :])
         elif weight == 2 and self.strategy_data.stock_pool == 'all':
+            pass
+        elif weight == 2 and self.strategy_data.stock_pool != 'all':
+            self.position.weighted_holding_indus(industry, inner_weights=0, outter_weights=self.strategy_data. \
+                benchmark_price.ix['Weight_' + self.strategy_data.stock_pool, self.position.holding_matrix.index, :])
+        elif weight == 3 and self.strategy_data.stock_pool == 'all':
             self.position.weighted_holding(self.strategy_data.stock_price.ix['FreeMarketValue',
                                            self.position.holding_matrix.index, :])
-        elif weight == 2 and self.strategy_data.stock_pool != 'all':
-            self.position.weighted_holding_indus(industry, inner_weights=self.strategy_data.stock_price.ix['FreeMarketValue',
-                                           self.position.holding_matrix.index, :], outter_weights=self.strategy_data.
-                                           benchmark_price.ix['Weight_'+self.strategy_data.stock_pool,
-                                                              self.position.holding_matrix.index, :])
+        elif weight == 3 and self.strategy_data.stock_pool != 'all':
+            self.position.weighted_holding_indus(industry, inner_weights=self.strategy_data.stock_price.ix \
+                ['FreeMarketValue', self.position.holding_matrix.index, :], outter_weights=self.strategy_data. \
+                benchmark_price.ix['Weight_'+self.strategy_data.stock_pool, self.position.holding_matrix.index, :])
         pass
 
     # 用优化的方法构造纯因子组合，纯因子组合保证组合在该因子上有暴露（注意，并不一定是1），在其他因子上无暴露
@@ -230,10 +232,18 @@ class single_factor_strategy(strategy):
 
     # 上一种选股方法的优化解法
     def select_stocks_pure_factor(self, *, base_expo, cov_matrix='Empty', reg_weight='Empty', direction='+',
-                                  benchmark_weight='Empty', is_long_only=True):
+                                  benchmark_weight='Empty', is_long_only=True, use_factor_expo=True,
+                                  expo_weight=1):
         # 计算因子值的暴露
-        factor_expo = strategy_data.get_cap_wgt_exposure(self.strategy_data.factor.iloc[0],
-                                                         self.strategy_data.stock_price.ix['FreeMarketValue'])
+        if use_factor_expo:
+            if expo_weight == 1:
+                factor_expo = strategy_data.get_cap_wgt_exposure(self.strategy_data.factor.iloc[0],
+                                self.strategy_data.stock_price.ix['FreeMarketValue'])
+            elif expo_weight == 0 :
+                factor_expo = strategy_data.get_exposure(self.strategy_data.factor.iloc[0])
+        else:
+            factor_expo = self.strategy_data.factor.iloc[0]
+
         if direction == '-':
             factor_expo = - factor_expo
         self.strategy_data.factor_expo = pd.Panel({'factor_expo': factor_expo},
@@ -339,6 +349,19 @@ class single_factor_strategy(strategy):
 
         # 循环结束后，进行权重归一化
         self.position.to_percentage()
+
+        # 因为优化后重新归一的组合, 其对目标因子暴露不一定是1,
+        # (详情见barra文档或active portfolio management第一章附录),
+        # 因此这里需要计算组合对当前因子的暴露, 总的或者是超额的, 并且输出平均暴露信息
+        port_factor_expo = self.position.holding_matrix.mul(self.strategy_data.factor_expo.iloc[0]). \
+            sum(1).replace(0.0, np.nan)
+        self.pure_factor_expo_of_port = port_factor_expo
+        # 输出平均数, 给用户参考
+        port_factor_expo_mean = port_factor_expo.mean()
+        output_str = 'The exposure of constructed pure factor portfolio ' \
+                     'on the target factor is: {0} \n'.format(port_factor_expo_mean)
+        print(output_str)
+
         pass
 
     # 单因子的因子收益率计算和检验，用来判断因子有效性，
@@ -422,6 +445,8 @@ class single_factor_strategy(strategy):
         ax.set_xlabel('Time')
         ax.set_ylabel('Return of The Factor (%)')
         ax.set_title('The Return Series of The Factor')
+        plt.xticks(rotation=30)
+        plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'FactorReturn.png', dpi=1200)
         if type(self.pdfs) != str:
             plt.savefig(self.pdfs, format='pdf')
@@ -433,6 +458,8 @@ class single_factor_strategy(strategy):
         ax.set_xlabel('Time')
         ax.set_ylabel('T-Stats of The Factor Return')
         ax.set_title('The T-Stats Series of The Factor Return')
+        plt.xticks(rotation=30)
+        plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'FactorReturnTStats.png', dpi=1200)
         if type(self.pdfs) != str:
             plt.savefig(self.pdfs, format='pdf')
@@ -497,6 +524,8 @@ class single_factor_strategy(strategy):
         ax.set_xlabel('Time')
         ax.set_ylabel('IC of The Factor')
         ax.set_title('The IC Time Series of The Factor')
+        plt.xticks(rotation=30)
+        plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'FactorIC.png', dpi=1200)
         if type(self.pdfs) != str:
             plt.savefig(self.pdfs, format='pdf')
@@ -567,7 +596,7 @@ class single_factor_strategy(strategy):
                 self.select_qgroup(no_of_groups, group + 1, direction=direction, weight=weight)
 
                 # 回测
-                bkt.enable_warning = False
+                bkt.show_warning = False
                 bkt.reset_bkt_position(self.position)
                 bkt.execute_backtest()
                 bkt.initialize_performance()
@@ -582,6 +611,8 @@ class single_factor_strategy(strategy):
                     short_series = bkt.bkt_performance.net_account_value
 
             ax1.legend(loc='best')
+            plt.xticks(rotation=30)
+            plt.grid()
             plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'QGroupsNetValue.png', dpi=1200)
             if type(self.pdfs) != str:
                 plt.savefig(self.pdfs, format='pdf')
@@ -593,6 +624,8 @@ class single_factor_strategy(strategy):
             ax2.set_ylabel('Net Account Value')
             ax2.set_title('Net Account Value of Long-Short Portfolio of The Factor')
             plt.plot(long_series - short_series)
+            plt.xticks(rotation=30)
+            plt.grid()
             plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'LongShortNetValue.png', dpi=1200)
             if type(self.pdfs) != str:
                 plt.savefig(self.pdfs, format='pdf')
@@ -612,7 +645,7 @@ class single_factor_strategy(strategy):
                 self.select_qgroup(no_of_groups, group + 1, direction=direction, weight=weight)
 
                 # 回测
-                bkt.enable_warning = False
+                bkt.show_warning = False
                 bkt.reset_bkt_position(self.position)
                 bkt.execute_backtest()
                 bkt.initialize_performance()
@@ -627,6 +660,8 @@ class single_factor_strategy(strategy):
                     short_series = bkt.bkt_performance.cum_log_return
 
             ax1.legend(loc='best')
+            plt.xticks(rotation=30)
+            plt.grid()
             plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'QGroupsCumLog.png', dpi=1200)
             plt.savefig(self.pdfs, format='pdf')
 
@@ -637,18 +672,25 @@ class single_factor_strategy(strategy):
             ax2.set_ylabel('Cumulative Log Return (%)')
             ax2.set_title('Cumulative Log Return of Long-Short Portfolio of The Factor')
             plt.plot((long_series - short_series) * 100)
+            plt.xticks(rotation=30)
+            plt.grid()
             plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'LongShortCumLog.png', dpi=1200)
             plt.savefig(self.pdfs, format='pdf')
 
     # 用回归取残差的方法（即gram-schmidt正交法）取因子相对一基准的纯因子暴露
     # 之后可以用这个因子暴露当作因子进行选股，以及回归得纯因子组合收益率（主要用途），或者算ic等
-    # weight=1为默认值, 即barra中的以市值的平方根为权重, weight=0为默认权重
+    # reg_weight=1为默认值, 即barra中的以市值的平方根为权重, weight=0为默认权重
     # add_constant为是否要对线性回归加上截距项, 如果有行业这种dummy variable, 则不需要加入
     # use_factor_expo为是否要使用当前因子的暴露进行回归, 设为true会根据当前因子计算因子暴露
     # 如果当前因子已经是计算过的因子暴露了, 则使用False, 否则会winsorize两次
     # expo weight为计算暴露时计算barra风格的市值加权暴露还是简单的暴露, 1为市值加权暴露, 0为简单暴露
+    # get_expo_again为指示对提纯后的残差因子是否要再次计算暴露, 计算暴露的话, 不能再winsorize
+    # 再次计算暴露后的因子将不再与base中的因子正交, 但是确拥有了和其他因子暴露之间的可比性
+    # 如不再次计算暴露, 则保留了正交性, 不再与其他因子暴露之间可比, 但是用回归的方法算因子收益的时候
+    # 可以得到相对base因子的纯因子收益, 在这个角度上更有参考性, 因此是否重新计算暴露, 两者都会经常用到
     def get_pure_factor_gs_orth(self, base_expo, *, do_active_bb_pure_factor=False, reg_weight=1,
-                                add_constant=False, use_factor_expo=True, expo_weight=1):
+                                add_constant=False, use_factor_expo=True, expo_weight=1,
+                                get_expo_again=True):
         # 计算当前因子的暴露，注意策略里的数据都已经lag过了
         if use_factor_expo:
             if expo_weight == 1:
@@ -656,6 +698,8 @@ class single_factor_strategy(strategy):
                                 self.strategy_data.stock_price.ix['FreeMarketValue'])
             elif expo_weight == 0:
                 factor_expo = strategy_data.get_exposure(self.strategy_data.factor.iloc[0])
+        else:
+            factor_expo = self.strategy_data.factor.iloc[0]
 
         # 如果计算的是相对基准的纯因子收益率
         if do_active_bb_pure_factor:
@@ -691,13 +735,28 @@ class single_factor_strategy(strategy):
                 np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']), add_constant=add_constant)[0]
         elif reg_weight == 0:
             pure_factor_expo = strategy_data.simple_orth_gs(factor_expo, base_expo_no_cf, add_constant=add_constant)[0]
+
+        # 得到的纯化后的因子, 要对其重新计算暴露, 要注意的是, 一旦再次计算了暴露, 这个因子将不再与base中的因子正交了
+        # 而且这里的因子暴露的计算不能再winsorize, 因为回归用到的因子暴露已经去过极值了
+        if get_expo_again:
+            if expo_weight == 1:
+                pure_factor_expo = strategy_data.get_cap_wgt_exposure(pure_factor_expo,
+                        self.strategy_data.stock_price.ix['FreeMarketValue'], percentile=0)
+            elif expo_weight == 0:
+                pure_factor_expo = strategy_data.get_exposure(pure_factor_expo, percentile=0)
+        # 无论如何都将当前因子是否已经是暴露值的标签设置为True.
+        # 这样做的原因是, 如果没有选择重新计算暴露, 则目的是用残差进行回归, 以得到相对base因子的春因子组合收益率
+        # 这是如果不将标签改为True, 则可能会在后面重新计算暴露, 导致达不到希望的目的
+        self.is_curr_factor_already_expo = True
+
         # 将得到的纯化因子放入因子值中储存
         self.strategy_data.factor.iloc[0] = pure_factor_expo
 
     # 提取纯因子的外函数, 主要用作根据不同的策略, 选取不同的base
     # 默认的单因子测试中的纯因子为相对barra base的纯因子
     def get_pure_factor(self, bb_obj, *, do_active_bb_pure_factor=False, reg_weight=1,
-                        add_constant=False, use_factor_expo=True, expo_weight=1):
+                        add_constant=False, use_factor_expo=True, expo_weight=1,
+                        get_expo_again=True):
         # 计算因子暴露
         bb_obj.just_get_factor_expo()
         # 注意，因为这里是用bb对因子进行提纯，而不是用bb归因，因此bb需要lag一期，才不会用到未来信息
@@ -708,6 +767,80 @@ class single_factor_strategy(strategy):
         # 进行提纯
         self.get_pure_factor_gs_orth(lag_bb_expo, do_active_bb_pure_factor=do_active_bb_pure_factor,
                                      reg_weight=reg_weight, add_constant=add_constant,
+                                     use_factor_expo=use_factor_expo, expo_weight=expo_weight,
+                                     get_expo_again=get_expo_again)
+
+    # 检验因子间相关性的内函数, 与计算纯因子的内函数基本相同
+    # reg_weight为回归的权重, 1为barra的市值平方根, 0为等权回归
+    # add constant为是否要在线性回归中加截距项
+    # use_factor_expo为是否要对当前因子的暴露进行回归, 若当前因子已经是暴露值, 则设为false
+    # expo_weight为计算暴露时的权重,1为市值加权, 0为等权
+    def get_factor_corr_gs_orth(self, base_expo, *, reg_weight=1, add_constant=False, use_factor_expo=True,
+                                expo_weight=1):
+        # 计算当前因子的暴露
+        if use_factor_expo:
+            if expo_weight == 1:
+                factor_expo = strategy_data.get_cap_wgt_exposure(self.strategy_data.factor.iloc[0],
+                                self.strategy_data.stock_price.ix['FreeMarketValue'])
+            elif expo_weight == 0:
+                factor_expo = strategy_data.get_exposure(self.strategy_data.factor.iloc[0])
+        else:
+            factor_expo = self.strategy_data.factor.iloc[0]
+
+        # 在bb expo里去掉国家因子，去掉是为了保证有唯一解，而且去掉后残差值不变，不影响结果
+        # 因为国家因子向量已经能表示成行业暴露的线性组合了
+        if 'country_factor' in base_expo.items:
+            base_expo_no_cf = base_expo.drop('country_factor', axis=0)
+        else:
+            base_expo_no_cf = base_expo
+        # 利用多元线性回归的结果进行因子相关性检验
+        if reg_weight == 1:
+            residual, pvalues, rsquared_adj = \
+                strategy_data.simple_orth_gs(factor_expo, base_expo_no_cf,
+                weights=np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']),
+                add_constant=add_constant)
+            # 注意, 加权回归的输出变量为回归残差除以根号权重后得到的, 而这里只需要回归残差, 因此要将根号权重乘回来
+            residual = residual.mul(np.sqrt(np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue'])))
+            # 判断相关性的其中一个指标, 计算残差向量和原始向量的夹角的cos值
+            y = factor_expo.mul(np.sqrt(np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue'])))
+            residual_cosine = \
+                np.sqrt(((residual * y) ** 2).sum(1).div((residual ** 2).sum(1)).div((y ** 2).sum(1)))
+        elif reg_weight == 0:
+            residual, pvalues, rsquared_adj = \
+                strategy_data.simple_orth_gs(factor_expo, base_expo_no_cf, add_constant=add_constant)
+            # 同上计算残差向量与原始向量的夹角的cos值, 这里不用乘以根号权重, 就比较简单了
+            residual_cosine = np.sqrt(((residual * factor_expo) ** 2).sum(1).
+                                      div((residual ** 2).sum(1)).div((factor_expo ** 2).sum(1)))
+
+        # 统计能够展示因子相关性的指标
+        # 首先是残差的内积, 然后是p值和rsquared_adj的平均值
+        residual_cosine_mean = residual_cosine.replace(0, np.nan).dropna().mean()
+        pvalues_mean = pvalues.mean()
+        rsquared_adj_mean = rsquared_adj.mean()
+        # 输出这些信息
+        output_str = 'Factor correlation test outcome: \n' \
+                     'Average cosine between residual and y: {0} \n' \
+                     'Average p values: {1} \n' \
+                     'Average r squared adjusted: {2} \n'.format(
+            residual_cosine_mean, pvalues_mean, rsquared_adj_mean)
+        print(output_str)
+
+        # 将序列信息储存起来
+        self.factor_corr_test_outcome = [residual_cosine, pvalues, rsquared_adj]
+
+
+    # 检验因子间相关性的外函数, 主要用作根据不同的策略, 选取不同的base
+    # 默认为barra base因子
+    # 使用回归的方法检验因子间的相关性, 提出残差, 根据残差大小来检验因子间的相关性
+    def get_factor_corr_test(self, bb_obj, *, reg_weight=1, add_constant=False, use_factor_expo=True,
+                                expo_weight=1):
+        # 计算因子暴露
+        bb_obj.just_get_factor_expo()
+        # 同样要进行lag
+        lag_bb_expo = bb_obj.bb_data.factor_expo.shift(1).reindex(major_axis=bb_obj.bb_data.factor_expo.major_axis)
+
+        lag_bb_expo = lag_bb_expo[['growth']]
+        self.get_factor_corr_gs_orth(lag_bb_expo, reg_weight=reg_weight, add_constant=add_constant,
                                      use_factor_expo=use_factor_expo, expo_weight=expo_weight)
 
 
@@ -716,13 +849,14 @@ class single_factor_strategy(strategy):
     def single_factor_test(self, *, factor='default', direction='+', bkt_obj='Empty', bb_obj='Empty',
                            pa_benchmark_weight='default', discard_factor=[], bkt_start='default', bkt_end='default',
                            stock_pool='all', select_method=0, do_pa=True, do_active_pa=False, do_bb_pure_factor=False,
-                           do_active_bb_pure_factor=False, holding_freq='m', do_data_description=False):
+                           do_active_bb_pure_factor=False, holding_freq='m', do_data_description=False,
+                           do_factor_corr_test=False):
         ###################################################################################################
         # 生成调仓日和生成可投资标记是第一件事, 因为之后包括因子构建的函数都要用到它
 
         # 生成调仓日
         if self.holding_days.empty:
-            self.generate_holding_days(holding_freq=holding_freq)
+            self.generate_holding_days(holding_freq=holding_freq, loc=-1)
 
         # 将策略的股票池设置为当前股票池
         self.strategy_data.stock_pool = stock_pool
@@ -731,6 +865,11 @@ class single_factor_strategy(strategy):
 
         ###################################################################################################
         # 第二部分是读取或生成要研究的因子
+
+        # 首先有一个指示因子是否是原始因子, 或者已经是因子暴露值的量, 如果因子已经是暴露值,
+        # 则在之后的的很多情况里, 就不能再计算暴露了, 特别是不能再winsorize
+        # 首先初始化为false, 然后在这里的因子计算中, 如果将因子值变成了因子暴露, 要记得改为True
+        self.is_curr_factor_already_expo = False
 
         # 如果传入的是str，则读取同名文件，如果是dataframe，则直接传入因子
         if type(factor) == str:
@@ -752,7 +891,7 @@ class single_factor_strategy(strategy):
         elif self.strategy_data.factor.empty:
             self.strategy_data.factor = pd.Panel({'factor_one':factor})
         else:
-            self.strategy_data.factor.iloc[0] = factor
+            self.strategy_data.factor.iloc[0] = factor * 1
 
         ###################################################################################################
         # 第三部分是除去不可投资的数据, 初始化或者重置策略持仓,
@@ -801,13 +940,14 @@ class single_factor_strategy(strategy):
             self.data_description()
             print('Data description completed...\n')
 
-        # # 根据某一base, 做当前因子与其他因子的相关性检验
-        # if do_factor_corr_test:
-        #     self.get_factor_corr_test()
+        # 根据某一base, 做当前因子与其他因子的相关性检验
+        if do_factor_corr_test:
+            self.get_factor_corr_test(bb_obj, use_factor_expo=not self.is_curr_factor_already_expo)
 
         # 如果要做基于barra base的纯因子组合，则要对因子进行提纯
         if do_bb_pure_factor:
-            self.get_pure_factor(bb_obj, do_active_bb_pure_factor=do_active_bb_pure_factor)
+            self.get_pure_factor(bb_obj, do_active_bb_pure_factor=do_active_bb_pure_factor,
+                                 use_factor_expo=not self.is_curr_factor_already_expo)
 
         ###################################################################################################
         # 第五部分为, 1.根据不同的单因子选股策略, 进行选股
@@ -817,10 +957,10 @@ class single_factor_strategy(strategy):
         # 按策略进行选股
         if select_method == 0:
             # 简单分位数选股
-            self.select_stocks(weight=1, direction=direction, select_ratio=[0.8, 1])
+            self.select_stocks(weight=1, direction=direction, select_ratio=[0.67, 1])
         elif select_method == 1:
             # 分行业选股
-            self.select_stocks_within_indus(weight=2, direction=direction)
+            self.select_stocks_within_indus(weight=3, direction=direction, select_ratio=[0.7, 1])
         elif select_method == 2 or select_method == 3:
             # 用构造纯因子组合的方法选股，2为组合自己是纯因子组合，3为组合相对基准是纯因子组合
             # 首先和计算纯因子一样，要计算bb因子的暴露
@@ -848,17 +988,20 @@ class single_factor_strategy(strategy):
             if select_method == 3:
                 self.select_stocks_pure_factor(base_expo=lag_bb_expo_no_cf, reg_weight=np.sqrt(
                     self.strategy_data.stock_price.ix['FreeMarketValue']), direction=direction,
-                    benchmark_weight=temp_weight, is_long_only=True)
+                    benchmark_weight=temp_weight, is_long_only=True,
+                    use_factor_expo=not self.is_curr_factor_already_expo)
 
-        # ------------------------------------------------------------------------------------
-        # holding = pd.read_csv('HOLDING500.csv', index_col=0, parse_dates=True)
-        # new_col = []
-        # for curr_stock in holding.columns:
-        #     new_col.append(curr_stock.zfill(6))
-        # holding.columns = new_col
-        # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
-        #                             self.position.holding_matrix.columns, method='ffill').fillna(0.0)
-        # pass
+        # # ------------------------------------------------------------------------------------
+        holding = pd.read_csv('sue_holding500.csv', index_col=0, parse_dates=[2])
+        holding = holding.pivot_table(index='TradingDay', columns='SecuCode', values='WEIGHT')
+        new_col = []
+        for curr_stock in holding.columns:
+            new_col.append(str(curr_stock).zfill(6))
+        holding.columns = new_col
+        # holding = pd.read_csv('Weight_zz500.csv', index_col=0, parse_dates=True)
+        self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
+                                    self.position.holding_matrix.columns, method='ffill').fillna(0.0)
+        pass
 
         # ------------------------------------------------------------------------------------
 
@@ -870,10 +1013,13 @@ class single_factor_strategy(strategy):
         # 将回测的基准改为当前的股票池，若为all，则用默认的基准值
         if stock_pool != 'all':
             bkt_obj.reset_bkt_benchmark(['ClosePrice_adj_' + stock_pool])
+
+        # 深拷贝一份回测对象, 赋给策略对象自己, 以方便查询回测, 画图, 归因等数据
+        self.bkt_obj = copy.deepcopy(bkt_obj)
         
         # 回测、画图、归因
-        bkt_obj.execute_backtest()
-        bkt_obj.get_performance(foldername=stock_pool, pdfs=self.pdfs)
+        self.bkt_obj.execute_backtest()
+        self.bkt_obj.get_performance(foldername=stock_pool, pdfs=self.pdfs)
 
         # 如果要进行归因的话
         if do_pa:
@@ -888,10 +1034,10 @@ class single_factor_strategy(strategy):
                 temp_weight = data.read_data(['Weight_zz500'], ['Weight_zz500'])
                 pa_benchmark_weight = temp_weight['Weight_zz500']
             # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
-            bkt_obj.get_performance_attribution(outside_bb=bb_obj, benchmark_weight=pa_benchmark_weight,
-                                                discard_factor=discard_factor, show_warning=False,
-                                                foldername=stock_pool, pdfs=self.pdfs, is_real_world=False,
-                                                real_world_type=2, enable_reading_pa_return=False)
+            self.bkt_obj.get_performance_attribution(outside_bb=bb_obj, benchmark_weight=pa_benchmark_weight,
+                                                     discard_factor=discard_factor, show_warning=False,
+                                                     foldername=stock_pool, pdfs=self.pdfs, is_real_world=False,
+                                                     real_world_type=2, enable_reading_pa_return=True)
 
         ###################################################################################################
         # 第六部分为, 1. 根据回归算单因子的纯因子组合收益率
@@ -899,13 +1045,13 @@ class single_factor_strategy(strategy):
         # 3. 单因子选股策略的n分位图
         # 4. 画单因子策略n分位图的long-short图
 
-        # 画单因子组合收益率
-        self.get_factor_return(weights=np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']),
-                               holding_freq='w', direction=direction, start=bkt_start, end=bkt_end)
-        # 画ic的走势图
-        self.get_factor_ic(direction=direction, holding_freq='w', start=bkt_start, end=bkt_end)
-        # 画分位数图和long short图
-        self.plot_qgroup(bkt_obj, 3, direction=direction, value=1, weight=1)
+        # # 画单因子组合收益率
+        # self.get_factor_return(weights=np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']),
+        #                        holding_freq='w', direction=direction, start=bkt_start, end=bkt_end)
+        # # 画ic的走势图
+        # self.get_factor_ic(direction=direction, holding_freq='w', start=bkt_start, end=bkt_end)
+        # # 画分位数图和long short图
+        # self.plot_qgroup(self.bkt_obj, 3, direction=direction, value=1, weight=1)
 
         ###################################################################################################
         # 第七部分, 最后的收尾工作
