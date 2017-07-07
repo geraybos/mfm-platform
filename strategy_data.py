@@ -14,6 +14,7 @@ from datetime import datetime
 import os
 import statsmodels.api as sm
 from cvxopt import solvers, matrix
+from pandas.stats.fama_macbeth import fama_macbeth # deprecated in version 0.20.2
 
 from data import data
 
@@ -432,6 +433,37 @@ class strategy_data(data):
             final_growth = (final_growth+1) ** (1/annualize_term) - 1
 
         return final_growth
+
+    # 定义进行fama-macbeth回归的函数, 因为很多论文中用到了大量的fm回归
+    @staticmethod
+    def fama_macbeth(y, x, *, nw_lags=0, intercept=True):
+        """
+
+        :param y: pd.DataFrame
+        :param x: pd.Panel
+        :param nw_lags: Newey-West adjustment lags
+        :return: coefficents, t statitics, rsquared, rsquared adj
+        """
+
+        # 堆叠y和x
+        stacked_y = y.stack(dropna=False)
+        stacked_x = x.to_frame(filter_observations=False)
+
+        # 移除nan的项
+        valid = pd.concat([stacked_y, stacked_x], axis=1).notnull().all(1)
+        valid_stacked_y = stacked_y[valid]
+        valid_stacked_x = stacked_x[valid]
+
+        if nw_lags == 0:
+            results_fm = fama_macbeth(y=valid_stacked_y, x=valid_stacked_x, intercept=intercept)
+        else:
+            results_fm = fama_macbeth(y=valid_stacked_y, x=valid_stacked_x, intercept=intercept,
+                                      nw_lags_beta=nw_lags)
+
+        r2 = results_fm._ols_result.r2.replace(np.inf, np.nan).replace(-np.inf, np.nan).mean()
+        r2_adj = results_fm._ols_result.r2_adj.replace(np.inf, np.nan).replace(-np.inf, np.nan).mean()
+
+        return results_fm.mean_beta, results_fm.t_stat, r2, r2_adj
 
 
 

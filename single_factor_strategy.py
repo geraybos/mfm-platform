@@ -48,7 +48,7 @@ class single_factor_strategy(strategy):
     # 生成调仓日的函数
     # holding_freq为持仓频率，默认为月，这个参数将作为resample的参数
     # start_date和end_date为调仓日的范围区间，默认为取数据的所有区间断
-    def generate_holding_days(self, *, holding_freq='m', start_date='default', end_date='default', loc=0):
+    def generate_holding_days(self, *, holding_freq='w', start_date='default', end_date='default', loc=0):
         # 读取free market value以其日期作为holding days的选取区间
         holding_days = strategy.resample_tradingdays(self.strategy_data.stock_price.\
                                                      ix['FreeMarketValue', :, 0], freq=holding_freq, loc=loc)
@@ -957,10 +957,10 @@ class single_factor_strategy(strategy):
         # 按策略进行选股
         if select_method == 0:
             # 简单分位数选股
-            self.select_stocks(weight=1, direction=direction, select_ratio=[0.67, 1])
+            self.select_stocks(weight=1, direction=direction, select_ratio=[0.7, 1])
         elif select_method == 1:
             # 分行业选股
-            self.select_stocks_within_indus(weight=3, direction=direction, select_ratio=[0.7, 1])
+            self.select_stocks_within_indus(weight=3, direction=direction, select_ratio=[0.8, 1])
         elif select_method == 2 or select_method == 3:
             # 用构造纯因子组合的方法选股，2为组合自己是纯因子组合，3为组合相对基准是纯因子组合
             # 首先和计算纯因子一样，要计算bb因子的暴露
@@ -992,19 +992,18 @@ class single_factor_strategy(strategy):
                     use_factor_expo=not self.is_curr_factor_already_expo)
 
         # # ------------------------------------------------------------------------------------
-        holding = pd.read_csv('sue_holding500.csv', index_col=0, parse_dates=[2])
-        holding = holding.pivot_table(index='TradingDay', columns='SecuCode', values='WEIGHT')
-        new_col = []
-        for curr_stock in holding.columns:
-            new_col.append(str(curr_stock).zfill(6))
-        holding.columns = new_col
-        # holding = pd.read_csv('Weight_zz500.csv', index_col=0, parse_dates=True)
-        self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
-                                    self.position.holding_matrix.columns, method='ffill').fillna(0.0)
-        pass
+        # holding = pd.read_csv('sue_holding500.csv', index_col=0, parse_dates=[2])
+        # holding = holding.pivot_table(index='TradingDay', columns='SecuCode', values='WEIGHT')
+        # new_col = []
+        # for curr_stock in holding.columns:
+        #     new_col.append(str(curr_stock).zfill(6))
+        # holding.columns = new_col
+        # # holding = pd.read_csv('Weight_zz500.csv', index_col=0, parse_dates=True)
+        # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
+        #                             self.position.holding_matrix.columns, method='ffill').fillna(0.0)
+        # pass
 
         # ------------------------------------------------------------------------------------
-
         # 如果有外来的backtest对象，则使用这个backtest对象，如果没有，则需要自己建立，同时传入最新持仓
         if bkt_obj == 'Empty':
             bkt_obj = backtest(self.position, bkt_start=bkt_start, bkt_end=bkt_end)
@@ -1016,10 +1015,14 @@ class single_factor_strategy(strategy):
 
         # 深拷贝一份回测对象, 赋给策略对象自己, 以方便查询回测, 画图, 归因等数据
         self.bkt_obj = copy.deepcopy(bkt_obj)
-        
+
+        import time
+        start_time = time.time()
         # 回测、画图、归因
         self.bkt_obj.execute_backtest()
+        print("exec time: {0} seconds\n".format(time.time() - start_time))
         self.bkt_obj.get_performance(foldername=stock_pool, pdfs=self.pdfs)
+        print("plot time: {0} seconds\n".format(time.time() - start_time))
 
         # 如果要进行归因的话
         if do_pa:
@@ -1036,7 +1039,7 @@ class single_factor_strategy(strategy):
             # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
             self.bkt_obj.get_performance_attribution(outside_bb=bb_obj, benchmark_weight=pa_benchmark_weight,
                                                      discard_factor=discard_factor, show_warning=False,
-                                                     foldername=stock_pool, pdfs=self.pdfs, is_real_world=False,
+                                                     foldername=stock_pool, pdfs=self.pdfs, is_real_world=True,
                                                      real_world_type=2, enable_reading_pa_return=True)
 
         ###################################################################################################
@@ -1045,13 +1048,13 @@ class single_factor_strategy(strategy):
         # 3. 单因子选股策略的n分位图
         # 4. 画单因子策略n分位图的long-short图
 
-        # # 画单因子组合收益率
-        # self.get_factor_return(weights=np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']),
-        #                        holding_freq='w', direction=direction, start=bkt_start, end=bkt_end)
-        # # 画ic的走势图
-        # self.get_factor_ic(direction=direction, holding_freq='w', start=bkt_start, end=bkt_end)
-        # # 画分位数图和long short图
-        # self.plot_qgroup(self.bkt_obj, 3, direction=direction, value=1, weight=1)
+        # 画单因子组合收益率
+        self.get_factor_return(weights=np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']),
+                               holding_freq='w', direction=direction, start=bkt_start, end=bkt_end)
+        # 画ic的走势图
+        self.get_factor_ic(direction=direction, holding_freq='w', start=bkt_start, end=bkt_end)
+        # 画分位数图和long short图
+        self.plot_qgroup(self.bkt_obj, 5, direction=direction, value=1, weight=1)
 
         ###################################################################################################
         # 第七部分, 最后的收尾工作

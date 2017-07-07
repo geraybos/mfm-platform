@@ -73,18 +73,9 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
                                     bkt_end='default', select_method=0, do_bb_pure_factor=False,
                                     do_active_bb_pure_factor=False, do_pa=False, do_factor_corr_test=False,
                                     do_active_pa=False, holding_freq='m', do_data_description=False):
-    # 如果传入的是str，则读取同名文件，如果是dataframe，则直接传入因子
-    # 注意：这里的因子数据并不储存到self.strategy_data.factor中，因为循环股票池会丢失数据
-    if type(factor) != str:
-        factor_data = data.read_data([factor], [factor], shift=True)
-        factor = factor_data[factor]
-        # 初始化一个持仓对象，以用来初始化backtest对象，索引以factor为标准
-        temp_position = position(factor)
-    else:
-        # 如过传入的是string, 则读取closeprice_adj来初始化backtest对象
-        cp_adj = data.read_data(['ClosePrice_adj'])
-        cp_adj = cp_adj['ClosePrice_adj']
-        temp_position = position(cp_adj)
+    cp_adj = data.read_data(['ClosePrice_adj'])
+    cp_adj = cp_adj['ClosePrice_adj']
+    temp_position = position(cp_adj)
 
     # 先要初始化bkt对象
     bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000, sell_cost=1.5/1000)
@@ -100,7 +91,9 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
     def single_task(stock_pool):
         # curr_sf = single_factor_strategy()
         from analyst_coverage import analyst_coverage
-        curr_sf = analyst_coverage()
+        # curr_sf = analyst_coverage()
+        from residual_income import residual_income
+        curr_sf = residual_income()
 
         # 进行当前股票池下的单因子测试
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
@@ -189,15 +182,15 @@ sue.columns = new_col
 sue = sue.reindex(index=mv.index, columns=mv.columns, method='ffill').fillna(0.0)
 pass
 
-sf_test_multiple_pools(factor=sue, direction='+', bkt_start=pd.Timestamp('2009-04-07'), holding_freq='w',
-                       bkt_end=pd.Timestamp('2017-04-26'), stock_pools=['zz500'],
-                       do_bb_pure_factor=False, do_pa=False, select_method=0, do_active_pa=False,
+sf_test_multiple_pools(factor=sue, direction='+', bkt_start=pd.Timestamp('2011-01-04'), holding_freq='w',
+                       bkt_end=pd.Timestamp('2017-05-31'), stock_pools=['hs300'],
+                       do_bb_pure_factor=False, do_pa=False, select_method=1, do_active_pa=False,
                        do_data_description=False, do_factor_corr_test=False)
 
-# sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2009-04-07'),
-#                                 bkt_end=pd.Timestamp('2017-04-26'), stock_pools=['hs300','zz500'],
-#                                 do_bb_pure_factor=True, do_pa=True, select_method=1, do_active_pa=True,
-#                                 do_data_description=False, holding_freq='w', do_factor_corr_test=True)
+# sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2011-01-04'),
+#                                 bkt_end=pd.Timestamp('2017-05-31'), stock_pools=['hs300','zz500'],
+#                                 do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+#                                 do_data_description=True, holding_freq='w', do_factor_corr_test=False)
 
 
 

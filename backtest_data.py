@@ -51,16 +51,16 @@ class backtest_data(data):
         BottomPrice = PrevClosePrice.mul(0.9).applymap(data.round)
         # 首先生成全是True的矩阵
         all_true = pd.DataFrame(True, index=self.if_tradable.major_axis, columns=self.if_tradable.minor_axis)
-        # # 根据这个价格来判断涨跌停, 注意还需要加入是否是新股的判断条件
-        # # 因为新股上市第一天没有涨跌停限制
-        # self.if_tradable['if_cap'] = all_true.where(np.logical_and(ClosePrice>=CapPrice,
-        #                                 np.logical_not(new_stocks)), False)
-        # self.if_tradable['if_bottom'] = all_true.where(np.logical_and(ClosePrice<=BottomPrice,
-        #                                     np.logical_not(new_stocks)), False)
+        # 根据这个价格来判断涨跌停, 注意还需要加入是否是新股的判断条件
+        # 因为新股上市第一天没有涨跌停限制
+        self.if_tradable['if_cap'] = all_true.where(np.logical_and(ClosePrice>=CapPrice,
+                                        np.logical_not(new_stocks)), False)
+        self.if_tradable['if_bottom'] = all_true.where(np.logical_and(ClosePrice<=BottomPrice,
+                                            np.logical_not(new_stocks)), False)
 
-        # 取消涨跌停限制
-        self.if_tradable['if_cap'] = np.logical_not(all_true)
-        self.if_tradable['if_bottom'] = np.logical_not(all_true)
+        # # 取消涨跌停限制
+        # self.if_tradable['if_cap'] = np.logical_not(all_true)
+        # self.if_tradable['if_bottom'] = np.logical_not(all_true)
         # # 取消停牌限制
         # self.if_tradable['if_tradable'] = all_true
 

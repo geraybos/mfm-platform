@@ -337,11 +337,12 @@ class database(object):
         self.data.raw_data['EPS_fy2'] = eps_fy2
 
     # 取cash earnings ttm
-    def get_cash_earings_ttm(self):
+    def get_cash_related_ttm(self):
         sql_query = "set query_governor_cost_limit 0"\
-                    "select b.DataDate, a.SecuCode, b.cash_earnings_ttm from " \
+                    "select b.DataDate, a.SecuCode, b.cash_earnings_ttm, b.cfo_ttm from " \
                     "(select distinct InnerCode, SecuCode from ReturnDaily) a left join " \
-                    "(select DataDate, CashEquivalentIncrease as cash_earnings_ttm, InnerCode from " \
+                    "(select DataDate, CashEquivalentIncrease as cash_earnings_ttm, InnerCode, " \
+                    "NetOperateCashFlow as cfo_ttm from " \
                     "TTM_LC_CashFlowStatementAll where DataDate>='" + str(self.trading_days.iloc[0]) + \
                     "' and DataDate<='" + str(self.trading_days.iloc[-1]) + "') b " \
                     "on a.InnerCode=b.InnerCode order by DataDate, SecuCode"
@@ -350,6 +351,9 @@ class database(object):
         cash_earnings_ttm = cash_earnings_ttm.fillna(method='ffill').reindex(self.data.stock_price.major_axis,
                                                                              method='ffill')
         self.data.raw_data['CashEarnings_ttm'] = cash_earnings_ttm
+        cfo_ttm = ttm_data.pivot_table(index='DataDate', columns='SecuCode', values='cfo_ttm')
+        cfo_ttm = cfo_ttm.fillna(method='ffill').reindex(self.data.stock_price.major_axis, method='ffill')
+        self.data.raw_data['CFO_ttm'] = cfo_ttm
 
     # 取net income ttm
     def get_ni_ttm(self):
@@ -508,10 +512,10 @@ class database(object):
         self.initialize_gg()
         self.get_trading_days()
         self.get_labels()
-        self.get_sq_data()
-        self.get_AdjustFactor(first_date=update_time)
-        self.get_ochl_vwap_adj()
-        print('get sq data has been completed...\n')
+        # self.get_sq_data()
+        # self.get_AdjustFactor(first_date=update_time)
+        # self.get_ochl_vwap_adj()
+        # print('get sq data has been completed...\n')
         # self.get_list_status(first_date=update_time)
         # print('get list status has been completed...\n')
         # self.get_asset_liability_equity(first_date=update_time)
@@ -520,8 +524,8 @@ class database(object):
         # self.get_ni_fy1_fy2()
         # self.get_eps_fy1_fy2()
         # print('get forecast data has been completed...\n')
-        # self.get_cash_earings_ttm()
-        # print('get cash earnings ttm has been completed...\n')
+        self.get_cash_related_ttm()
+        print('get cash related ttm has been completed...\n')
         # self.get_ni_ttm()
         # print('get netincome ttm has been completed...\n')
         # self.get_pe_ttm()
@@ -560,7 +564,7 @@ class database(object):
                                  'vwap_adj', 'PrevClosePrice', 'AdjustFactor', 'Volume', 'Shares',
                                  'FreeShares', 'MarketValue', 'FreeMarketValue']
         raw_data_name_list = ['Industry', 'TotalAssets', 'TotalLiability', 'TotalEquity', 'PB', 'NetIncome_fy1',
-                              'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'NetIncome_ttm',
+                              'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'CFO_ttm', 'NetIncome_ttm',
                               'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
         if_tradable_name_list = ['is_suspended', 'is_enlisted', 'is_delisted']
         benchmark_index_name = ['szzz', 'sz50', 'hs300', 'zz500', 'zz800']

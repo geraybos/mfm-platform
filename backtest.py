@@ -53,7 +53,7 @@ class backtest(object):
         self.bkt_data = backtest_data()
         # 初始化股价数据，包括收盘价, vwap(交易量加权平均价)等
         if bkt_stock_data == 'default':
-            self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','vwap_adj'],
+            self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','ClosePrice_adj'],
                                                   ['ClosePrice_adj','vwap_adj'])
         else:
             self.bkt_data.stock_price = data.read_data(bkt_stock_data)
