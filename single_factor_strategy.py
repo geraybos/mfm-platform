@@ -801,33 +801,55 @@ class single_factor_strategy(strategy):
                 add_constant=add_constant)
             # 注意, 加权回归的输出变量为回归残差除以根号权重后得到的, 而这里只需要回归残差, 因此要将根号权重乘回来
             residual = residual.mul(np.sqrt(np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue'])))
-            # 判断相关性的其中一个指标, 计算残差向量和原始向量的夹角的cos值
+            # 同理, 原始因子值也要乘以根号权重, 以获得其在回归时的那个向量
             y = factor_expo.mul(np.sqrt(np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue'])))
-            residual_cosine = \
-                np.sqrt(((residual * y) ** 2).sum(1).div((residual ** 2).sum(1)).div((y ** 2).sum(1)))
         elif reg_weight == 0:
             residual, pvalues, rsquared_adj = \
                 strategy_data.simple_orth_gs(factor_expo, base_expo_no_cf, add_constant=add_constant)
-            # 同上计算残差向量与原始向量的夹角的cos值, 这里不用乘以根号权重, 就比较简单了
-            residual_cosine = np.sqrt(((residual * factor_expo) ** 2).sum(1).
-                                      div((residual ** 2).sum(1)).div((factor_expo ** 2).sum(1)))
+            # 等权回归就不需要乘了
+            y = factor_expo * 1
+
+        # 通过回归结果, 计算检验相关性的指标
+        # 判断相关性的其中一个指标, 计算残差向量和原始向量的夹角的cos值
+        # 注意, 并不是所有的原始因子值都用于了回归, 因此将residual中为nan的, 原始因子中也要改为nan
+        y = y.where(residual.notnull(), np.nan)
+        # 计算cosine的值
+        residual_cosine = (residual * y).sum(1).div(np.sqrt((residual ** 2).sum(1))). \
+            div(np.sqrt((y ** 2).sum(1)))
+        # 通过反函数, 由cosine值求夹角值
+        residual_angle = np.arccos(residual_cosine)
+        # 详见维基百科中cosine similarity中的angular distance and similarity
+        # distance为1为最远, 等于0(代表残差和原因子同一方向)或等于2(代表残差和原因子相反方向)为距离最近
+        angular_distance = 2 * residual_angle / np.pi
+        # similarity, 等于0时代表不相似, 等于1或-1时代表非常相关, 分别代表同一方向的相似和相反反向的相似
+        # 如果残差与原因子相似度低(值趋近于0), 则说明原因子被基础因子大量解释
+        # 如果残差与原因子相似度高(值趋近于1或-1), 则说明原因子几乎没有被基础因子解释
+        angular_similarity = 1 - angular_distance
+        # 另外一种检验相关性的方法, 直接计算原因子与残差项的线性相关系数
+        # 注意, 当因子均值为0时(即使用等权回归时), cos值与线性相关系数一模一样
+        residual_corr = y.corrwith(residual, axis=1)
 
         # 统计能够展示因子相关性的指标
         # 首先是残差的内积, 然后是p值和rsquared_adj的平均值
-        residual_cosine_mean = residual_cosine.replace(0, np.nan).dropna().mean()
+        residual_cosine_mean = residual_cosine.mean()
+        angular_similarity_mean = angular_similarity.mean()
+        residual_corr_mean = residual_corr.mean()
         pvalues_mean = pvalues.mean()
         rsquared_adj_mean = rsquared_adj.mean()
         # 输出这些信息
         output_str = 'Factor correlation test outcome: \n' \
                      'Average cosine between residual and y: {0} \n' \
-                     'Average p values: {1} \n' \
-                     'Average r squared adjusted: {2} \n'.format(
-            residual_cosine_mean, pvalues_mean, rsquared_adj_mean)
+                     'Average angular similarity between residual and y: {1} \n' \
+                     'Average corr between residual and y: {2} \n' \
+                     'Average p values: {3} \n' \
+                     'Average r squared adjusted: {4} \n'.format(
+            residual_cosine_mean, angular_similarity_mean, residual_corr_mean,
+            pvalues_mean, rsquared_adj_mean)
         print(output_str)
 
         # 将序列信息储存起来
-        self.factor_corr_test_outcome = [residual_cosine, pvalues, rsquared_adj]
-
+        self.factor_corr_test_outcome = [residual_cosine, angular_similarity, residual_corr,
+                                         pvalues, rsquared_adj]
 
     # 检验因子间相关性的外函数, 主要用作根据不同的策略, 选取不同的base
     # 默认为barra base因子
@@ -839,7 +861,6 @@ class single_factor_strategy(strategy):
         # 同样要进行lag
         lag_bb_expo = bb_obj.bb_data.factor_expo.shift(1).reindex(major_axis=bb_obj.bb_data.factor_expo.major_axis)
 
-        lag_bb_expo = lag_bb_expo[['growth']]
         self.get_factor_corr_gs_orth(lag_bb_expo, reg_weight=reg_weight, add_constant=add_constant,
                                      use_factor_expo=use_factor_expo, expo_weight=expo_weight)
 
