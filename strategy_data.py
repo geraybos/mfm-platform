@@ -276,7 +276,8 @@ class strategy_data(data):
     # 用二次规划问题求解此线性回归问题
     # 目前，基于barra的业绩归因、barra基础因子内部回归都可以用这个线性回归模型，暂不支持新增因子
     @staticmethod
-    def constrained_gls_barra_base(asset_return, bb, *, weights='default', indus_ret_weights = 'default'):
+    def constrained_gls_barra_base(asset_return, bb, *, weights='default', indus_ret_weights = 'default',
+                                   n_style = 10, n_indus=28):
         """Solving constrained gls problem using quadratic programming.
         
         asset_return: return of asset universe.
@@ -308,9 +309,9 @@ class strategy_data(data):
 
         # 设置行业因子收益限制条件，行业因子暴露为x中的第 11 列到第 38 列
         # 行业因子的限制权重，循环在行业因子中求和
-        final_weight = pd.Series(np.arange(28) * 0, index=x.columns[10:38])
-        for cursor in range(10, 38):
-            final_weight.iloc[cursor - 10] = (indus_ret_weights * x.ix[:, cursor]).sum()
+        final_weight = pd.Series(np.arange(n_indus) * 0, index=x.columns[n_style:n_indus])
+        for cursor in range(n_style, n_indus):
+            final_weight.iloc[cursor - n_style] = (indus_ret_weights * x.ix[:, cursor]).sum()
         final_weight = final_weight / (final_weight.sum())
 
         # 储存结果的series

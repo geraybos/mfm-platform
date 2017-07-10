@@ -157,11 +157,13 @@ class performance_attribution(object):
         # 这一部分收益会被归到residual return中去, 从而提升residual return
         # 而fillna是为了确保这部分收益会到residual中去, 否则residual会变成nan, 从而丢失这部分收益
         # 风格因子收益
-        self.style_factor_returns = self.port_pa_returns.ix[:, 0:10].sum(1)
+        self.style_factor_returns = self.port_pa_returns.ix[:, 0:self.bb.n_style].sum(1)
         # 行业因子收益
-        self.industry_factor_returns = self.port_pa_returns.ix[:, 10:38].sum(1)
+        self.industry_factor_returns = self.port_pa_returns.ix[:,
+                                       self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].sum(1)
         # 国家因子收益
-        self.country_factor_return = self.port_pa_returns.ix[:, 38].fillna(0.0)
+        self.country_factor_return = self.port_pa_returns.ix[:,
+                                     (self.bb.n_style+self.bb.n_indus)].fillna(0.0)
 
         # 残余收益，即alpha收益，为组合收益减去之前那些因子的收益
         # 注意下面会提到，缺失数据会使得残余收益变大
@@ -244,11 +246,11 @@ class performance_attribution(object):
         # 第二张图分解组合的累计风格收益
         f2 = plt.figure()
         ax2 = f2.add_subplot(1,1,1)
-        plt.plot((self.port_pa_returns.ix[:, 0:10].cumsum(0)*100))
+        plt.plot((self.port_pa_returns.ix[:, 0:self.bb.n_style].cumsum(0)*100))
         ax2.set_xlabel('Time')
         ax2.set_ylabel('Cumulative Log Return (%)')
         ax2.set_title('The Cumulative Log Return of Style Factors')
-        ax2.legend(self.port_pa_returns.columns[0:10], loc='best', bbox_to_anchor=(1, 1))
+        ax2.legend(self.port_pa_returns.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_CumRetStyle.png', dpi=1200,
@@ -259,7 +261,8 @@ class performance_attribution(object):
         # 第三张图分解组合的累计行业收益
         # 行业图示只给出最大和最小的5个行业
         # 当前的有效行业数
-        valid_indus = self.pa_returns.iloc[:, 10:38].dropna(axis=1, how='all').shape[1]
+        valid_indus = self.pa_returns.iloc[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].\
+            dropna(axis=1, how='all').shape[1]
         if valid_indus<=10:
             qualified_rank = [i for i in range(1, valid_indus+1)]
         else:
@@ -268,8 +271,9 @@ class performance_attribution(object):
             qualified_rank = part1+part2
         f3 = plt.figure()
         ax3 = f3.add_subplot(1, 1, 1)
-        indus_rank = self.port_pa_returns.ix[:, 10:38].cumsum(0).ix[-1].rank(ascending=False)
-        for i, j in enumerate(self.port_pa_returns.ix[:, 10:38].columns):
+        indus_rank = self.port_pa_returns.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+            cumsum(0).ix[-1].rank(ascending=False)
+        for i, j in enumerate(self.port_pa_returns.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
                 plt.plot((self.port_pa_returns.ix[:, j].cumsum(0) * 100), label=j+str(indus_rank[j]))
             else:
@@ -288,11 +292,11 @@ class performance_attribution(object):
         # 第四张图画组合的累计风格暴露
         f4 = plt.figure()
         ax4 = f4.add_subplot(1, 1, 1)
-        plt.plot(self.port_expo.ix[:, 0:10].cumsum(0))
+        plt.plot(self.port_expo.ix[:, 0:self.bb.n_style].cumsum(0))
         ax4.set_xlabel('Time')
         ax4.set_ylabel('Cumulative Factor Exposures')
         ax4.set_title('The Cumulative Style Factor Exposures of the Portfolio')
-        ax4.legend(self.port_expo.columns[0:10], loc='best', bbox_to_anchor=(1, 1))
+        ax4.legend(self.port_expo.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_CumExpoStyle.png', dpi=1200,
@@ -304,8 +308,9 @@ class performance_attribution(object):
         f5 = plt.figure()
         ax5 = f5.add_subplot(1, 1, 1)
         # 累计暴露最大和最小的5个行业
-        indus_rank = self.port_expo.ix[:, 10:38].cumsum(0).ix[-1].rank(ascending=False)
-        for i, j in enumerate(self.port_expo.ix[:, 10:38].columns):
+        indus_rank = self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+            cumsum(0).ix[-1].rank(ascending=False)
+        for i, j in enumerate(self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
                 plt.plot((self.port_expo.ix[:, j].cumsum(0)), label=j+str(indus_rank[j]))
             else:
@@ -324,11 +329,11 @@ class performance_attribution(object):
         # 第六张图画组合的每日风格暴露
         f6 = plt.figure()
         ax6 = f6.add_subplot(1, 1, 1)
-        plt.plot(self.port_expo.ix[:, 0:10])
+        plt.plot(self.port_expo.ix[:, 0:self.bb.n_style])
         ax6.set_xlabel('Time')
         ax6.set_ylabel('Factor Exposures')
         ax6.set_title('The Style Factor Exposures of the Portfolio')
-        ax6.legend(self.port_expo.columns[0:10], loc='best', bbox_to_anchor=(1, 1))
+        ax6.legend(self.port_expo.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_ExpoStyle.png', dpi=1200,
@@ -340,8 +345,9 @@ class performance_attribution(object):
         f7 = plt.figure()
         ax7 = f7.add_subplot(1, 1, 1)
         # 平均暴露最大和最小的5个行业
-        indus_rank = self.port_expo.ix[:, 10:38].mean(0).rank(ascending=False)
-        for i, j in enumerate(self.port_expo.ix[:, 10:38].columns):
+        indus_rank = self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+            mean(0).rank(ascending=False)
+        for i, j in enumerate(self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
                 plt.plot((self.port_expo.ix[:, j]), label=j+str(indus_rank[j]))
             else:
@@ -360,11 +366,11 @@ class performance_attribution(object):
         # 第八张图画用于归因的bb的风格因子的纯因子收益率，即回归得到的因子收益率，仅供参考
         f8 = plt.figure()
         ax8 = f8.add_subplot(1, 1, 1)
-        plt.plot(self.pa_returns.ix[:, 0:10].cumsum(0)*100)
+        plt.plot(self.pa_returns.ix[:, 0:self.bb.n_style].cumsum(0)*100)
         ax8.set_xlabel('Time')
         ax8.set_ylabel('Cumulative Log Return (%)')
         ax8.set_title('The Cumulative Log Return of Pure Style Factors Through Regression')
-        ax8.legend(self.pa_returns.columns[0:10], loc='best', bbox_to_anchor=(1, 1))
+        ax8.legend(self.pa_returns.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorRet.png', dpi=1200,

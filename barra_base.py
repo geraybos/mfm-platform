@@ -691,6 +691,16 @@ class barra_base(object):
         constant.name = 'country_factor'
         self.bb_data.factor_expo = pd.concat([self.bb_data.factor_expo, constant])
 
+    # 在完成全部因子暴露的计算或读取后, 得出该base中风格因子和行业因子的数量
+    def get_factor_group_count(self):
+        # 注意, 默认的排序是, 先排所有风格因子, 然后是行业因子, 最后是一个国家因子
+        # 先判断行业因子, 行业因子一定是以industry开头的
+        items = self.bb_data.factor_expo.items
+        industry = items.str.startswith('Industry')
+        self.n_indus = industry[industry].size
+        # 于是风格因子的数量为总数量减去行业因子数量, 再减去1(country factor)
+        self.n_style = items.size - self.n_indus - 1
+
     # 构建barra base的所有风格因子和行业因子
     def construct_barra_base(self, *, if_save=False):
         # 读取数据，更新数据则不用读取，因为已经存在
@@ -729,6 +739,9 @@ class barra_base(object):
         self.add_country_factor()
         # 计算的最后，过滤数据
         self.bb_data.discard_uninv_data()
+
+        # 判定风格因子和行业因子的数量
+        self.get_factor_group_count()
 
         # 如果显示指定了储存数据且股票池为所有股票，则储存因子值数据
         # 注意，即便显示指定了储存数据，但股票池不是所有股票，仍不会进行储存
@@ -770,6 +783,9 @@ class barra_base(object):
         self.add_country_factor()
         self.bb_data.discard_uninv_data()
 
+        # 判定风格因子和行业因子的数量
+        self.get_factor_group_count()
+
     # 回归计算各个基本因子的因子收益
     def get_bb_factor_return(self):
         # 初始化储存因子收益的dataframe
@@ -785,7 +801,8 @@ class barra_base(object):
                        self.bb_data.stock_price.ix['daily_return', time, :],
                        lag_factor_expo.ix[:, time, :],
                        weights = np.sqrt(lag_mv.ix[time, :]),
-                       indus_ret_weights = lag_mv.ix[time, :])
+                       indus_ret_weights = lag_mv.ix[time, :],
+                       n_style=self.n_style, n_indus=self.n_indus)
             self.bb_factor_return.ix[time, :] = outcome[0]
         print('get bb factor return completed...\n')
 
