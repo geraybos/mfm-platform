@@ -285,7 +285,7 @@ class backtest(object):
                 # 预计买入，卖出的量
                 projected_vol = pd.to_numeric(self.cash.ix[0] * tradable_pct /
                                               (self.bkt_data.stock_price.ix['vwap_adj', 0, tradable] * 100))
-                projected_vol = np.floor(projected_vol.abs()) * np.sign(projected_vol)
+                # projected_vol = np.floor(projected_vol.abs()) * np.sign(projected_vol)
                 projected_vol_holding = projected_vol.reindex(self.real_vol_position.holding_matrix.columns, fill_value=0)
 
                 # 对交易计划中的涨跌停股票的数量进行检查, 如果占比超过阈值, 则输出警告
@@ -317,7 +317,7 @@ class backtest(object):
                 # 计算买入的量
                 real_buy_vol = (self.cash.ix[0] * buy_plan_value_pct / (1+self.buy_cost) /
                                 (self.bkt_data.stock_price.ix['vwap_adj', 0, :] * 100))
-                real_buy_vol = np.floor(real_buy_vol)
+                # real_buy_vol = np.floor(real_buy_vol)
                 # 买入股票的总额
                 self.info_series.ix[0, 'buy_value'] = (real_buy_vol * 100 * self.bkt_data.stock_price.
                                                        ix['vwap_adj', 0, :]).sum()
@@ -373,7 +373,8 @@ class backtest(object):
         # 计算预计买入的量，注意这里依然不计算交易费用
         projected_vol = pd.to_numeric(curr_cash_available * tradable_pct /
                          (self.bkt_data.stock_price.ix['vwap_adj', cursor, tradable] *100))
-        projected_vol = np.floor(projected_vol.abs()) * np.sign(projected_vol)
+        # 注意, 暂时不再向下取整
+        # projected_vol = np.floor(projected_vol.abs()) * np.sign(projected_vol)
         
         # 预计的当期新持仓量向量，注意这里与上面的不同在于这里包含所有股票的代码
         proj_vol_holding = projected_vol.reindex(self.real_vol_position.holding_matrix.columns, fill_value=0)
@@ -428,7 +429,7 @@ class backtest(object):
             # 实际买入的量，用实际的现金，以buy_plan的比例买入股票
             real_buy_vol = self.cash.ix[cursor] * buy_plan_value_pct / (1+self.buy_cost) / \
                             (self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100)
-            real_buy_vol = np.floor(real_buy_vol)
+            # real_buy_vol = np.floor(real_buy_vol)
 
             # 买入的股票的总额
             self.info_series.ix[cursor, 'buy_value'] = (real_buy_vol * 100 *

@@ -492,6 +492,8 @@ class database(object):
                     "order by TradingDay, SecuCode"
         existing_factor_data = self.sq_engine.get_original_data(sql_query)
         existing_factor = existing_factor_data.pivot_table(index='TradingDay', columns='SecuCode', values='factor_value')
+        # 处理TradingDay数据类型不对的问题, 将其变为datetime
+        existing_factor = existing_factor.set_index(pd.to_datetime(existing_factor.index))
 
         # 储存数据
         self.data.stock_price['existing_factor'] = existing_factor
@@ -633,16 +635,17 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
     db = database(start_date='2007-01-01', end_date='2017-06-21')
-    db.get_data_from_db()
+    # db.get_data_from_db()
     # db.update_data_from_db(end_date='2017-06-21')
-    # db.initialize_jydb()
-    # db.initialize_sq()
-    # db.initialize_gg()
-    # db.get_trading_days()
-    # db.get_labels()
+    db.initialize_jydb()
+    db.initialize_sq()
+    db.initialize_gg()
+    db.get_trading_days()
+    db.get_labels()
+    db.get_existing_factor(1)
     # db.get_ClosePrice_adj()
     # db.get_index_price()
-    # data.write_data(db.data.benchmark_price)
+    data.write_data(db.data.stock_price, file_name=['runner_value_1'])
     print("time: {0} seconds\n".format(time.time()-start_time))
 
 

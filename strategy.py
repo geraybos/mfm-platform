@@ -75,7 +75,21 @@ class strategy(object):
     @staticmethod
     def resample_tradingdays(time_series, *, freq='m', loc=0):
         # 所取调仓日为每个调仓周期的第一天,注意调仓时间是调仓日的早上,即调仓日当天早上调仓时,拥有上一个周期的所有数据
-        resampled_tds = time_series.resample(freq).apply(lambda x:x.index[loc] if x.size>np.abs(loc) else np.nan).dropna()
+        # 首先定义要apply的函数, 函数在每个调仓周期之间进行处理, 返回需要的调仓日
+        def holdingday_func(ts, *, loc):
+            # 如果loc为非负数, 则要求size必须大于等于loc+1
+            if loc >= 0:
+                if ts.size >= loc+1:
+                    return ts.index[loc]
+                else:
+                    return np.nan
+            # 如果loc为负数, 因为负数是按照-1开始数的, 因此size必须大于loc的绝对值
+            else:
+                if ts.size >= np.abs(loc):
+                    return ts.index[loc]
+                else:
+                    return np.nan
+        resampled_tds = time_series.resample(freq).apply(holdingday_func, loc=loc).dropna()
         # 将resampled_tds改为一个索引和值都是做好的交易日的series
         resampled_tds = pd.Series(resampled_tds.values, index=resampled_tds.values)
         return resampled_tds

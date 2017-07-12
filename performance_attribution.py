@@ -119,7 +119,7 @@ class performance_attribution(object):
         # 将pa_returns的时间轴改为业绩归因的时间轴（而不是bb的时间轴）
         self.pa_returns = self.pa_returns.reindex(self.pa_position.holding_matrix.index)
 
-    # 将归因的结果进行整理
+    # 将收益归因的结果进行整理
     def analyze_pa_outcome(self):
         # 首先将传入的要归因的持仓矩阵的代码重索引为bb factor的股票代码
         # 注意这里之后需要加一个像回测里那样的检查持仓矩阵里的股票代码是否都在bb factor的股票代码中
@@ -173,6 +173,15 @@ class performance_attribution(object):
         if not self.trans_cost.empty:
             self.residual_returns -= self.trans_cost
         pass
+
+    # 进行风险归因
+    def get_risk_attribution(self):
+        # 在每个时间点上, 用过去能得到的所有因子收益率序列来计算因子收益率的波动率
+        # 并没有用加权的方法来估计波动率, 因为归因是对组合的历史波动率归因,
+        # 计算历史波动率时, 并不加权, 而是进行回溯的等权计算
+        self.pa_sigma = self.pa_returns.expanding().std()
+        # 同样的, 在每个时间点上, 用过去能得到的所有因子收益率序列, 和组合的收益率序列来计算相关系数
+
 
     # 处理那些没有归因的股票，即有些股票被策略选入，但因没有因子暴露值，而无法纳入归因的股票
     # 此dataframe处理这些股票，储存每期这些股票的个数，以及它们在策略中的持仓权重

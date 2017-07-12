@@ -37,7 +37,7 @@ def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', d
     temp_position = position(cp_adj)
 
     # 先要初始化bkt对象
-    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000, sell_cost=1.5/1000)
+    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=0/1000, sell_cost=0/1000)
     # 建立bb对象，否则之后每次循环都要建立一次新的bb对象
     if bb_obj == 'Empty':
         bb_obj = barra_base()
@@ -54,7 +54,7 @@ def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', d
         # from analyst_coverage import analyst_coverage
         # curr_sf = analyst_coverage()
         from residual_income import residual_income
-        curr_sf = residual_income()
+        curr_sf = single_factor_strategy()
 
         # 进行当前股票池下的单因子测试
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
@@ -184,10 +184,10 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 # sue = sue.reindex(index=mv.index, columns=mv.columns, method='ffill').fillna(0.0)
 # pass
 
-sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2011-01-04'), holding_freq='w',
-                       bkt_end=pd.Timestamp('2017-05-31'), stock_pools=['hs300'],
-                       do_bb_pure_factor=False, do_pa=False, select_method=1, do_active_pa=False,
-                       do_data_description=False, do_factor_corr_test=True)
+sf_test_multiple_pools(factor='runner_value_36', direction='+', bkt_start=pd.Timestamp('2011-01-04'), holding_freq='w',
+                       bkt_end=pd.Timestamp('2016-12-30'), stock_pools=['zz500'],
+                       do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+                       do_data_description=False, do_factor_corr_test=False)
 
 # sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2011-01-04'),
 #                                 bkt_end=pd.Timestamp('2017-05-31'), stock_pools=['hs300','zz500'],

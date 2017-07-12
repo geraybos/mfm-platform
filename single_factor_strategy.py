@@ -83,7 +83,7 @@ class single_factor_strategy(strategy):
             lower_bound = np.floor(effective_num * select_ratio[0])
             upper_bound = np.floor(effective_num * select_ratio[1])
             # 选取股票
-            selected_stocks = curr_factor_data.ix[np.logical_and(factor_score>=lower_bound, 
+            selected_stocks = curr_factor_data.ix[np.logical_and(factor_score>lower_bound,
                                                                  factor_score<=upper_bound)].index
             # 被选取的股票都将持仓调为1
             self.position.holding_matrix.ix[time, selected_stocks] = 1
@@ -142,7 +142,7 @@ class single_factor_strategy(strategy):
             lower_bound = np.floor(effective_num * select_ratio[0])
             upper_bound = np.floor(effective_num * select_ratio[1])
             # 选取股票
-            selected_stocks = factor_score.ix[np.logical_and(factor_score >= lower_bound,
+            selected_stocks = factor_score.ix[np.logical_and(factor_score > lower_bound,
                                                              factor_score <= upper_bound)].index
             # 被选取的股票都将持仓调为1
             holding.ix[selected_stocks] = 1
@@ -1019,9 +1019,9 @@ class single_factor_strategy(strategy):
         # for curr_stock in holding.columns:
         #     new_col.append(str(curr_stock).zfill(6))
         # holding.columns = new_col
-        # # holding = pd.read_csv('Weight_zz500.csv', index_col=0, parse_dates=True)
-        # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
-        #                             self.position.holding_matrix.columns, method='ffill').fillna(0.0)
+        holding = pd.read_csv('tarholding.csv', index_col=0, parse_dates=True)
+        self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
+                                    self.position.holding_matrix.columns, method='ffill').fillna(0.0)
         # pass
 
         # ------------------------------------------------------------------------------------
