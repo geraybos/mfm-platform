@@ -122,6 +122,8 @@ class residual_income(single_factor_strategy):
         for item, df in self.reg_data.iteritems():
             self.reg_data[item] = self.reg_data[item].where(self.strategy_data.if_tradable['if_tradable'],
                                                             np.nan)
+        # 按照论文的方法排出金融股和上市两年之内的股票
+        self.exclude_financial_and_new()
 
         # # 首先计算暴露值, 可以计算barra的市值加权暴露, 也可计算普通的暴露
         # for items, df in self.reg_data.iteritems():
@@ -140,22 +142,25 @@ class residual_income(single_factor_strategy):
             for h in [4, 8, 12]:
                 item_str = 'y'+ str(int(h/4))
                 [y, x] = self.align_reg_data(time, horizon=h)
-                model, reg_results = residual_income.execute_reg(y, x)
-                # 储存回归结果
-                reg_csv = pd.DataFrame({'params':reg_results.params, 'pvalues':reg_results.pvalues})
-                reg_csv.to_csv(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool +
-                            '/' + item_str + 'reg_results.csv', na_rep='N/A', encoding='GB18030')
-                # 利用拟合好的模型进行预测
-                curr_data = self.reg_data[:, time, :].drop('NetIncome_ttm', axis=1).dropna(how='any')
-                # 对curr_data进行1%的winsorize, 去掉极值
-                lower_curr_data = curr_data.quantile(0.01, axis=0)
-                upper_curr_data = curr_data.quantile(0.99, axis=0)
-                curr_data = curr_data.where(curr_data>=lower_curr_data, lower_curr_data, axis=1). \
-                    where(curr_data<=upper_curr_data, upper_curr_data, axis=1)
+                if y.empty or x.empty:
+                    predicted_eps_all.ix[item_str, time, :] = np.nan
+                else:
+                    model, reg_results = residual_income.execute_reg(y, x)
+                    # 储存回归结果
+                    reg_csv = pd.DataFrame({'params':reg_results.params, 'pvalues':reg_results.pvalues})
+                    reg_csv.to_csv(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool +
+                                '/' + item_str + 'reg_results.csv', na_rep='N/A', encoding='GB18030')
+                    # 利用拟合好的模型进行预测
+                    curr_data = self.reg_data[:, time, :].drop('NetIncome_ttm', axis=1).dropna(how='any')
+                    # 对curr_data进行1%的winsorize, 去掉极值
+                    lower_curr_data = curr_data.quantile(0.01, axis=0)
+                    upper_curr_data = curr_data.quantile(0.99, axis=0)
+                    curr_data = curr_data.where(curr_data>=lower_curr_data, lower_curr_data, axis=1). \
+                        where(curr_data<=upper_curr_data, upper_curr_data, axis=1)
 
-                curr_data = sm.add_constant(curr_data)
-                curr_predicted_eps = curr_data.mul(reg_results.params).sum(1)
-                predicted_eps_all.ix[item_str, time, :] = curr_predicted_eps
+                    curr_data = sm.add_constant(curr_data)
+                    curr_predicted_eps = curr_data.mul(reg_results.params).sum(1)
+                    predicted_eps_all.ix[item_str, time, :] = curr_predicted_eps
 
                 pass
             print(time)
@@ -168,6 +173,8 @@ class residual_income(single_factor_strategy):
         for item, df in self.reg_data.iteritems():
             self.reg_data[item] = self.reg_data[item].where(self.strategy_data.if_tradable['if_tradable'],
                                                             np.nan)
+        # 按照论文的方法排出金融股和上市两年之内的股票
+        self.exclude_financial_and_new()
 
         # 储存预测的eps的df
         temp_df = self.reg_data.iloc[0] * np.nan
@@ -396,6 +403,65 @@ class residual_income(single_factor_strategy):
         vp = rim_value.div(price['ClosePrice'])
         self.strategy_data.factor = pd.Panel({'vp':vp})
 
+    # 按照论文删除样本的方法, 金融类的股票和上市不足两年的股票全部排出在样本之外
+    def exclude_financial_and_new(self):
+        industry = pd.read_csv('Industry.csv', index_col=0, parse_dates=True, encoding='GB18030')
+        # shift一天
+        industry = industry.shift(1)
+        # 第一个条件, 金融股全部排出
+        bank = pd.DataFrame('银行', index=industry.index, columns=industry.columns)
+        non_bank_financial = pd.DataFrame('非银金融', index=industry.index, columns=industry.columns)
+        condition_finance = np.logical_or(industry == bank, industry == non_bank_financial)
+
+        self.get_enlisted_data()
+        # 第二个条件, 上市两年以内的公司都排除, 用504个交易日来代替
+        enlisted_days = self.is_enlisted.cumsum(0)
+        condition_new = enlisted_days <= 504
+        condition_new = condition_new.reindex(index=self.reg_data.major_axis)
+
+        # 排除的股票是只要是金融股或者上市2年内的都排出, 这里取的时候没有排出的, 即加一个not
+        not_exluded_condition = np.logical_not(np.logical_or(condition_finance, condition_new))
+
+        # 被排出的股票都被设置为nan
+        for item, df in self.reg_data.iteritems():
+            self.reg_data[item] = self.reg_data[item].where(not_exluded_condition, np.nan)
+        pass
+
+    # 取上市数据的函数, 照搬database中的函数
+    def get_enlisted_data(self):
+        sql_query = "select a.SecuCode, b.ChangeDate, b.ChangeType from "\
+                    "(select distinct InnerCode, SecuCode from SmartQuant.dbo.ReturnDaily) a " \
+                    "left join (select ChangeDate, ChangeType, InnerCode from LC_ListStatus where SecuMarket in " \
+                    "(83,90) and  ChangeDate<='" + \
+                    str(self.reg_data.major_axis[-1]) + "') b on a.InnerCode=b.InnerCode "\
+                    " order by SecuCode, ChangeDate"
+        list_status = self.db.jydb_engine.get_original_data(sql_query)
+        list_status = list_status.pivot_table(index='ChangeDate',columns='SecuCode',values='ChangeType',
+                                              aggfunc='first')
+        # 向前填充
+        list_status = list_status.fillna(method='ffill')
+
+        # 同时需要取交易日信息
+        sql_query2 = "select TradingDate as trading_days from QT_TradingDayNew where SecuMarket=83 " \
+                     "and IfTradingDay=1"
+        trading_days = self.db.jydb_engine.get_original_data(sql_query2)
+        trading_days = trading_days['trading_days']
+        # 截取交易日, 从第一家公司的上市日期, 到reg data的最后一天
+        trading_days = trading_days[trading_days>=list_status.index[0]]
+        trading_days = trading_days[trading_days<=self.reg_data.major_axis[-1]]
+
+        # 上市标记为1，找到那些为1的，然后将false全改为nan，再向前填充true，即可得到is_enlisted
+        # 即一旦上市后，之后的is_enlisted都为true
+        is_enlisted = list_status == 1
+        is_enlisted = is_enlisted.replace(False, np.nan)
+        is_enlisted = is_enlisted.fillna(method='ffill')
+        # 将时间索引和标准时间索引对齐，向前填充
+        is_enlisted = is_enlisted.reindex(trading_days, method='ffill')
+        # 将股票索引对其，以保证fillna时可以填充所有的股票
+        is_enlisted = is_enlisted.reindex(columns=self.reg_data.minor_axis)
+        is_enlisted = is_enlisted.fillna(0).astype(np.int)
+        self.is_enlisted = is_enlisted
+
     # 按照论文的方式, 取得一些数据的统计量, 在data description中给我们一些信息
     def describe_reg_data(self):
         # 对dd的平均数做一个统计
@@ -433,16 +499,19 @@ class residual_income(single_factor_strategy):
 
 
 
+
+
 if __name__ == '__main__':
     ri = residual_income()
     ri.get_dividend()
     ri.get_reg_data()
-    ri.generate_holding_days(holding_freq='w', start_date='2017-06-16')
+    ri.generate_holding_days(holding_freq='w', start_date='2017-06-14', end_date='2017-06-21', loc=-1)
     ri.predict_eps()
     # ri.predict_eps_parallel()
-    # ri.get_discount_factor()
-    # ri.predict_book_value()
-    # ri.get_value_using_rim()
+    ri.get_discount_factor()
+    ri.predict_book_value()
+    ri.get_value_using_rim()
+    data.write_data(ri.strategy_data.factor)
 
 
 

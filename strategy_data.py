@@ -309,8 +309,8 @@ class strategy_data(data):
 
         # 设置行业因子收益限制条件，行业因子暴露为x中的第 11 列到第 38 列
         # 行业因子的限制权重，循环在行业因子中求和
-        final_weight = pd.Series(np.arange(n_indus) * 0, index=x.columns[n_style:n_indus])
-        for cursor in range(n_style, n_indus):
+        final_weight = pd.Series(np.arange(n_indus) * 0, index=x.columns[n_style:(n_style+n_indus)])
+        for cursor in range(n_style, (n_style+n_indus)):
             final_weight.iloc[cursor - n_style] = (indus_ret_weights * x.ix[:, cursor]).sum()
         final_weight = final_weight / (final_weight.sum())
 

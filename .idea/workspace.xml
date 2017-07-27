@@ -11,15 +11,15 @@
   </component>
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/mfm_platform$single_factor_strategy.coverage" NAME="single_factor_strategy Coverage Results" MODIFIED="1493885895177" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$sf_strategy_test.coverage" NAME="sf_strategy_test Coverage Results" MODIFIED="1499765080716" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$barra_base.coverage" NAME="barra_base Coverage Results" MODIFIED="1498477524887" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$residual_income.coverage" NAME="residual_income Coverage Results" MODIFIED="1499309147181" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$residual_income.coverage" NAME="residual_income Coverage Results" MODIFIED="1501140961619" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$strategy_data.coverage" NAME="strategy_data Coverage Results" MODIFIED="1493364434117" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$sf_strategy_test.coverage" NAME="sf_strategy_test Coverage Results" MODIFIED="1501124071515" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$clustered_se.coverage" NAME="clustered se Coverage Results" MODIFIED="1494559108092" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$fof_handler.coverage" NAME="fof_handler Coverage Results" MODIFIED="1497851271948" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$strategy_data.coverage" NAME="strategy_data Coverage Results" MODIFIED="1493364434117" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$fof_handler__1_.coverage" NAME="fof_handler Coverage Results" MODIFIED="1497439846408" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$analyst_coverage.coverage" NAME="analyst_coverage Coverage Results" MODIFIED="1497494370705" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$database.coverage" NAME="database Coverage Results" MODIFIED="1499741590325" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$database.coverage" NAME="database Coverage Results" MODIFIED="1501140969186" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$barra_base.coverage" NAME="barra_base Coverage Results" MODIFIED="1501039631393" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="CreatePatchCommitExecutor">
     <option name="PATCH_PATH" value="" />
@@ -33,23 +33,34 @@
     <option name="SHOW_EMPTY_GROUPS" value="false" />
     <option name="AUTO_SCROLL_FROM_SOURCE" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="default_target" />
   <component name="FavoritesManager">
     <favorites_list name="mfm platform" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.5522388">
+    <splitter split-orientation="horizontal" split-proportion="0.5042644">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
           <file leaf-file-name="backtest.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/backtest.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="12">
-                  <caret line="719" column="40" lean-forward="true" selection-start-line="719" selection-start-column="40" selection-end-line="719" selection-end-column="40" />
+                <state relative-caret-position="8500">
+                  <caret line="511" column="82" lean-forward="false" selection-start-line="511" selection-start-column="82" selection-end-line="511" selection-end-column="82" />
                   <folding>
-                    <marker date="1499764733128" expanded="true" signature="2210:2451" ph="..." />
-                    <marker date="1499764733128" expanded="true" signature="9789:12930" ph="..." />
-                    <marker date="1499764733128" expanded="true" signature="39188:39205" ph="..." />
+                    <marker date="1500975230534" expanded="true" signature="2210:2451" ph="..." />
+                    <marker date="1500975230534" expanded="true" signature="9789:12930" ph="..." />
+                    <marker date="1500975230534" expanded="true" signature="40016:40033" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="performance_attribution.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/performance_attribution.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="3604">
+                  <caret line="212" column="55" lean-forward="false" selection-start-line="212" selection-start-column="55" selection-end-line="212" selection-end-column="55" />
+                  <folding>
+                    <element signature="e#112#130#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
@@ -58,12 +69,14 @@
           <file leaf-file-name="database.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/database.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-596">
-                  <caret line="510" column="74" lean-forward="true" selection-start-line="510" selection-start-column="74" selection-end-line="510" selection-end-column="74" />
+                <state relative-caret-position="1207">
+                  <caret line="79" column="66" lean-forward="false" selection-start-line="79" selection-start-column="66" selection-end-line="79" selection-end-column="66" />
                   <folding>
-                    <marker date="1499741585034" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-                    <marker date="1499741585034" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-                    <marker date="1499741585034" expanded="true" signature="5383:5436" ph="..." />
+                    <marker date="1501140946894" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
+                    <marker date="1501140946894" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
+                    <marker date="1501140946894" expanded="true" signature="5383:5436" ph="..." />
+                    <marker date="1501140946894" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
+                    <marker date="1501140946894" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
                   </folding>
                 </state>
               </provider>
@@ -72,8 +85,8 @@
           <file leaf-file-name="data.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-275">
-                  <caret line="41" column="34" lean-forward="true" selection-start-line="41" selection-start-column="34" selection-end-line="41" selection-end-column="34" />
+                <state relative-caret-position="612">
+                  <caret line="41" column="34" lean-forward="false" selection-start-line="41" selection-start-column="34" selection-end-line="41" selection-end-column="34" />
                   <folding />
                 </state>
               </provider>
@@ -82,11 +95,11 @@
           <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="205">
-                  <caret line="150" column="0" lean-forward="false" selection-start-line="150" selection-start-column="0" selection-end-line="150" selection-end-column="0" />
+                <state relative-caret-position="17935">
+                  <caret line="1055" column="0" lean-forward="false" selection-start-line="1055" selection-start-column="0" selection-end-line="1055" selection-end-column="0" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1499760629349" expanded="true" signature="39572:39780" ph="..." />
+                    <marker date="1501121813948" expanded="true" signature="39978:40186" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -95,8 +108,8 @@
           <file leaf-file-name="analyst_coverage.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/analyst_coverage.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-16041">
-                  <caret line="373" column="42" lean-forward="true" selection-start-line="373" selection-start-column="42" selection-end-line="373" selection-end-column="42" />
+                <state relative-caret-position="6341">
+                  <caret line="373" column="42" lean-forward="false" selection-start-line="373" selection-start-column="42" selection-end-line="373" selection-end-column="42" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
                     <marker date="1498699568605" expanded="true" signature="3089:3516" ph="select b.Inf... CompanyCode" />
@@ -107,30 +120,30 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="sf_strategy_test.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
+          <file leaf-file-name="residual_income.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/residual_income.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="366">
-                  <caret line="189" column="76" lean-forward="true" selection-start-line="189" selection-start-column="76" selection-end-line="189" selection-end-column="76" />
-                  <folding />
+                <state relative-caret-position="4709">
+                  <caret line="277" column="66" lean-forward="false" selection-start-line="277" selection-start-column="66" selection-end-line="277" selection-end-column="66" />
+                  <folding>
+                    <element signature="e#0#18#0" expanded="true" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1456" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1562" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1614" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1669" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1386:1453" ph="select disti... ReturnDaily" />
+                    <marker date="1501132107877" expanded="true" signature="1493:1559" ph="select Inner... LC_Dividend" />
+                  </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="residual_income.py" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/residual_income.py">
+          <file leaf-file-name="sf_strategy_test.py" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="293">
-                  <caret line="44" column="51" lean-forward="true" selection-start-line="44" selection-start-column="51" selection-end-line="44" selection-end-column="51" />
-                  <folding>
-                    <element signature="e#0#18#0" expanded="true" />
-                    <marker date="1499311942685" expanded="true" signature="1300:1456" ph="select a.Sec... InnerCode" />
-                    <marker date="1499311942685" expanded="true" signature="1300:1562" ph="select a.Sec... InnerCode" />
-                    <marker date="1499311942685" expanded="true" signature="1300:1614" ph="select a.Sec... InnerCode" />
-                    <marker date="1499311942685" expanded="true" signature="1300:1669" ph="select a.Sec... InnerCode" />
-                    <marker date="1499311942685" expanded="true" signature="1386:1453" ph="select disti... ReturnDaily" />
-                    <marker date="1499311942685" expanded="true" signature="1493:1559" ph="select Inner... LC_Dividend" />
-                  </folding>
+                <state relative-caret-position="310">
+                  <caret line="194" column="102" lean-forward="false" selection-start-line="194" selection-start-column="102" selection-end-line="194" selection-end-column="102" />
+                  <folding />
                 </state>
               </provider>
             </entry>
@@ -138,8 +151,8 @@
           <file leaf-file-name="position.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/position.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="582">
-                  <caret line="60" column="21" lean-forward="false" selection-start-line="60" selection-start-column="21" selection-end-line="60" selection-end-column="21" />
+                <state relative-caret-position="782">
+                  <caret line="51" column="101" lean-forward="false" selection-start-line="51" selection-start-column="101" selection-end-line="51" selection-end-column="101" />
                   <folding />
                 </state>
               </provider>
@@ -148,11 +161,11 @@
           <file leaf-file-name="strategy_data.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/strategy_data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-2231">
-                  <caret line="325" column="47" lean-forward="true" selection-start-line="325" selection-start-column="47" selection-end-line="325" selection-end-column="47" />
+                <state relative-caret-position="5287">
+                  <caret line="311" column="100" lean-forward="false" selection-start-line="311" selection-start-column="100" selection-end-line="311" selection-end-column="100" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1499665080907" expanded="true" signature="10110:10412" ph="..." />
+                    <marker date="1501118842000" expanded="true" signature="10110:10412" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -165,48 +178,38 @@
           <file leaf-file-name="backtest.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/backtest.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="204">
-                  <caret line="356" column="0" lean-forward="false" selection-start-line="356" selection-start-column="0" selection-end-line="356" selection-end-column="0" />
+                <state relative-caret-position="4794">
+                  <caret line="293" column="68" lean-forward="false" selection-start-line="293" selection-start-column="68" selection-end-line="293" selection-end-column="68" />
                   <folding>
-                    <marker date="1499764733128" expanded="true" signature="2210:2451" ph="..." />
-                    <marker date="1499764733128" expanded="true" signature="9789:12930" ph="..." />
-                    <marker date="1499764733128" expanded="true" signature="39188:39205" ph="..." />
+                    <marker date="1500975230534" expanded="true" signature="2210:2451" ph="..." />
+                    <marker date="1500975230534" expanded="true" signature="9789:12930" ph="..." />
+                    <marker date="1500975230534" expanded="true" signature="40016:40033" ph="..." />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="performance_attribution.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/performance_attribution.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-498">
-                  <caret line="168" column="31" lean-forward="true" selection-start-line="168" selection-start-column="31" selection-end-line="168" selection-end-column="31" />
-                  <folding>
-                    <element signature="e#112#130#0" expanded="true" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="database.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="database.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/database.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="476">
-                  <caret line="105" column="33" lean-forward="true" selection-start-line="105" selection-start-column="33" selection-end-line="105" selection-end-column="33" />
+                <state relative-caret-position="-306">
+                  <caret line="190" column="49" lean-forward="false" selection-start-line="190" selection-start-column="49" selection-end-line="190" selection-end-column="49" />
                   <folding>
-                    <marker date="1499741585034" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-                    <marker date="1499741585034" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-                    <marker date="1499741585034" expanded="true" signature="5383:5436" ph="..." />
+                    <marker date="1501140946894" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
+                    <marker date="1501140946894" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
+                    <marker date="1501140946894" expanded="true" signature="5383:5436" ph="..." />
+                    <marker date="1501140946894" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
+                    <marker date="1501140946894" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="data.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/data.py">
+          <file leaf-file-name="db_engine.py" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/db_engine.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="203">
-                  <caret line="56" column="0" lean-forward="false" selection-start-line="56" selection-start-column="0" selection-end-line="56" selection-end-column="0" />
+                <state relative-caret-position="85">
+                  <caret line="8" column="10" lean-forward="true" selection-start-line="8" selection-start-column="10" selection-end-line="8" selection-end-column="10" />
                   <folding />
                 </state>
               </provider>
@@ -215,11 +218,24 @@
           <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="16632">
-                  <caret line="1039" column="19" lean-forward="true" selection-start-line="1039" selection-start-column="19" selection-end-line="1039" selection-end-column="19" />
+                <state relative-caret-position="18581">
+                  <caret line="1093" column="0" lean-forward="false" selection-start-line="1093" selection-start-column="0" selection-end-line="1093" selection-end-column="0" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1499760629349" expanded="true" signature="39572:39780" ph="..." />
+                    <marker date="1501121813948" expanded="true" signature="39978:40186" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="barra_base.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/barra_base.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="13192">
+                  <caret line="786" column="37" lean-forward="false" selection-start-line="786" selection-start-column="37" selection-end-line="786" selection-end-column="37" />
+                  <folding>
+                    <marker date="1499664855990" expanded="true" signature="638:847" ph="..." />
+                    <marker date="1499664855990" expanded="true" signature="14002:14319" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -228,9 +244,28 @@
           <file leaf-file-name="strategy.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="495">
-                  <caret line="91" column="91" lean-forward="true" selection-start-line="91" selection-start-column="91" selection-end-line="91" selection-end-column="91" />
+                <state relative-caret-position="1394">
+                  <caret line="91" column="91" lean-forward="false" selection-start-line="91" selection-start-column="91" selection-end-line="91" selection-end-column="91" />
                   <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="residual_income.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/residual_income.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="17">
+                  <caret line="244" column="43" lean-forward="false" selection-start-line="244" selection-start-column="43" selection-end-line="244" selection-end-column="43" />
+                  <folding>
+                    <element signature="e#0#18#0" expanded="true" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1456" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1562" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1614" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1300:1669" ph="select a.Sec... InnerCode" />
+                    <marker date="1501132107877" expanded="true" signature="1386:1453" ph="select disti... ReturnDaily" />
+                    <marker date="1501132107877" expanded="true" signature="1493:1559" ph="select Inner... LC_Dividend" />
+                    <marker date="1501132107877" expanded="true" signature="20257:20378" ph="select Tradi... QT_TradingDayNew" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -238,18 +273,8 @@
           <file leaf-file-name="position.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/position.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="580">
+                <state relative-caret-position="2074">
                   <caret line="127" column="0" lean-forward="false" selection-start-line="127" selection-start-column="0" selection-end-line="127" selection-end-column="0" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="performance.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/performance.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-892">
-                  <caret line="103" column="29" lean-forward="true" selection-start-line="103" selection-start-column="29" selection-end-line="103" selection-end-column="29" />
                   <folding />
                 </state>
               </provider>
@@ -258,7 +283,7 @@
           <file leaf-file-name="sf_strategy_test.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="205">
+                <state relative-caret-position="1139">
                   <caret line="69" column="0" lean-forward="false" selection-start-line="69" selection-start-column="0" selection-end-line="69" selection-end-column="0" />
                   <folding />
                 </state>
@@ -278,11 +303,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>factor</find>
-      <find>simple_orth</find>
-      <find>if_tradable</find>
-      <find>if_sell</find>
-      <find>get_factor_corr</find>
       <find>if_save</find>
       <find>construct</find>
       <find>factor_expo</find>
@@ -308,6 +328,11 @@
       <find>dumm</find>
       <find>n_indus</find>
       <find>np.floor</find>
+      <find>country_factor_return</find>
+      <find>adjust</find>
+      <find>adjust_benchmark</find>
+      <find>000001</find>
+      <find>factor</find>
     </findStrings>
     <replaceStrings>
       <replace>liability</replace>
@@ -337,6 +362,7 @@
       <replace>vwap</replace>
       <replace>earnings</replace>
       <replace>get_cash_related</replace>
+      <replace>country_factor_returns</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
@@ -358,15 +384,15 @@
         <option value="$PROJECT_DIR$/analyst_coverage.py" />
         <option value="$PROJECT_DIR$/performance.py" />
         <option value="$PROJECT_DIR$/backtest_data.py" />
-        <option value="$PROJECT_DIR$/residual_income.py" />
         <option value="$PROJECT_DIR$/barra_base.py" />
+        <option value="$PROJECT_DIR$/strategy.py" />
+        <option value="$PROJECT_DIR$/backtest.py" />
         <option value="$PROJECT_DIR$/strategy_data.py" />
         <option value="$PROJECT_DIR$/performance_attribution.py" />
-        <option value="$PROJECT_DIR$/sf_strategy_test.py" />
         <option value="$PROJECT_DIR$/single_factor_strategy.py" />
+        <option value="$PROJECT_DIR$/sf_strategy_test.py" />
+        <option value="$PROJECT_DIR$/residual_income.py" />
         <option value="$PROJECT_DIR$/database.py" />
-        <option value="$PROJECT_DIR$/backtest.py" />
-        <option value="$PROJECT_DIR$/strategy.py" />
       </list>
     </option>
   </component>
@@ -456,101 +482,62 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.sf_strategy_test">
-    <configuration default="false" name="database" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="mfm platform" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/database.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
+  <component name="RunManager" selected="Python.database">
+    <configuration default="true" type="js.build_tools.gulp" factoryName="Gulp.js">
+      <node-interpreter>project</node-interpreter>
+      <node-options />
+      <gulpfile />
+      <tasks />
+      <arguments />
+      <envs />
     </configuration>
-    <configuration default="false" name="analyst_coverage" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration default="true" type="Python.PyramidServer" factoryName="Pyramid server">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="SDK_HOME" value="ssh://lishi.wang@192.168.66.16:22/home/lishi.wang/anaconda3/bin/python3.6" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <module name="mfm platform" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/analyst_coverage.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
+      <option name="launchJavascriptDebuger" value="false" />
+      <option name="additionalOptions" value="" />
+      <option name="browserUrl" value="" />
+      <option name="CONFIGURATION_FILE" value="" />
     </configuration>
-    <configuration default="false" name="fof_handler" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="mfm platform" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/fof_handler.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
+    <configuration default="true" type="PyRemoteDebugConfigurationType" factoryName="Python Remote Debug">
+      <module name="" />
+      <option name="PORT" value="0" />
+      <option name="HOST" value="localhost" />
+      <PathMappingSettings>
+        <option name="pathMappings">
+          <list />
+        </option>
+      </PathMappingSettings>
+      <option name="REDIRECT_OUTPUT" value="true" />
+      <option name="SUSPEND_AFTER_CONNECT" value="true" />
     </configuration>
-    <configuration default="false" name="barra_base" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="SDK_HOME" value="ssh://lishi.wang@192.168.66.16:22/home/lishi.wang/anaconda3/bin/python3.6" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <module name="mfm platform" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/barra_base.py" />
+      <option name="SCRIPT_NAME" value="" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
-      <method />
-    </configuration>
-    <configuration default="false" name="residual_income" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="mfm platform" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/residual_income.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
     </configuration>
     <configuration default="true" type="DjangoTestsConfigurationType" factoryName="Django tests">
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -616,25 +603,6 @@
       <option name="ADDITIONAL_ARGS" value="" />
       <method />
     </configuration>
-    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="mfm platform" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
-    </configuration>
     <configuration default="true" type="Tox" factoryName="Tox">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -646,15 +614,6 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
       <module name="mfm platform" />
-      <method />
-    </configuration>
-    <configuration default="true" type="js.build_tools.gulp" factoryName="Gulp.js">
-      <node-interpreter>project</node-interpreter>
-      <node-options />
-      <gulpfile />
-      <tasks />
-      <arguments />
-      <envs />
       <method />
     </configuration>
     <configuration default="true" type="js.build_tools.npm" factoryName="npm">
@@ -734,43 +693,6 @@
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method />
     </configuration>
-    <configuration default="false" name="sf_strategy_test" type="PythonConfigurationType" factoryName="Python">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-        <env name="OMP_NUM_THREADS" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="mfm platform" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/sf_strategy_test.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
-    </configuration>
-    <list size="6">
-      <item index="0" class="java.lang.String" itemvalue="Python.sf_strategy_test" />
-      <item index="1" class="java.lang.String" itemvalue="Python.database" />
-      <item index="2" class="java.lang.String" itemvalue="Python.analyst_coverage" />
-      <item index="3" class="java.lang.String" itemvalue="Python.fof_handler" />
-      <item index="4" class="java.lang.String" itemvalue="Python.barra_base" />
-      <item index="5" class="java.lang.String" itemvalue="Python.residual_income" />
-    </list>
-    <recent_temporary>
-      <list size="5">
-        <item index="0" class="java.lang.String" itemvalue="Python.database" />
-        <item index="1" class="java.lang.String" itemvalue="Python.residual_income" />
-        <item index="2" class="java.lang.String" itemvalue="Python.barra_base" />
-        <item index="3" class="java.lang.String" itemvalue="Python.fof_handler" />
-        <item index="4" class="java.lang.String" itemvalue="Python.analyst_coverage" />
-      </list>
-    </recent_temporary>
     <configuration default="true" type="tests" factoryName="Attests">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -790,6 +712,134 @@
       <option name="USE_PATTERN" value="false" />
       <method />
     </configuration>
+    <configuration name="analyst_coverage" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="mfm platform" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/analyst_coverage.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
+    <configuration name="barra_base" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="mfm platform" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/barra_base.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
+    <configuration name="database" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="mfm platform" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/database.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
+    <configuration name="fof_handler" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="mfm platform" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/fof_handler.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
+    <configuration name="residual_income" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="mfm platform" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/residual_income.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
+    <configuration name="sf_strategy_test" type="PythonConfigurationType" factoryName="Python">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="NUMEXPR_NUM_THREADS" value="1" />
+        <env name="MKL_NUM_THREADS" value="1" />
+        <env name="OMP_NUM_THREADS" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="mfm platform" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/sf_strategy_test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
+    <list size="6">
+      <item index="0" class="java.lang.String" itemvalue="Python.sf_strategy_test" />
+      <item index="1" class="java.lang.String" itemvalue="Python.database" />
+      <item index="2" class="java.lang.String" itemvalue="Python.analyst_coverage" />
+      <item index="3" class="java.lang.String" itemvalue="Python.fof_handler" />
+      <item index="4" class="java.lang.String" itemvalue="Python.barra_base" />
+      <item index="5" class="java.lang.String" itemvalue="Python.residual_income" />
+    </list>
+    <recent_temporary>
+      <list size="5">
+        <item index="0" class="java.lang.String" itemvalue="Python.database" />
+        <item index="1" class="java.lang.String" itemvalue="Python.residual_income" />
+        <item index="2" class="java.lang.String" itemvalue="Python.barra_base" />
+        <item index="3" class="java.lang.String" itemvalue="Python.fof_handler" />
+        <item index="4" class="java.lang.String" itemvalue="Python.analyst_coverage" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="ShelveChangesManager" show_recycled="false">
     <option name="remove_strategy" value="false" />
@@ -817,25 +867,25 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="0" />
     <layout>
-      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25324675" sideWeight="0.5101279" order="0" side_tool="true" content_ui="tabs" />
-      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19264069" sideWeight="0.4936034" order="11" side_tool="false" content_ui="tabs" />
-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32792208" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Python Console" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24891774" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24458875" sideWeight="0.48987207" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.18656716" sideWeight="0.5" order="1" side_tool="false" content_ui="combo" />
+      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
+      <window_info id="Event Log" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.22077923" sideWeight="0.5138593" order="0" side_tool="true" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32792208" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24891774" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.2391775" sideWeight="0.48720682" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.32900432" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="0" side_tool="true" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.27597404" sideWeight="0.49200428" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="7" y="4" width="1908" height="1028" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.27597404" sideWeight="0.48614073" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="7" y="3" width="1908" height="1028" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
+      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.4914712" order="11" side_tool="false" content_ui="tabs" />
       <window_info id="Remote Host" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.28837952" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
@@ -848,8 +898,8 @@
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25324675" sideWeight="0.5101279" order="0" side_tool="true" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
-      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19264069" sideWeight="0.4936034" order="11" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.22727273" sideWeight="0.48987207" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.4936034" order="11" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24458875" sideWeight="0.48987207" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32792208" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24891774" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
@@ -860,13 +910,13 @@
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.2792208" sideWeight="0.49200428" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.27597404" sideWeight="0.49200428" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="0" side_tool="true" content_ui="tabs" />
-      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="7" y="6" width="1908" height="1028" />
+      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="7" y="4" width="1908" height="1028" />
     </layout-to-restore>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
-    <option name="processedProjectFiles" value="true" />
+    <option name="version" value="1" />
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
@@ -1011,7 +1061,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>398</line>
+          <line>419</line>
           <option name="timeStamp" value="906" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -1030,119 +1080,214 @@
           <option name="timeStamp" value="916" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/strategy_data.py</url>
-          <line>383</line>
-          <option name="timeStamp" value="920" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/strategy_data.py</url>
-          <line>380</line>
-          <option name="timeStamp" value="921" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>189</line>
+          <line>210</line>
           <option name="timeStamp" value="937" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/backtest.py</url>
-          <line>401</line>
+          <line>403</line>
           <option name="timeStamp" value="962" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>349</line>
+          <line>356</line>
           <option name="timeStamp" value="1003" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>148</line>
-          <option name="timeStamp" value="1004" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>373</line>
+          <line>380</line>
           <option name="timeStamp" value="1005" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>378</line>
+          <line>385</line>
           <option name="timeStamp" value="1006" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>396</line>
+          <line>403</line>
           <option name="timeStamp" value="1007" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>354</line>
+          <line>361</line>
           <option name="timeStamp" value="1008" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>364</line>
+          <line>371</line>
           <option name="timeStamp" value="1009" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>367</line>
+          <line>374</line>
           <option name="timeStamp" value="1010" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>370</line>
+          <line>377</line>
           <option name="timeStamp" value="1011" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>382</line>
+          <line>389</line>
           <option name="timeStamp" value="1012" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>392</line>
+          <line>399</line>
           <option name="timeStamp" value="1013" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/residual_income.py</url>
-          <line>395</line>
+          <line>402</line>
           <option name="timeStamp" value="1014" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/performance_attribution.py</url>
-          <line>119</line>
-          <option name="timeStamp" value="1021" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>492</line>
+          <line>530</line>
           <option name="timeStamp" value="1023" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>493</line>
+          <line>531</line>
           <option name="timeStamp" value="1024" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>498</line>
+          <line>536</line>
           <option name="timeStamp" value="1028" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>495</line>
+          <line>533</line>
           <option name="timeStamp" value="1029" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
-          <line>1045</line>
+          <line>1055</line>
           <option name="timeStamp" value="1035" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
-          <line>1048</line>
+          <line>1058</line>
           <option name="timeStamp" value="1036" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>173</line>
+          <option name="timeStamp" value="1059" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>201</line>
+          <option name="timeStamp" value="1060" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>202</line>
+          <option name="timeStamp" value="1061" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>207</line>
+          <option name="timeStamp" value="1062" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/performance_attribution.py</url>
+          <line>143</line>
+          <option name="timeStamp" value="1063" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>491</line>
+          <option name="timeStamp" value="1081" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>492</line>
+          <option name="timeStamp" value="1082" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>454</line>
+          <option name="timeStamp" value="1084" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>522</line>
+          <option name="timeStamp" value="1086" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/residual_income.py</url>
+          <line>250</line>
+          <option name="timeStamp" value="1089" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>224</line>
+          <option name="timeStamp" value="1095" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>225</line>
+          <option name="timeStamp" value="1096" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>228</line>
+          <option name="timeStamp" value="1097" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>245</line>
+          <option name="timeStamp" value="1098" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>253</line>
+          <option name="timeStamp" value="1099" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
+          <line>68</line>
+          <option name="timeStamp" value="1110" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
+          <line>69</line>
+          <option name="timeStamp" value="1111" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/residual_income.py</url>
+          <line>141</line>
+          <option name="timeStamp" value="1112" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/residual_income.py</url>
+          <line>149</line>
+          <option name="timeStamp" value="1113" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>193</line>
+          <option name="timeStamp" value="1114" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>196</line>
+          <option name="timeStamp" value="1115" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>198</line>
+          <option name="timeStamp" value="1116" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/db_engine.py</url>
+          <line>8</line>
+          <option name="timeStamp" value="1117" />
         </line-breakpoint>
       </breakpoints>
       <breakpoints-dialog>
@@ -1155,7 +1300,7 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="1059" />
+      <option name="time" value="1118" />
     </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
@@ -1163,13 +1308,11 @@
         <watch expression="a" />
         <watch expression="residual" />
         <watch expression="self.data.stock_price" />
+        <watch expression="self.pa_corr" />
       </configuration>
     </watches-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/sf_test.py" />
-    <entry file="file:///Applications/anaconda/lib/python3.5/copy.py" />
-    <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/statsmodels/base/data.py" />
     <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/cairocffi/surfaces.py" />
     <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/numpy/linalg/linalg.py" />
     <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/cvxopt/coneprog.py" />
@@ -1240,13 +1383,6 @@
           <folding>
             <element signature="e#0#18#0" expanded="true" />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/db_engine.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="357">
-          <caret line="22" column="39" lean-forward="false" selection-start-line="22" selection-start-column="39" selection-end-line="22" selection-end-column="39" />
         </state>
       </provider>
     </entry>
@@ -1338,18 +1474,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="969">
           <caret line="64" column="52" lean-forward="false" selection-start-line="64" selection-start-column="52" selection-end-line="64" selection-end-column="52" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/barra_base.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="204">
-          <caret line="698" column="0" lean-forward="false" selection-start-line="698" selection-start-column="0" selection-end-line="698" selection-end-column="0" />
-          <folding>
-            <marker date="1499664855990" expanded="true" signature="638:847" ph="..." />
-            <marker date="1499664855990" expanded="true" signature="14002:14319" ph="..." />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1357,15 +1481,13 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/performance.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-892">
-          <caret line="103" column="29" lean-forward="true" selection-start-line="103" selection-start-column="29" selection-end-line="103" selection-end-column="29" />
-          <folding />
+        <state relative-caret-position="1598">
+          <caret line="103" column="29" lean-forward="false" selection-start-line="103" selection-start-column="29" selection-end-line="103" selection-end-column="29" />
         </state>
       </provider>
     </entry>
@@ -1373,7 +1495,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -1381,71 +1502,13 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/position.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="582">
-          <caret line="60" column="21" lean-forward="false" selection-start-line="60" selection-start-column="21" selection-end-line="60" selection-end-column="21" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/strategy_data.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-2231">
-          <caret line="325" column="47" lean-forward="true" selection-start-line="325" selection-start-column="47" selection-end-line="325" selection-end-column="47" />
-          <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1499665080907" expanded="true" signature="10110:10412" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/performance_attribution.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-498">
-          <caret line="168" column="31" lean-forward="true" selection-start-line="168" selection-start-column="31" selection-end-line="168" selection-end-column="31" />
-          <folding>
-            <element signature="e#112#130#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/strategy.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="495">
-          <caret line="91" column="91" lean-forward="true" selection-start-line="91" selection-start-column="91" selection-end-line="91" selection-end-column="91" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/backtest.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="12">
-          <caret line="719" column="40" lean-forward="true" selection-start-line="719" selection-start-column="40" selection-end-line="719" selection-end-column="40" />
-          <folding>
-            <marker date="1499764733128" expanded="true" signature="2210:2451" ph="..." />
-            <marker date="1499764733128" expanded="true" signature="9789:12930" ph="..." />
-            <marker date="1499764733128" expanded="true" signature="39188:39205" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="366">
-          <caret line="189" column="76" lean-forward="true" selection-start-line="189" selection-start-column="76" selection-end-line="189" selection-end-column="76" />
-          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/analyst_coverage.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-16041">
-          <caret line="373" column="42" lean-forward="true" selection-start-line="373" selection-start-column="42" selection-end-line="373" selection-end-column="42" />
+        <state relative-caret-position="6341">
+          <caret line="373" column="42" lean-forward="false" selection-start-line="373" selection-start-column="42" selection-end-line="373" selection-end-column="42" />
           <folding>
             <element signature="e#112#130#0" expanded="true" />
             <marker date="1498699568605" expanded="true" signature="3089:3516" ph="select b.Inf... CompanyCode" />
@@ -1455,50 +1518,151 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="205">
-          <caret line="150" column="0" lean-forward="false" selection-start-line="150" selection-start-column="0" selection-end-line="150" selection-end-column="0" />
-          <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1499760629349" expanded="true" signature="39572:39780" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/data.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-275">
-          <caret line="41" column="34" lean-forward="true" selection-start-line="41" selection-start-column="34" selection-end-line="41" selection-end-column="34" />
+        <state relative-caret-position="612">
+          <caret line="41" column="34" lean-forward="false" selection-start-line="41" selection-start-column="34" selection-end-line="41" selection-end-column="34" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/database.py">
+    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/matplotlib/pyplot.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-596">
-          <caret line="510" column="74" lean-forward="true" selection-start-line="510" selection-start-column="74" selection-end-line="510" selection-end-column="74" />
+        <state relative-caret-position="224">
+          <caret line="523" column="0" lean-forward="false" selection-start-line="523" selection-start-column="0" selection-end-line="523" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/pandas/core/frame.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="275">
+          <caret line="5173" column="0" lean-forward="false" selection-start-line="5173" selection-start-column="0" selection-end-line="5173" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/pandas/core/internals.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="224">
+          <caret line="3164" column="0" lean-forward="false" selection-start-line="3164" selection-start-column="0" selection-end-line="3164" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/barra_base.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="13192">
+          <caret line="786" column="37" lean-forward="false" selection-start-line="786" selection-start-column="37" selection-end-line="786" selection-end-column="37" />
           <folding>
-            <marker date="1499741585034" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-            <marker date="1499741585034" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-            <marker date="1499741585034" expanded="true" signature="5383:5436" ph="..." />
+            <marker date="1499664855990" expanded="true" signature="638:847" ph="..." />
+            <marker date="1499664855990" expanded="true" signature="14002:14319" ph="..." />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/backtest.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4794">
+          <caret line="293" column="68" lean-forward="false" selection-start-line="293" selection-start-column="68" selection-end-line="293" selection-end-column="68" />
+          <folding>
+            <marker date="1500975230534" expanded="true" signature="2210:2451" ph="..." />
+            <marker date="1500975230534" expanded="true" signature="9789:12930" ph="..." />
+            <marker date="1500975230534" expanded="true" signature="40016:40033" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/position.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2074">
+          <caret line="127" column="0" lean-forward="false" selection-start-line="127" selection-start-column="0" selection-end-line="127" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/strategy_data.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5287">
+          <caret line="311" column="100" lean-forward="false" selection-start-line="311" selection-start-column="100" selection-end-line="311" selection-end-column="100" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1501118842000" expanded="true" signature="10110:10412" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/performance_attribution.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3604">
+          <caret line="212" column="55" lean-forward="false" selection-start-line="212" selection-start-column="55" selection-end-line="212" selection-end-column="55" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1139">
+          <caret line="69" column="0" lean-forward="false" selection-start-line="69" selection-start-column="0" selection-end-line="69" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="18581">
+          <caret line="1093" column="0" lean-forward="false" selection-start-line="1093" selection-start-column="0" selection-end-line="1093" selection-end-column="0" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1501121813948" expanded="true" signature="39978:40186" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/strategy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1394">
+          <caret line="91" column="91" lean-forward="false" selection-start-line="91" selection-start-column="91" selection-end-line="91" selection-end-column="91" />
+          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/residual_income.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="293">
-          <caret line="44" column="51" lean-forward="true" selection-start-line="44" selection-start-column="51" selection-end-line="44" selection-end-column="51" />
+        <state relative-caret-position="17">
+          <caret line="244" column="43" lean-forward="false" selection-start-line="244" selection-start-column="43" selection-end-line="244" selection-end-column="43" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
-            <marker date="1499311942685" expanded="true" signature="1300:1456" ph="select a.Sec... InnerCode" />
-            <marker date="1499311942685" expanded="true" signature="1300:1562" ph="select a.Sec... InnerCode" />
-            <marker date="1499311942685" expanded="true" signature="1300:1614" ph="select a.Sec... InnerCode" />
-            <marker date="1499311942685" expanded="true" signature="1300:1669" ph="select a.Sec... InnerCode" />
-            <marker date="1499311942685" expanded="true" signature="1386:1453" ph="select disti... ReturnDaily" />
-            <marker date="1499311942685" expanded="true" signature="1493:1559" ph="select Inner... LC_Dividend" />
+            <marker date="1501132107877" expanded="true" signature="1300:1456" ph="select a.Sec... InnerCode" />
+            <marker date="1501132107877" expanded="true" signature="1300:1562" ph="select a.Sec... InnerCode" />
+            <marker date="1501132107877" expanded="true" signature="1300:1614" ph="select a.Sec... InnerCode" />
+            <marker date="1501132107877" expanded="true" signature="1300:1669" ph="select a.Sec... InnerCode" />
+            <marker date="1501132107877" expanded="true" signature="1386:1453" ph="select disti... ReturnDaily" />
+            <marker date="1501132107877" expanded="true" signature="1493:1559" ph="select Inner... LC_Dividend" />
+            <marker date="1501132107877" expanded="true" signature="20257:20378" ph="select Tradi... QT_TradingDayNew" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/database.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-306">
+          <caret line="190" column="49" lean-forward="false" selection-start-line="190" selection-start-column="49" selection-end-line="190" selection-end-column="49" />
+          <folding>
+            <marker date="1501140946894" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
+            <marker date="1501140946894" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
+            <marker date="1501140946894" expanded="true" signature="5383:5436" ph="..." />
+            <marker date="1501140946894" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
+            <marker date="1501140946894" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/db_engine.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="85">
+          <caret line="8" column="10" lean-forward="true" selection-start-line="8" selection-start-column="10" selection-end-line="8" selection-end-column="10" />
+          <folding />
         </state>
       </provider>
     </entry>

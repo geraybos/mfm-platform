@@ -71,7 +71,7 @@ class performance_attribution(object):
         self.port_pa_returns = pd.DataFrame()
         self.style_factor_returns = pd.Series()
         self.industry_factor_returns = pd.Series()
-        self.country_factor_return = pd.Series()
+        self.country_factor_returns = pd.Series()
         self.residual_returns = pd.Series()
         # 业绩归因为基于barra因子的业绩归因
         self.bb = barra_base()
@@ -120,7 +120,7 @@ class performance_attribution(object):
         self.pa_returns = self.pa_returns.reindex(self.pa_position.holding_matrix.index)
 
     # 将收益归因的结果进行整理
-    def analyze_pa_outcome(self):
+    def analyze_pa_return_outcome(self):
         # 首先将传入的要归因的持仓矩阵的代码重索引为bb factor的股票代码
         # 注意这里之后需要加一个像回测里那样的检查持仓矩阵里的股票代码是否都在bb factor的股票代码中
         # 因为如果不这样可能会遗失掉某些股票
@@ -162,25 +162,56 @@ class performance_attribution(object):
         self.industry_factor_returns = self.port_pa_returns.ix[:,
                                        self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].sum(1)
         # 国家因子收益
-        self.country_factor_return = self.port_pa_returns.ix[:,
-                                     (self.bb.n_style+self.bb.n_indus)].fillna(0.0)
+        self.country_factor_returns = self.port_pa_returns.ix[:,
+                                      (self.bb.n_style+self.bb.n_indus)].fillna(0.0)
 
         # 残余收益，即alpha收益，为组合收益减去之前那些因子的收益
         # 注意下面会提到，缺失数据会使得残余收益变大
         self.residual_returns = self.port_returns - (self.style_factor_returns+self.industry_factor_returns+
-                                                     self.country_factor_return)
+                                                     self.country_factor_returns)
         # 如果有手续费序列, 则残余收益应当是减去手续费的(手续费为负, 因此残余收益会变大)
         if not self.trans_cost.empty:
             self.residual_returns -= self.trans_cost
         pass
 
     # 进行风险归因
-    def get_risk_attribution(self):
+    def analyze_pa_risk_outcome(self):
         # 在每个时间点上, 用过去能得到的所有因子收益率序列来计算因子收益率的波动率
         # 并没有用加权的方法来估计波动率, 因为归因是对组合的历史波动率归因,
         # 计算历史波动率时, 并不加权, 而是进行回溯的等权计算
-        self.pa_sigma = self.pa_returns.expanding().std()
+        self.pa_sigma = self.pa_returns.expanding(min_periods=21).std()
         # 同样的, 在每个时间点上, 用过去能得到的所有因子收益率序列, 和组合的收益率序列来计算相关系数
+        self.pa_corr = self.pa_returns.expanding(min_periods=21).corr(self.port_returns)
+
+        # 根据barra: risk contribution = exposure * volatility * correlation 的框架,
+        # 将风险贡献归因到风格, 行业, 国家因子, 以及残余部分上去, 详细的方法见barra文档.
+        # 首先将每个小因子的风险贡献部分计算出来, 注意, 与收益归因一样, 暴露同样是要用上一期的暴露
+        self.port_pa_risks = self.port_expo.shift(1) * self.pa_sigma * self.pa_corr
+        # 然后根据因子分类, 将风险贡献分配到不同的因子类型上去
+        self.style_factor_risks = self.port_pa_risks.ix[:, 0:self.bb.n_style].sum(1)
+        self.industry_factor_risks = self.port_pa_risks.ix[:,
+                                     self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].sum(1)
+        self.country_factor_risks = self.port_pa_risks.ix[:,
+                                   (self.bb.n_style+self.bb.n_indus)].fillna(0.0)
+
+        # 残余收益贡献的风险, 由组合总风险减去已经归因的风险得到
+        # 计算组合的风险
+        self.port_risks = self.port_returns.expanding(min_periods=21).std()
+        # 残余收益贡献的风险
+        self.residual_risks = self.port_risks - (self.style_factor_risks + self.industry_factor_risks
+                                                 + self.country_factor_risks)
+
+        # 为了保证风险归因的真实性, 如果有手续费在, 需要计算手续费对组合风险的影响
+        if not self.trans_cost.empty:
+            # 计算手续费的风险
+            self.trans_cost_sigma = self.trans_cost.expanding().std()
+            # 计算手续费与组合的相关系数
+            self.trans_cost_corr = self.trans_cost.expanding().corr(self.port_returns)
+            # 默认手续费暴露是1, 计算手续费的风险贡献
+            self.trans_cost_risk = self.trans_cost_sigma * self.trans_cost_corr
+            # 于是, 残余风险要减去手续费的风险, 即将手续费的风险贡献从残余收益风险贡献中剥离出去
+            self.residual_risks -= self.trans_cost_risk
+
 
 
     # 处理那些没有归因的股票，即有些股票被策略选入，但因没有因子暴露值，而无法纳入归因的股票
@@ -225,7 +256,13 @@ class performance_attribution(object):
             text_file.write(target_str)
 
     # 进行画图
-    def plot_performance_attribution(self, *, foldername='', pdfs='default'):
+    def plot_performance_attribution(self, foldername='', pdfs='default'):
+        self.plot_pa_return(foldername=foldername, pdfs=pdfs)
+        self.plot_pa_risk(foldername=foldername, pdfs=pdfs)
+
+
+    # 对收益归因的结果进行画图
+    def plot_pa_return(self, *, foldername='', pdfs='default'):
         # 处理中文图例的字体文件
         from matplotlib.font_manager import FontProperties
         # chifont = FontProperties(fname='/System/Library/Fonts/STHeiti Light.ttc')
@@ -236,7 +273,7 @@ class performance_attribution(object):
         ax1 = f1.add_subplot(1,1,1)
         plt.plot(self.style_factor_returns.cumsum()*100, label='style')
         plt.plot(self.industry_factor_returns.cumsum()*100, label='industry')
-        plt.plot(self.country_factor_return.cumsum()*100, label='country')
+        plt.plot(self.country_factor_returns.cumsum()*100, label='country')
         plt.plot(self.residual_returns.cumsum()*100, label='residual')
         # 如果有手续费序列, 则画出手续费序列
         if not self.trans_cost.empty:
@@ -387,12 +424,119 @@ class performance_attribution(object):
         if type(pdfs) != str:
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
+    # 对风险归因的结果进行画图
+    def plot_pa_risk(self, *, foldername='', pdfs='default'):
+        # 处理中文图例的字体文件
+        from matplotlib.font_manager import FontProperties
+        # chifont = FontProperties(fname='/System/Library/Fonts/STHeiti Light.ttc')
+        chifont = FontProperties(fname=str(os.path.abspath('.'))+'/华文细黑.ttf')
+
+        # 第一张图分解组合的风险来源
+        f1 = plt.figure()
+        ax1 = f1.add_subplot(1,1,1)
+        plt.plot(self.style_factor_risks*100, label='style')
+        plt.plot(self.industry_factor_risks*100, label='industry')
+        plt.plot(self.country_factor_risks*100, label='country')
+        plt.plot(self.residual_risks*100, label='residual')
+        # 如果有手续费序列, 则画出手续费序列
+        if not self.trans_cost.empty:
+            plt.plot(self.trans_cost_risk*100, label='trans_cost')
+        ax1.set_xlabel('Time')
+        ax1.set_ylabel('Volatility Log Return (%)')
+        ax1.set_title('The Volatility of Log Return of Factor Groups')
+        ax1.legend(loc='best', bbox_to_anchor=(1, 1))
+        plt.xticks(rotation=30)
+        plt.grid()
+        plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_RiskSource.png', dpi=1200,
+                    bbox_inches='tight')
+        if type(pdfs) != str:
+            plt.savefig(pdfs, format='pdf', bbox_inches='tight')
+
+        # 第二张图分解组合的风格风险贡献
+        f2 = plt.figure()
+        ax2 = f2.add_subplot(1, 1, 1)
+        plt.plot((self.port_pa_risks.ix[:, 0:self.bb.n_style] * 100))
+        ax2.set_xlabel('Time')
+        ax2.set_ylabel('Volatility of Log Return (%)')
+        ax2.set_title('The Volatility of Log Return of Style Factors')
+        ax2.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        plt.xticks(rotation=30)
+        plt.grid()
+        plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_RiskStyle.png', dpi=1200,
+                    bbox_inches='tight')
+        if type(pdfs) != str:
+            plt.savefig(pdfs, format='pdf', bbox_inches='tight')
+
+        # 第三张图分解组合的行业风险贡献
+        # 行业图示只给出最大和最小的5个行业
+        # 当前的有效行业数
+        valid_indus = self.pa_returns.iloc[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].\
+            dropna(axis=1, how='all').shape[1]
+        if valid_indus<=10:
+            qualified_rank = [i for i in range(1, valid_indus+1)]
+        else:
+            part1 = [i for i in range(1, 6)]
+            part2 = [j for j in range(valid_indus, valid_indus-5, -1)]
+            qualified_rank = part1+part2
+        f3 = plt.figure()
+        ax3 = f3.add_subplot(1, 1, 1)
+        indus_rank = self.port_pa_risks.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+            mean(0).rank(ascending=False)
+        for i, j in enumerate(self.port_pa_risks.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
+            if indus_rank[j] in qualified_rank:
+                plt.plot((self.port_pa_risks.ix[:, j] * 100), label=j+str(indus_rank[j]))
+            else:
+                plt.plot((self.port_pa_risks.ix[:, j] * 100), label='_nolegend_')
+        ax3.set_xlabel('Time')
+        ax3.set_ylabel('Volatility of Log Return (%)')
+        ax3.set_title('The Volatility of Log Return of Industrial Factors')
+        ax3.legend(loc='best', prop=chifont, bbox_to_anchor=(1, 1))
+        plt.xticks(rotation=30)
+        plt.grid()
+        plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_RiskIndus.png', dpi=1200,
+                    bbox_inches='tight')
+        if type(pdfs) != str:
+            plt.savefig(pdfs, format='pdf', bbox_inches='tight')
+
+        # 第四张图画用于归因的bb的风格因子纯因子收益率的波动率，以供参考
+        # 注意, 根据barra的风险归因模型, 因子的收益率的波动率, 以及因子的收益率与组合收益率的相关系数(下图)
+        # 是影响风险贡献的因素, 两者相乘再乘以因子暴露, 即可得到因子的风险贡献
+        f4 = plt.figure()
+        ax4 = f4.add_subplot(1, 1, 1)
+        plt.plot(self.pa_sigma.ix[:, 0:self.bb.n_style] * 100)
+        ax4.set_xlabel('Time')
+        ax4.set_ylabel('Volatility of Log Return (%)')
+        ax4.set_title('The Standalone Volatility of Style Factors Log Return')
+        ax4.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        plt.xticks(rotation=30)
+        plt.grid()
+        plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorVol.png', dpi=1200,
+                    bbox_inches='tight')
+        if type(pdfs) != str:
+            plt.savefig(pdfs, format='pdf', bbox_inches='tight')
+
+        # 第五张图画用于归因的bb的风格因子纯因子收益率与组合收益的相关系数，以供参考
+        f5 = plt.figure()
+        ax5 = f5.add_subplot(1, 1, 1)
+        plt.plot(self.pa_corr.ix[:, 0:self.bb.n_style])
+        ax5.set_xlabel('Time')
+        ax5.set_ylabel('Correlation Coefficient')
+        ax5.set_title('The Corr Between Style Factors Log Return and Portfolio Log Return')
+        ax5.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        plt.xticks(rotation=30)
+        plt.grid()
+        plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorCorr.png', dpi=1200,
+                    bbox_inches='tight')
+        if type(pdfs) != str:
+            plt.savefig(pdfs, format='pdf', bbox_inches='tight')
+
     # 进行业绩归因
     def execute_performance_attribution(self, *, outside_bb='Empty', discard_factor=[], show_warning=True, 
                                         foldername='', enable_reading_pa_return=True):
         self.construct_bb(outside_bb=outside_bb)
         self.get_pa_return(discard_factor=discard_factor, enable_reading_pa_return=enable_reading_pa_return)
-        self.analyze_pa_outcome()
+        self.analyze_pa_return_outcome()
+        self.analyze_pa_risk_outcome()
         self.handle_discarded_stocks(show_warning=show_warning, foldername=foldername)
 
 

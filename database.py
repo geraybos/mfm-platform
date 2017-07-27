@@ -169,16 +169,37 @@ class database(object):
                     "order by SecuCode, ExDiviDate"
         AdjustFactor = self.jydb_engine.get_original_data(sql_query)
         AdjustFactor = AdjustFactor.pivot_table(index='ExDiviDate', columns='SecuCode', values='RatioAdjustingFactor')
+
         # 要处理更新数据的时候可能出现的空数据的情况
         if AdjustFactor.empty:
             self.data.stock_price['AdjustFactor'] = np.nan
-        else:
-            # 将数据直接储存进data.stock_price, 可以自动reindex,
-            # 注意在此之前要先ffill, 否则直接reindex会丢失掉数据2007-01-01之前的数据
+        # 如果是有数据, 但是是在更新数据, 就不在这里计算复权因子, 因为更新数据时,
+        # 在不衔接新旧停牌数据的情况下计算的复权因子是不对的, 因此要在衔接后重新计算, 这里就不用再浪费时间计算了
+        elif self.is_update:
             self.data.stock_price['AdjustFactor'] = AdjustFactor.fillna(method='ffill')
-            # 填充nan, 因为reindex过了, 因此要再ffill, 最后再填充1
-            self.data.stock_price['AdjustFactor'] = self.data.stock_price['AdjustFactor']. \
-                fillna(method='ffill').fillna(1)
+            self.data.stock_price['AdjustFactor'] = self.data.stock_price['AdjustFactor'].fillna(method='ffill')
+        else:
+            # 为了应对停牌期间复权因子发生变化的情况, 这里要取所有的停牌标记
+            # 因为如果停牌标记只从取数据那天开始(2007-01-04), 则如果在此之前也一直在停牌,
+            # 并且停牌期间复权因子已经发生变化的股票, 仍然会用已经变化的复权因子来进行计算(因为停牌标记只从07-01-04开始)
+            # 尽管这些股票, 因为一来买不进去的缘故, 最终不会影响策略的回测结果, 但是它们错误的当天收益率,
+            # 可能会影响一些其他指标的计算(例如, beta的计算)
+            # 总之, 最后要实现的是把停牌期间因为复权因子变化带来的收益都挪到复牌第一天实现
+            sql_query_sus = "select TradingDay, SecuCode, IfSuspended as is_suspended from ReturnDaily where " \
+                            "IfTradingDay=1 and TradingDay >= '" + str(first_date) + "' and TradingDay <= ' " + \
+                            str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode"
+            suspended_mark = self.sq_engine.get_original_data(sql_query_sus)
+            suspended_mark = suspended_mark.pivot_table(index='TradingDay', columns='SecuCode', values='is_suspended')
+            # 首先将复权因子向前填充, 然后reindex到停牌数据上去
+            AdjustFactor = AdjustFactor.fillna(method='ffill').reindex(index=suspended_mark.index,
+                            columns=suspended_mark.columns, method='ffill')
+            # 对于停牌期间的股票, 要将它们的复权因子数据都改为nan
+            AdjustFactor = AdjustFactor.where(np.logical_not(suspended_mark), np.nan)
+            # 然后用停牌前最后一天的复权因子向前填充, 将停牌期间的复权因子都设置为停牌前最后一天的复权因子
+            AdjustFactor = AdjustFactor.fillna(method='ffill')
+
+            # 将数据直接储存进data.stock_price, 可以自动reindex, 最后再将nan填充成1
+            self.data.stock_price['AdjustFactor'] = AdjustFactor.fillna(1)
         pass
 
     # 复权因子后, 计算调整后的价格
@@ -419,7 +440,7 @@ class database(object):
     def get_index_price(self):
         sql_query = "select b.TradingDay, a.SecuCode, b.ClosePrice, b.OpenPrice from "\
                     "(select distinct InnerCode, SecuCode from SecuMain "\
-                    "where SecuCode in ('000001','000016','000300','000905','000906','H00016','H00300'," \
+                    "where SecuCode in ('000016','000300','000902','000905','000906','H00016','H00300'," \
                     "'H00905','H00906') and SecuCategory=4) a "\
                     "left join (select InnerCode, TradingDay, ClosePrice, OpenPrice from QT_IndexQuote "\
                     "where TradingDay>='" + str(self.trading_days.iloc[0]) + "' and TradingDay<='" + \
@@ -431,11 +452,12 @@ class database(object):
         index_open_price = index_data.pivot_table(index='TradingDay', columns='SecuCode', values='OpenPrice')
         index_open_price = index_open_price.reindex(self.data.stock_price.major_axis)
         # 鉴于指数行情的特殊性，将指数行情都存在benchmark price中的每个item的第一列
-        index_name = {'000001':'szzz', '000016':'sz50', '000300':'hs300', '000905':'zz500', '000906':'zz800'}
+        index_name = {'000016': 'sz50', '000300': 'hs300', '000902': 'zzlt',
+                      '000905': 'zz500', '000906': 'zz800'}
         for key in index_name:
             self.data.benchmark_price.ix['ClosePrice_'+index_name[key], :, 0] = index_close_price[key].values
             self.data.benchmark_price.ix['OpenPrice_'+index_name[key], :, 0] = index_open_price[key].values
-        # 全收益指数只有收盘价, 而且没有上证综指的全收益
+        # 全收益指数只有收盘价, 而且没有中证流通指数的全收益
         index_adj_name = {'H00016':'adj_sz50', 'H00300':'adj_hs300', 'H00905':'adj_zz500', 'H00906':'adj_zz800'}
         for key in index_adj_name:
             self.data.benchmark_price.ix['ClosePrice_'+index_adj_name[key], :, 0] = index_close_price[key].values
@@ -443,20 +465,36 @@ class database(object):
 
     # 取指数权重数据
     def get_index_weight(self, *, first_date=pd.Timestamp('1900-01-01')):
-        sql_query = "select b.EndDate, a.SecuCode as index_code, c.SecuCode as comp_code, b.Weight/100 as Weight from "\
-                    "(select distinct InnerCode, SecuCode from SecuMain "\
-                    "where SecuCode in ('000001','000016','000300','000905','000906') and SecuCategory=4) a "\
-                    "left join (select EndDate, IndexCode, InnerCode, Weight from LC_IndexComponentsWeight "\
-                    "where EndDate>='" + str(first_date) + "' and EndDate<='" + \
-                    str(self.trading_days.iloc[-1]) + "') b "\
-                    "on a.InnerCode=b.IndexCode "\
-                    "left join (select distinct InnerCode, SecuCode from SecuMain) c "\
-                    "on b.InnerCode=c.InnerCode "\
-                    "order by EndDate, index_code, comp_code "
+        # sql_query = "select b.EndDate, a.SecuCode as index_code, c.SecuCode as comp_code, b.Weight/100 as Weight from "\
+        #             "(select distinct InnerCode, SecuCode from SecuMain "\
+        #             "where SecuCode in ('000001','000016','000300','000905','000906') and SecuCategory=4) a "\
+        #             "left join (select EndDate, IndexCode, InnerCode, Weight from LC_IndexComponentsWeight "\
+        #             "where EndDate>='" + str(first_date) + "' and EndDate<='" + \
+        #             str(self.trading_days.iloc[-1]) + "') b "\
+        #             "on a.InnerCode=b.IndexCode "\
+        #             "left join (select distinct InnerCode, SecuCode from SecuMain) c "\
+        #             "on b.InnerCode=c.InnerCode "\
+        #             "order by EndDate, index_code, comp_code "
+        # weight_data = self.jydb_engine.get_original_data(sql_query)
+        # index_weight = weight_data.pivot_table(index='EndDate', columns=['index_code', 'comp_code'],
+        #                                        values='Weight', aggfunc='first')
+
+        # 从衔接了聚源数据和国泰安数据(2015年后)的表中取指数权重数据), 这个数据从2015年开始就有日度的指数权重数据了
+        sql_query = "select b.EndDate, a.SecuCode as index_code, c.SecuCode as comp_code, " \
+                    "b.Weight/100 as Weight from (select distinct InnerCode, SecuCode from " \
+                    "SecuMain where SecuCode in ('000016','000300','000902','000905','000906') " \
+                    "and SecuCategory=4) a left join (select EndDate, IndexInnerCode, SecuInnerCode, " \
+                    "Weight from SmartQuant.dbo.IndexComponentWeight where EndDate>='" + \
+                    str(first_date) + "' and EndDate<='" + str(self.trading_days.iloc[-1]) + \
+                    "') b on a.InnerCode=b.IndexInnerCode left join (select distinct InnerCode, " \
+                    "SecuCode from SecuMain) c on b.SecuInnerCode=c.InnerCode " \
+                    "order by EndDate, index_code, comp_code"
         weight_data = self.jydb_engine.get_original_data(sql_query)
         index_weight = weight_data.pivot_table(index='EndDate', columns=['index_code', 'comp_code'],
-                                               values='Weight', aggfunc='first')
-        index_name = {'000001': 'szzz', '000016': 'sz50', '000300': 'hs300', '000905': 'zz500', '000906': 'zz800'}
+                                               values='Weight')
+
+        index_name = {'000016': 'sz50', '000300': 'hs300', '000902': 'zzlt',
+                      '000905': 'zz500', '000906': 'zz800'}
         # 更新数据的时候可能出现更新时间段没有新数据的情况，要处理这种情况
         if index_weight.empty:
             index_weight = pd.DataFrame(np.nan, index=self.data.stock_price.major_axis,columns=
@@ -526,16 +564,16 @@ class database(object):
         # self.get_ni_fy1_fy2()
         # self.get_eps_fy1_fy2()
         # print('get forecast data has been completed...\n')
-        self.get_cash_related_ttm()
-        print('get cash related ttm has been completed...\n')
+        # self.get_cash_related_ttm()
+        # print('get cash related ttm has been completed...\n')
         # self.get_ni_ttm()
         # print('get netincome ttm has been completed...\n')
         # self.get_pe_ttm()
         # self.get_ni_revenue_eps_growth()
         # print('get growth ttm has been completed...\n')
-        # self.get_index_price()
-        # self.get_index_weight(first_date=update_time)
-        # print('get index data has been completed...\n')
+        self.get_index_price()
+        self.get_index_weight(first_date=update_time)
+        print('get index data has been completed...\n')
 
         # 更新数据的情况先不能储存数据，只有非更新的情况才能储存
         if not self.is_update:
@@ -569,11 +607,11 @@ class database(object):
                               'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'CFO_ttm', 'NetIncome_ttm',
                               'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
         if_tradable_name_list = ['is_suspended', 'is_enlisted', 'is_delisted']
-        benchmark_index_name = ['szzz', 'sz50', 'hs300', 'zz500', 'zz800']
+        benchmark_index_name = ['sz50', 'hs300', 'zzlt', 'zz500', 'zz800']
         benchmark_data_type = ['ClosePrice', 'OpenPrice', 'Weight', 'ClosePrice_adj']
         benchmark_price_name_list = [a+'_'+b for a in benchmark_data_type for b in benchmark_index_name]
-        # 注意上证综指没有closeprice adj, 即全收益数据
-        benchmark_price_name_list.remove('ClosePrice_adj_szzz')
+        # 注意中证流通指数没有closeprice adj, 即全收益数据
+        benchmark_price_name_list.remove('ClosePrice_adj_zzlt')
 
         old_stock_price = data.read_data(stock_price_name_list, stock_price_name_list)
         old_raw_data = data.read_data(raw_data_name_list, raw_data_name_list)
@@ -621,7 +659,12 @@ class database(object):
         for index_name in benchmark_index_name:
             self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name]\
                                                               .fillna(method='ffill')
-        self.data.stock_price['AdjustFactor'] = self.data.stock_price['AdjustFactor']. \
+        # 复权因子在更新的时候, 需要在衔接了停牌标记后, 在此进行复权因子(以及之后的后复权价格)的计算
+        # 同直接取所有的复权因子数据时一样, 首先将停牌期间的复权因子设置为nan,
+        # 然后使用停牌前最后一天的复权因子向前填充, 使得停牌期间的复权因子变化反映在复牌后第一天,
+        # 最后需要把数据中的nan填成1
+        self.data.stock_price['AdjustFactor'] = self.data.stock_price['AdjustFactor'].where(
+            np.logical_not(self.data.if_tradable['is_suspended']), np.nan).\
             fillna(method='ffill').fillna(1)
         # 因为衔接并向前填充了复权因子, 因此要重新计算后复权价格, 否则之前的后复权价格将是nan
         self.get_ochl_vwap_adj()
@@ -642,10 +685,12 @@ if __name__ == '__main__':
     db.initialize_gg()
     db.get_trading_days()
     db.get_labels()
-    db.get_existing_factor(1)
+    db.get_AdjustFactor()
+    # db.get_existing_factor(1)
     # db.get_ClosePrice_adj()
     # db.get_index_price()
-    data.write_data(db.data.stock_price, file_name=['runner_value_1'])
+    # db.get_index_weight()
+    # data.write_data(db.data.stock_price, file_name=['runner_value_1'])
     print("time: {0} seconds\n".format(time.time()-start_time))
 
 

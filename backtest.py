@@ -290,7 +290,8 @@ class backtest(object):
 
                 # 对交易计划中的涨跌停股票的数量进行检查, 如果占比超过阈值, 则输出警告
                 self.check_if_plan_buyable_sellable(projected_vol_holding, curr_time)
-                # 如果涨跌停股票达到某个阈值, 则不进行这次换仓
+                # 如果停牌和涨跌停股票比例之和达到某个阈值, 则不进行这次换仓
+                self.check_if_abort_trading(curr_time, threshold=0.5)
                 if not self.if_exec_this_trading:
                     self.if_exec_this_trading = True
                     return
@@ -391,7 +392,8 @@ class backtest(object):
 
         # 对交易计划中的涨跌停股票的数量进行检查, 如果占比超过阈值, 则输出警告
         self.check_if_plan_buyable_sellable(trade_plan, curr_time)
-        # 如果涨跌停的达到某个阈值, 这次换仓不执行
+        # 如果停牌和涨跌停的比例之和达到某个阈值, 这次换仓不执行
+        self.check_if_abort_trading(curr_time, threshold=0.5)
         if not self.if_exec_this_trading:
             self.if_exec_this_trading = True
             return
@@ -681,16 +683,24 @@ class backtest(object):
             if self.show_warning:
                 print(output_str_b)
 
-        # 如果涨跌停比例占总比例超过某一阈值, 则不进行换仓.
-        if (unsellable_sell_weight_total + unbuyable_buy_weight_total) >= 0.1:
+    # 设置一个不换仓的机制, 即: 如果持有仓位中与目标仓位中的停牌股票权重, 交易单中的涨跌停股票权重
+    # 两者之和超过某一阈值, 则不进行本次换仓. 原因是, 此时市场极有可能出现极端行情, 或策略很可能出了错误
+    # 此时强行换仓可能会使得真实持仓与目标持仓差距非常大, 以及可能会使得某些股票比重特别高
+    # 为了杜绝这种情况, 设立了这个机制
+    def check_if_abort_trading(self, curr_time, *, threshold=0.2):
+        total_nontradable_weight = self.info_series.ix[curr_time, ['holding_sus', 'target_sus',
+                                    'buy_cap', 'sell_bottom']].sum()
+        if total_nontradable_weight >= threshold:
             self.if_exec_this_trading = False
-            output_str = 'Warning: The total weight of up&bottom stocks in your trading plan relative ' \
-                         'to holding value exceeds {0:.2f}%, thus the trading at time {1} will not be ' \
-                         'executed, and the holding matrix will be the same as before until the next' \
-                         'holding day. \n'.format(0.1*100, curr_time)
+            output_str = 'Warning: The total weight(relative to holding value) of suspended and ' \
+                         'up&bottom stocks in your current holding, or target holding, or trade plan, ' \
+                         'is {0}, which exceeds {1}. Thus the trading at time {2} will not be executed, ' \
+                         'since exceeding trading may significantly distorts the holding matrix. The ' \
+                         'backtest system has automatically let the holding matrix be the same as ' \
+                         'before until the next holding day. \n'.format(total_nontradable_weight,
+                                                                        threshold, curr_time)
             if self.show_warning:
                 print(output_str)
-
 
     # 此函数为进行理想情况下的简单回测, 即直接用持仓乘以收盘价得到组合的净值和收益序列
     # 此回测方法可以用来对策略本身进行研究, 因为现实交易中遇到的问题大部分不是一个策略可控的, 与策略无关

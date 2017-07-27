@@ -54,7 +54,7 @@ def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', d
         # from analyst_coverage import analyst_coverage
         # curr_sf = analyst_coverage()
         from residual_income import residual_income
-        curr_sf = single_factor_strategy()
+        curr_sf = residual_income()
 
         # 进行当前股票池下的单因子测试
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
@@ -184,15 +184,15 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 # sue = sue.reindex(index=mv.index, columns=mv.columns, method='ffill').fillna(0.0)
 # pass
 
-sf_test_multiple_pools(factor='runner_value_36', direction='+', bkt_start=pd.Timestamp('2011-01-04'), holding_freq='w',
-                       bkt_end=pd.Timestamp('2016-12-30'), stock_pools=['zz500'],
-                       do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
-                       do_data_description=False, do_factor_corr_test=False)
+# sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2010-05-04'), holding_freq='w',
+#                        bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300'],
+#                        do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
+#                        do_data_description=False, do_factor_corr_test=False)
 
-# sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2011-01-04'),
-#                                 bkt_end=pd.Timestamp('2017-05-31'), stock_pools=['hs300','zz500'],
-#                                 do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
-#                                 do_data_description=True, holding_freq='w', do_factor_corr_test=False)
+sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-05-04'),
+                                bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300','zz500'],
+                                do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
+                                do_data_description=True, holding_freq='w', do_factor_corr_test=False)
 
 
 

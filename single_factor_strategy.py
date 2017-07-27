@@ -65,6 +65,9 @@ class single_factor_strategy(strategy):
                       use_factor_expo = True, expo_weight = 1):
         # 对调仓期进行循环
         for cursor, time in self.holding_days.iteritems():
+            if time == pd.Timestamp('2010-05-04'):
+                print('a')
+                pass
             curr_factor_data = self.strategy_data.factor.ix[0, time, :]
             # 对因子值进行排序，注意这里的秩（rank），类似于得分
             if direction is '+':
@@ -166,6 +169,13 @@ class single_factor_strategy(strategy):
 
         # 选择加权的方式
         self.position.to_percentage()
+
+        # 有个问题, 实际上与adjust benchmark related expo一样, 即基准成分股可能有停牌的股票
+        # 这些股票的权重在filter uninv data中被过滤掉了, 于是导致根据指数的行业权重进行加权时出现问题
+        # 这个问题的更好的解决办法应该是就应该被过滤掉, 然后基准里停牌的部分应该做现金保留,
+        # 但是这个更改需要改很多东西, 这里为了应急, 先直接重新读取权重数据用来加权
+        temp_bench_weight = data.read_data(['Weight_'+self.strategy_data.stock_pool])
+
         if weight == 1:
             self.position.weighted_holding(self.strategy_data.stock_price.ix['FreeMarketValue',
                                            self.position.holding_matrix.index, :])
@@ -179,8 +189,8 @@ class single_factor_strategy(strategy):
                                            self.position.holding_matrix.index, :])
         elif weight == 3 and self.strategy_data.stock_pool != 'all':
             self.position.weighted_holding_indus(industry, inner_weights=self.strategy_data.stock_price.ix \
-                ['FreeMarketValue', self.position.holding_matrix.index, :], outter_weights=self.strategy_data. \
-                benchmark_price.ix['Weight_'+self.strategy_data.stock_pool, self.position.holding_matrix.index, :])
+                ['FreeMarketValue', self.position.holding_matrix.index, :], outter_weights= \
+                temp_bench_weight.ix['Weight_'+self.strategy_data.stock_pool, self.position.holding_matrix.index, :])
         pass
 
     # 用优化的方法构造纯因子组合，纯因子组合保证组合在该因子上有暴露（注意，并不一定是1），在其他因子上无暴露
@@ -978,7 +988,7 @@ class single_factor_strategy(strategy):
         # 按策略进行选股
         if select_method == 0:
             # 简单分位数选股
-            self.select_stocks(weight=1, direction=direction, select_ratio=[0.7, 1])
+            self.select_stocks(weight=1, direction=direction, select_ratio=[0.8, 1])
         elif select_method == 1:
             # 分行业选股
             self.select_stocks_within_indus(weight=3, direction=direction, select_ratio=[0.8, 1])
@@ -1019,9 +1029,9 @@ class single_factor_strategy(strategy):
         # for curr_stock in holding.columns:
         #     new_col.append(str(curr_stock).zfill(6))
         # holding.columns = new_col
-        holding = pd.read_csv('tarholding.csv', index_col=0, parse_dates=True)
-        self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
-                                    self.position.holding_matrix.columns, method='ffill').fillna(0.0)
+        # holding = pd.read_csv('tarholding.csv', index_col=0, parse_dates=True)
+        # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
+        #                             self.position.holding_matrix.columns, method='ffill').fillna(0.0)
         # pass
 
         # ------------------------------------------------------------------------------------
