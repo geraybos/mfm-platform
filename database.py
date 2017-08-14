@@ -685,12 +685,12 @@ if __name__ == '__main__':
     db.initialize_gg()
     db.get_trading_days()
     db.get_labels()
-    db.get_AdjustFactor()
-    # db.get_existing_factor(1)
+    # db.get_AdjustFactor()
+    db.get_existing_factor(1)
     # db.get_ClosePrice_adj()
     # db.get_index_price()
     # db.get_index_weight()
-    # data.write_data(db.data.stock_price, file_name=['runner_value_1'])
+    data.write_data(db.data.stock_price, file_name=['runner_value_1'])
     print("time: {0} seconds\n".format(time.time()-start_time))
 
 

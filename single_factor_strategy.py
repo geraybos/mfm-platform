@@ -805,7 +805,7 @@ class single_factor_strategy(strategy):
             base_expo_no_cf = base_expo
         # 利用多元线性回归的结果进行因子相关性检验
         if reg_weight == 1:
-            residual, pvalues, rsquared_adj = \
+            residual, pvalues, rsquared = \
                 strategy_data.simple_orth_gs(factor_expo, base_expo_no_cf,
                 weights=np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']),
                 add_constant=add_constant)
@@ -814,7 +814,7 @@ class single_factor_strategy(strategy):
             # 同理, 原始因子值也要乘以根号权重, 以获得其在回归时的那个向量
             y = factor_expo.mul(np.sqrt(np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue'])))
         elif reg_weight == 0:
-            residual, pvalues, rsquared_adj = \
+            residual, pvalues, rsquared = \
                 strategy_data.simple_orth_gs(factor_expo, base_expo_no_cf, add_constant=add_constant)
             # 等权回归就不需要乘了
             y = factor_expo * 1
@@ -838,28 +838,33 @@ class single_factor_strategy(strategy):
         # 另外一种检验相关性的方法, 直接计算原因子与残差项的线性相关系数
         # 注意, 当因子均值为0时(即使用等权回归时), cos值与线性相关系数一模一样
         residual_corr = y.corrwith(residual, axis=1)
+        # 另外一种检验相关性的方法, 使用vif, 即用这个回归的rsquared来计算vif,
+        # 根据这个回归的拟合程度来判断因子间的相关性
+        vif = 1 / (1 - rsquared['rsquared'])
 
         # 统计能够展示因子相关性的指标
         # 首先是残差的内积, 然后是p值和rsquared_adj的平均值
         residual_cosine_mean = residual_cosine.mean()
         angular_similarity_mean = angular_similarity.mean()
         residual_corr_mean = residual_corr.mean()
+        vif_mean = vif.mean()
         pvalues_mean = pvalues.mean()
-        rsquared_adj_mean = rsquared_adj.mean()
+        rsquared_adj_mean = rsquared['rsquared_adj'].mean()
         # 输出这些信息
         output_str = 'Factor correlation test outcome: \n' \
                      'Average cosine between residual and y: {0} \n' \
                      'Average angular similarity between residual and y: {1} \n' \
                      'Average corr between residual and y: {2} \n' \
-                     'Average p values: {3} \n' \
-                     'Average r squared adjusted: {4} \n'.format(
-            residual_cosine_mean, angular_similarity_mean, residual_corr_mean,
+                     'Average VIF: {3}' \
+                     'Average p values: {4} \n' \
+                     'Average r squared adjusted: {5} \n'.format(
+            residual_cosine_mean, angular_similarity_mean, residual_corr_mean, vif_mean,
             pvalues_mean, rsquared_adj_mean)
         print(output_str)
 
         # 将序列信息储存起来
         self.factor_corr_test_outcome = [residual_cosine, angular_similarity, residual_corr,
-                                         pvalues, rsquared_adj]
+                                         vif, pvalues, rsquared]
 
     # 检验因子间相关性的外函数, 主要用作根据不同的策略, 选取不同的base
     # 默认为barra base因子
@@ -1001,6 +1006,7 @@ class single_factor_strategy(strategy):
             lag_bb_expo = bb_obj.bb_data.factor_expo.shift(1).reindex(major_axis=bb_obj.bb_data.factor_expo.major_axis)
             # 同样不能有country factor
             lag_bb_expo_no_cf = lag_bb_expo.drop('country_factor', axis=0)
+            lag_bb_expo_no_cf = lag_bb_expo_no_cf.drop('momentum', axis=0)
             # # 构造纯因子组合，权重使用回归权重，即市值的根号
             # 初始化temp weight为'Empty'，即如果选股方法是2，则传入默认的benchmark weight
             temp_weight = 'Empty'

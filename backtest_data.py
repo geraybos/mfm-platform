@@ -19,7 +19,7 @@ from data import data
 
 # 回测用到的数据类
 class backtest_data(data):
-    """ This is the data class used for back testing
+    """ This is the data class used for backtesting
     
     stock_price (pd.Panel): price data of stocks
     benchmark_price (pd.Panel): price data of benchmarks

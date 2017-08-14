@@ -249,14 +249,15 @@ class strategy_data(data):
             return results
         new_obj = obj*np.nan
         pvalues = pd.DataFrame(np.nan, index=obj.index, columns=base.items)
-        rsquared_adj = pd.DataFrame(np.nan, index=obj.index, columns=['rsquared_adj'])
+        rsquared = pd.DataFrame(np.nan, index=obj.index, columns=['rsquared', 'rsquared_adj'])
         if weights is 'default':
             for cursor, date in enumerate(obj.index):
                 curr_results = reg_func(obj.ix[cursor], base.ix[:,cursor,:], add_constant=add_constant)
                 if type(curr_results) != str:
                     new_obj.ix[cursor] = curr_results.resid.reindex(obj.columns)
                     pvalues.ix[cursor] = curr_results.pvalues
-                    rsquared_adj.ix[cursor] = curr_results.rsquared_adj
+                    rsquared.ix[cursor, 'rsquared'] = curr_results.rsquared
+                    rsquared.ix[cursor, 'rsquared_adj'] = curr_results.rsquared_adj
         else:
             for cursor, date in enumerate(obj.index):
                 curr_results = reg_func(obj.ix[cursor], base.ix[:,cursor,:], weights=weights.ix[cursor],
@@ -264,13 +265,14 @@ class strategy_data(data):
                 if type(curr_results) != str:
                     new_obj.ix[cursor] = curr_results.resid.reindex(obj.columns)
                     pvalues.ix[cursor] = curr_results.pvalues
-                    rsquared_adj.ix[cursor] = curr_results.rsquared_adj
+                    rsquared.ix[cursor, 'rsquared'] = curr_results.rsquared
+                    rsquared.ix[cursor, 'rsquared_adj'] = curr_results.rsquared_adj
             # 如果提纯为加权的回归，则默认提纯是为了之后这个残差和base进行加权回归时相互正交
             # 即：实际为残差和加权（加根号权重）后的base因子正交，那么在之后进行加权回归的时候，会再一次的进行加权
             # 为了避免残差因子在那个时候连加两次权，这里必须进行调整，即：除以根号权重
             # 注意除以根号权重是因为最小二乘回归的权重实际为在因子上乘以根号权重
             new_obj = new_obj.div(np.sqrt(weights))
-        return [new_obj, pvalues, rsquared_adj]
+        return [new_obj, pvalues, rsquared]
             
     # 用因子暴露数据，回归权重，进行barra模型的回归
     # 用二次规划问题求解此线性回归问题
@@ -437,7 +439,7 @@ class strategy_data(data):
 
     # 定义进行fama-macbeth回归的函数, 因为很多论文中用到了大量的fm回归
     @staticmethod
-    def fama_macbeth(y, x, *, nw_lags=0, intercept=True):
+    def fama_macbeth(y, x, *, nw_lags=6, intercept=True):
         """
 
         :param y: pd.DataFrame
@@ -462,9 +464,11 @@ class strategy_data(data):
                                       nw_lags_beta=nw_lags)
 
         r2 = results_fm._ols_result.r2.replace(np.inf, np.nan).replace(-np.inf, np.nan).mean()
-        r2_adj = results_fm._ols_result.r2_adj.replace(np.inf, np.nan).replace(-np.inf, np.nan).mean()
-
-        return results_fm.mean_beta, results_fm.t_stat, r2, r2_adj
+        if x.shape[0] == 1:
+            return results_fm.mean_beta, results_fm.t_stat, r2
+        else:
+            r2_adj = results_fm._ols_result.r2_adj.replace(np.inf, np.nan).replace(-np.inf, np.nan).mean()
+            return results_fm.mean_beta, results_fm.t_stat, r2, r2_adj
 
 
 

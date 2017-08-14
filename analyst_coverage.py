@@ -576,7 +576,7 @@ class analyst_coverage(single_factor_strategy):
             all_report = data.read_data(['unique_coverage garbage'], shift=True)
             real_report = real_report.fillna(0)
             all_report = all_report.fillna(0)
-            self.strategy_data.raw_data = pd.Panel({'coverage': real_report['unique_coverage gold']*50 +
+            self.strategy_data.raw_data = pd.Panel({'coverage': real_report['unique_coverage gold']*10 +
                                                                 all_report['unique_coverage garbage']*1})
             print('reading coverage\n')
         else:
@@ -1321,7 +1321,7 @@ class analyst_coverage(single_factor_strategy):
         all_report = all_report.fillna(0)
         self.strategy_data.factor = pd.Panel({'unique_coverage' : real_report['unique_coverage gold']*10 +
                                              all_report['unique_coverage garbage']*1})
-        data.write_data(self.strategy_data.factor, file_name=['unique_coverage weighted'])
+        # data.write_data(self.strategy_data.factor, file_name=['unique_coverage weighted'])
 
         # self.strategy_data.factor = data.read_data(['growth'], shift=True)
 

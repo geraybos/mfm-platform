@@ -54,7 +54,7 @@ def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', d
         # from analyst_coverage import analyst_coverage
         # curr_sf = analyst_coverage()
         from residual_income import residual_income
-        curr_sf = residual_income()
+        curr_sf = single_factor_strategy()
 
         # 进行当前股票池下的单因子测试
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
@@ -92,10 +92,10 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 
     def single_task(stock_pool):
         # curr_sf = single_factor_strategy()
-        from analyst_coverage import analyst_coverage
+        # from analyst_coverage import analyst_coverage
         # curr_sf = analyst_coverage()
         from residual_income import residual_income
-        curr_sf = residual_income()
+        curr_sf = single_factor_strategy()
 
         # 进行当前股票池下的单因子测试
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
@@ -128,12 +128,10 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 # eps_vc = 0.5*eps_fy1.rolling(252).std()/eps_fy1.rolling(252).mean() + \
 #         0.5*eps_fy1.rolling(252).std()/eps_fy1.rolling(252).mean()
 
-# # 测试wq101中的因子
-# wq_data = data.read_data(['ClosePrice_adj', 'OpenPrice_adj', 'Volume', 'HighPrice', 'LowPrice', 'AdjustFactor'],
-#                          ['ClosePrice_adj', 'OpenPrice_adj', 'Volume', 'HighPrice', 'LowPrice', 'AdjustFactor'],
-#                          shift=True)
-# wq_data['HighPrice_adj'] = wq_data['HighPrice'] * wq_data['AdjustFactor']
-# wq_data['LowPrice_adj'] = wq_data['LowPrice'] * wq_data['AdjustFactor']
+# 测试wq101中的因子
+wq_data = data.read_data(['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
+                         ['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
+                         shift=True)
 
 ## 因子4
 #low_rank = wq_data.ix['LowPrice'].rank(1)
@@ -142,57 +140,48 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 ## 因子4的moving average
 #wq_f4_ma = wq_f4.rolling(5).mean()
 # ret = np.log(wq_data['ClosePrice_adj']/wq_data['ClosePrice_adj'].shift(1))
+ret = np.log(wq_data['vwap_adj']/wq_data['vwap_adj'].shift(1))
 # mom5 = -ret.rolling(5).sum()
 # mom10 = -ret.rolling(10).sum()
 # mom21 = -ret.rolling(21).sum()
-#
+
 # mom = mom5*3 + mom10*2 + mom21 * 1
 
 # exp_w = barra_base.construct_expo_weights(5, 21)
-# mom21 = -ret.rolling(21).apply(lambda x:(x*exp_w).sum())
+# mom21 = ret.rolling(21).apply(lambda x:(x*exp_w).sum())
+exp_w2 = barra_base.construct_expo_weights(126, 504)
+mom504 = ret.rolling(504).apply(lambda x:(x*exp_w2).sum())
+# mom252 = -ret.rolling(504).sum()
+# rv1 = data.read_data(['runner_value_1'], shift=True)
 
-# # 短期流动性因子
-# volume = pd.read_csv('Volume.csv',index_col=0,parse_dates=True)
-# freeshares = pd.read_csv('FreeShares.csv',index_col=0,parse_dates=True)
-# turnover = (volume/freeshares).shift(1)
-# short_liq = -turnover.rolling(21).apply(lambda x:(x*exp_w).sum())
+# from intangible_info import intangible_info_earnings, intangible_info
+# ii = intangible_info()
+# ii.prepare_data()
+# ii.get_bv_return_direct()
+# ii.get_bv_return_indirect()
+# ii.check_two_bv_returns()
+# ii.get_intangible_return()
+# mom = data.read_data(['momentum'], shift=True)
+# mom = mom['momentum']
+# pe = data.read_data(['PE_ttm'], shift=True)
+# lagged_ep = (1/pe['PE_ttm']).shift(252*2)
+# rv8 = data.read_data(['runner_value_8'], shift=True)
+# rv8 = -rv8['runner_value_8']
+bb = data.read_data(['rv', 'liquidity', 'lncap', 'runner_value_36'], shift=True)
+# bb = data.read_data(['runner_value_36'], shift=True)
+orth_mom = strategy_data.simple_orth_gs(mom504, bb)
+# orth_mom = strategy_data.simple_orth_gs(ii.intangible_return, bb)
+orth_mom = orth_mom[0]
 
-# # 测试已有的因子
-# contrarian = pd.read_csv('contrarian.csv', index_col=0, parse_dates=True)
-# contrarian = contrarian.shift(1)
-
-# # 测试analyst coverage
-# coverage = pd.read_csv('unique_coverage.csv', index_col=0, parse_dates=True)
-# coverage = coverage.shift(1)
-#
-# 论文里的abnormal coverage
-# from analyst_coverage import analyst_coverage
-# ac = analyst_coverage()
-# ac.get_abn_coverage_poisson()
-# abn_coverage = ac.strategy_data.factor.ix['abn_coverage']
-
-# mv = data.read_data(['FreeMarketValue'])
-# mv = mv['FreeMarketValue']
-# # 测试经纬的sue
-# sue = pd.read_csv('sue_signal500.csv', index_col=0, parse_dates=[2])
-# sue = sue.pivot_table(index='TradingDay', columns='SecuCode', values='rawSignal')
-# # sue = sue.shift(1)
-# new_col = []
-# for curr_stock in sue.columns:
-#     new_col.append(str(curr_stock).zfill(6))
-# sue.columns = new_col
-# sue = sue.reindex(index=mv.index, columns=mv.columns, method='ffill').fillna(0.0)
-# pass
-
-# sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2010-05-04'), holding_freq='w',
+# sf_test_multiple_pools(factor=rv1['runner_value_1'], direction='+', bkt_start=pd.Timestamp('2007-01-04'), holding_freq='w',
 #                        bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300'],
 #                        do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
 #                        do_data_description=False, do_factor_corr_test=False)
 
-sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-05-04'),
+sf_test_multiple_pools_parallel(factor=-orth_mom, direction='+', bkt_start=pd.Timestamp('2010-04-02'),
                                 bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300','zz500'],
-                                do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
-                                do_data_description=True, holding_freq='w', do_factor_corr_test=False)
+                                do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+                                do_data_description=False, holding_freq='w', do_factor_corr_test=False)
 
 
 
