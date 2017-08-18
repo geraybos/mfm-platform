@@ -19,6 +19,7 @@ from database import database
 from data import data
 from strategy_data import strategy_data
 from strategy import strategy
+from barra_base import barra_base
 
 # 构造titman文章中的结果\
 
@@ -286,9 +287,33 @@ class intangible_info_earnings(intangible_info):
         self.prepare_data()
         self.get_table3()
 
+    def construct_factor(self):
+        price_data = data.read_data(['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
+                                    ['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
+                                    shift=True)
+        ret = np.log(price_data['ClosePrice_adj'] / price_data['ClosePrice_adj'].shift(1))
+        ret = ret.fillna(0)
+        exp_w = barra_base.construct_expo_weights(126, 504)
+        mom504 = ret.rolling(504).apply(lambda x: (x * exp_w).sum())
+
+        # bb = data.read_data(['rv', 'liquidity', 'lncap', 'runner_value_36', 'runner_value_5'], shift=True)
+        bb = data.read_data(['runner_value_36', 'runner_value_5'], shift=True)
+
+        # 过滤数据
+        mom504 = mom504.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
+        for item, df in bb.iteritems():
+            bb[item] = df.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
+
+        # 进行回归
+        orth_mom = strategy_data.simple_orth_gs(mom504, bb)
+        orth_mom = orth_mom[0]
+
+        self.strategy_data.factor = pd.Panel({'mom':-orth_mom})
+
 
 if __name__ == '__main__':
     ii = intangible_info_earnings()
+    ii.construct_factor()
     ii.prepare_data()
     # ii.get_bv_return_direct()
     # ii.get_bv_return_indirect()

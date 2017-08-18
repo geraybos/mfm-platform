@@ -13,12 +13,13 @@
     <SUITE FILE_PATH="coverage/mfm_platform$single_factor_strategy.coverage" NAME="single_factor_strategy Coverage Results" MODIFIED="1493885895177" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$residual_income.coverage" NAME="residual_income Coverage Results" MODIFIED="1501140961619" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$strategy_data.coverage" NAME="strategy_data Coverage Results" MODIFIED="1493364434117" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$sf_strategy_test.coverage" NAME="sf_strategy_test Coverage Results" MODIFIED="1501124071515" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$clustered_se.coverage" NAME="clustered se Coverage Results" MODIFIED="1494559108092" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$intangible_info.coverage" NAME="intangible_info Coverage Results" MODIFIED="1502848055379" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$sf_strategy_test.coverage" NAME="sf_strategy_test Coverage Results" MODIFIED="1502934995798" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$fof_handler.coverage" NAME="fof_handler Coverage Results" MODIFIED="1497851271948" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$fof_handler__1_.coverage" NAME="fof_handler Coverage Results" MODIFIED="1497439846408" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$analyst_coverage.coverage" NAME="analyst_coverage Coverage Results" MODIFIED="1497494370705" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$database.coverage" NAME="database Coverage Results" MODIFIED="1501140969186" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$clustered_se.coverage" NAME="clustered se Coverage Results" MODIFIED="1501637772311" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$database.coverage" NAME="database Coverage Results" MODIFIED="1502865928654" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$barra_base.coverage" NAME="barra_base Coverage Results" MODIFIED="1501039631393" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="CreatePatchCommitExecutor">
@@ -32,12 +33,14 @@
     <option name="SHOW_TABLE_DETAILS" value="true" />
     <option name="SHOW_EMPTY_GROUPS" value="false" />
     <option name="AUTO_SCROLL_FROM_SOURCE" value="false" />
+    <expand />
+    <select />
   </component>
   <component name="FavoritesManager">
     <favorites_list name="mfm platform" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.5042644">
+    <splitter split-orientation="horizontal" split-proportion="0.5207889">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
           <file leaf-file-name="backtest.py" pinned="false" current-in-tab="false">
@@ -46,21 +49,9 @@
                 <state relative-caret-position="8500">
                   <caret line="511" column="82" lean-forward="false" selection-start-line="511" selection-start-column="82" selection-end-line="511" selection-end-column="82" />
                   <folding>
-                    <marker date="1500975230534" expanded="true" signature="2210:2451" ph="..." />
-                    <marker date="1500975230534" expanded="true" signature="9789:12930" ph="..." />
-                    <marker date="1500975230534" expanded="true" signature="40016:40033" ph="..." />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="performance_attribution.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/performance_attribution.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="3604">
-                  <caret line="212" column="55" lean-forward="false" selection-start-line="212" selection-start-column="55" selection-end-line="212" selection-end-column="55" />
-                  <folding>
-                    <element signature="e#112#130#0" expanded="true" />
+                    <marker date="1502089100884" expanded="true" signature="2210:2451" ph="..." />
+                    <marker date="1502089100884" expanded="true" signature="9789:12930" ph="..." />
+                    <marker date="1502089100884" expanded="true" signature="40016:40033" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -72,22 +63,13 @@
                 <state relative-caret-position="1207">
                   <caret line="79" column="66" lean-forward="false" selection-start-line="79" selection-start-column="66" selection-end-line="79" selection-end-column="66" />
                   <folding>
-                    <marker date="1501140946894" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-                    <marker date="1501140946894" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-                    <marker date="1501140946894" expanded="true" signature="5383:5436" ph="..." />
-                    <marker date="1501140946894" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
-                    <marker date="1501140946894" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
+                    <marker date="1502853283343" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
+                    <marker date="1502853283343" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
+                    <marker date="1502853283343" expanded="true" signature="5383:5436" ph="..." />
+                    <marker date="1502853283343" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
+                    <marker date="1502853283343" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
+                    <marker date="1502853283343" expanded="true" signature="38548:38729" ph="..." />
                   </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="data.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/data.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="612">
-                  <caret line="41" column="34" lean-forward="false" selection-start-line="41" selection-start-column="34" selection-end-line="41" selection-end-column="34" />
-                  <folding />
                 </state>
               </provider>
             </entry>
@@ -95,11 +77,11 @@
           <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="17935">
-                  <caret line="1055" column="0" lean-forward="false" selection-start-line="1055" selection-start-column="0" selection-end-line="1055" selection-end-column="0" />
+                <state relative-caret-position="17765">
+                  <caret line="1061" column="0" lean-forward="false" selection-start-line="1061" selection-start-column="0" selection-end-line="1061" selection-end-column="0" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1501121813948" expanded="true" signature="39978:40186" ph="..." />
+                    <marker date="1502697960933" expanded="true" signature="39974:40178" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -108,14 +90,37 @@
           <file leaf-file-name="analyst_coverage.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/analyst_coverage.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="6341">
-                  <caret line="373" column="42" lean-forward="false" selection-start-line="373" selection-start-column="42" selection-end-line="373" selection-end-column="42" />
+                <state relative-caret-position="16745">
+                  <caret line="985" column="103" lean-forward="false" selection-start-line="984" selection-start-column="34" selection-end-line="985" selection-end-column="103" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1498699568605" expanded="true" signature="3089:3516" ph="select b.Inf... CompanyCode" />
-                    <marker date="1498699568605" expanded="true" signature="3165:3234" ph="select disti... ReturnDaily" />
-                    <marker date="1498699568605" expanded="true" signature="3274:3416" ph="select InfoP... LC_BalanceSheetAll" />
+                    <marker date="1502089178653" expanded="true" signature="3089:3516" ph="select b.Inf... CompanyCode" />
+                    <marker date="1502089178653" expanded="true" signature="3165:3234" ph="select disti... ReturnDaily" />
+                    <marker date="1502089178653" expanded="true" signature="3274:3416" ph="select InfoP... LC_BalanceSheetAll" />
                   </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="intangible_info.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/intangible_info.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="5168">
+                  <caret line="304" column="0" lean-forward="false" selection-start-line="304" selection-start-column="0" selection-end-line="304" selection-end-column="0" />
+                  <folding>
+                    <element signature="e#0#18#0" expanded="true" />
+                    <marker date="1502934988265" expanded="true" signature="15134:15225" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="performance.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/performance.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="2635">
+                  <caret line="164" column="29" lean-forward="false" selection-start-line="164" selection-start-column="29" selection-end-line="164" selection-end-column="29" />
+                  <folding />
                 </state>
               </provider>
             </entry>
@@ -141,18 +146,8 @@
           <file leaf-file-name="sf_strategy_test.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="310">
-                  <caret line="194" column="102" lean-forward="false" selection-start-line="194" selection-start-column="102" selection-end-line="194" selection-end-column="102" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="position.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/position.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="782">
-                  <caret line="51" column="101" lean-forward="false" selection-start-line="51" selection-start-column="101" selection-end-line="51" selection-end-column="101" />
+                <state relative-caret-position="624">
+                  <caret line="187" column="0" lean-forward="true" selection-start-line="187" selection-start-column="0" selection-end-line="187" selection-end-column="0" />
                   <folding />
                 </state>
               </provider>
@@ -161,11 +156,11 @@
           <file leaf-file-name="strategy_data.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/strategy_data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="5287">
-                  <caret line="311" column="100" lean-forward="false" selection-start-line="311" selection-start-column="100" selection-end-line="311" selection-end-column="100" />
+                <state relative-caret-position="3536">
+                  <caret line="208" column="58" lean-forward="false" selection-start-line="208" selection-start-column="58" selection-end-line="208" selection-end-column="58" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1501118842000" expanded="true" signature="10110:10412" ph="..." />
+                    <marker date="1502697564845" expanded="true" signature="10110:10412" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -175,54 +170,90 @@
       </split-first>
       <split-second>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-          <file leaf-file-name="backtest.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/backtest.py">
+          <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="4794">
-                  <caret line="293" column="68" lean-forward="false" selection-start-line="293" selection-start-column="68" selection-end-line="293" selection-end-column="68" />
+                <state relative-caret-position="531">
+                  <caret line="1047" column="53" lean-forward="true" selection-start-line="1047" selection-start-column="53" selection-end-line="1047" selection-end-column="53" />
                   <folding>
-                    <marker date="1500975230534" expanded="true" signature="2210:2451" ph="..." />
-                    <marker date="1500975230534" expanded="true" signature="9789:12930" ph="..." />
-                    <marker date="1500975230534" expanded="true" signature="40016:40033" ph="..." />
+                    <element signature="e#112#130#0" expanded="true" />
+                    <marker date="1502697960933" expanded="true" signature="39974:40178" ph="..." />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="database.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/database.py">
+          <file leaf-file-name="TutorialApp.py" pinned="false" current-in-tab="false">
+            <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialApp.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-306">
-                  <caret line="190" column="49" lean-forward="false" selection-start-line="190" selection-start-column="49" selection-end-line="190" selection-end-column="49" />
-                  <folding>
-                    <marker date="1501140946894" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-                    <marker date="1501140946894" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-                    <marker date="1501140946894" expanded="true" signature="5383:5436" ph="..." />
-                    <marker date="1501140946894" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
-                    <marker date="1501140946894" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="db_engine.py" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/db_engine.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="85">
-                  <caret line="8" column="10" lean-forward="true" selection-start-line="8" selection-start-column="10" selection-end-line="8" selection-end-column="10" />
+                <state relative-caret-position="54601">
+                  <caret line="3280" column="17" lean-forward="true" selection-start-line="3280" selection-start-column="17" selection-end-line="3280" selection-end-column="17" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
+          <file leaf-file-name="TutorialBase.py" pinned="false" current-in-tab="true">
+            <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialBase.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="18581">
-                  <caret line="1093" column="0" lean-forward="false" selection-start-line="1093" selection-start-column="0" selection-end-line="1093" selection-end-column="0" />
+                <state relative-caret-position="790">
+                  <caret line="383" column="41" lean-forward="true" selection-start-line="383" selection-start-column="41" selection-end-line="383" selection-end-column="41" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="TutorialData.py" pinned="false" current-in-tab="false">
+            <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialData.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="-1676">
+                  <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="TutorialDriver.py" pinned="false" current-in-tab="false">
+            <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialDriver.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="-1220">
+                  <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="sample.py" pinned="false" current-in-tab="false">
+            <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/sample.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="1551">
+                  <caret line="142" column="20" lean-forward="true" selection-start-line="142" selection-start-column="20" selection-end-line="142" selection-end-column="20" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="strategy_data.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/strategy_data.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="4760">
+                  <caret line="280" column="43" lean-forward="false" selection-start-line="280" selection-start-column="43" selection-end-line="280" selection-end-column="43" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1501121813948" expanded="true" signature="39978:40186" ph="..." />
+                    <marker date="1502697564845" expanded="true" signature="10110:10412" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="intangible_info.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/intangible_info.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="4097">
+                  <caret line="241" column="62" lean-forward="false" selection-start-line="241" selection-start-column="62" selection-end-line="241" selection-end-column="62" />
+                  <folding>
+                    <element signature="e#0#18#0" expanded="true" />
+                    <marker date="1502934988265" expanded="true" signature="15134:15225" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -231,61 +262,12 @@
           <file leaf-file-name="barra_base.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/barra_base.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="13192">
-                  <caret line="786" column="37" lean-forward="false" selection-start-line="786" selection-start-column="37" selection-end-line="786" selection-end-column="37" />
+                <state relative-caret-position="8007">
+                  <caret line="481" column="38" lean-forward="false" selection-start-line="481" selection-start-column="33" selection-end-line="481" selection-end-column="38" />
                   <folding>
                     <marker date="1499664855990" expanded="true" signature="638:847" ph="..." />
                     <marker date="1499664855990" expanded="true" signature="14002:14319" ph="..." />
                   </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="strategy.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/strategy.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1394">
-                  <caret line="91" column="91" lean-forward="false" selection-start-line="91" selection-start-column="91" selection-end-line="91" selection-end-column="91" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="residual_income.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/residual_income.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="17">
-                  <caret line="244" column="43" lean-forward="false" selection-start-line="244" selection-start-column="43" selection-end-line="244" selection-end-column="43" />
-                  <folding>
-                    <element signature="e#0#18#0" expanded="true" />
-                    <marker date="1501132107877" expanded="true" signature="1300:1456" ph="select a.Sec... InnerCode" />
-                    <marker date="1501132107877" expanded="true" signature="1300:1562" ph="select a.Sec... InnerCode" />
-                    <marker date="1501132107877" expanded="true" signature="1300:1614" ph="select a.Sec... InnerCode" />
-                    <marker date="1501132107877" expanded="true" signature="1300:1669" ph="select a.Sec... InnerCode" />
-                    <marker date="1501132107877" expanded="true" signature="1386:1453" ph="select disti... ReturnDaily" />
-                    <marker date="1501132107877" expanded="true" signature="1493:1559" ph="select Inner... LC_Dividend" />
-                    <marker date="1501132107877" expanded="true" signature="20257:20378" ph="select Tradi... QT_TradingDayNew" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="position.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/position.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2074">
-                  <caret line="127" column="0" lean-forward="false" selection-start-line="127" selection-start-column="0" selection-end-line="127" selection-end-column="0" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="sf_strategy_test.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1139">
-                  <caret line="69" column="0" lean-forward="false" selection-start-line="69" selection-start-column="0" selection-end-line="69" selection-end-column="0" />
-                  <folding />
                 </state>
               </provider>
             </entry>
@@ -303,17 +285,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>if_save</find>
-      <find>construct</find>
-      <find>factor_expo</find>
-      <find>.factor_expo</find>
-      <find>ex_</find>
-      <find>_ex</find>
-      <find>excess</find>
-      <find>ex</find>
-      <find>OpenPrice_adj</find>
-      <find>adjust_benchmark_related</find>
-      <find>OpenPrice</find>
       <find>self.enable_warning</find>
       <find>show_warning</find>
       <find>enable_warning</find>
@@ -333,6 +304,17 @@
       <find>adjust_benchmark</find>
       <find>000001</find>
       <find>factor</find>
+      <find>MarketValue</find>
+      <find>Shares</find>
+      <find>PE_ttm</find>
+      <find>simple</find>
+      <find>drop</find>
+      <find>discard</find>
+      <find>diff</find>
+      <find>difference</find>
+      <find>pure</find>
+      <find>simple_orth</find>
+      <find>uninv</find>
     </findStrings>
     <replaceStrings>
       <replace>liability</replace>
@@ -373,7 +355,6 @@
       <list>
         <option value="$PROJECT_DIR$/msci.py" />
         <option value="$PROJECT_DIR$/DrawTable.py" />
-        <option value="$PROJECT_DIR$/clustered se.py" />
         <option value="$PROJECT_DIR$/position.py" />
         <option value="$PROJECT_DIR$/test_holding.py" />
         <option value="$PROJECT_DIR$/主动估值表/fof_handler.py" />
@@ -381,18 +362,20 @@
         <option value="$PROJECT_DIR$/bonds_index.csv" />
         <option value="$PROJECT_DIR$/fof_handler.py" />
         <option value="$PROJECT_DIR$/data.py" />
-        <option value="$PROJECT_DIR$/analyst_coverage.py" />
         <option value="$PROJECT_DIR$/performance.py" />
-        <option value="$PROJECT_DIR$/backtest_data.py" />
-        <option value="$PROJECT_DIR$/barra_base.py" />
         <option value="$PROJECT_DIR$/strategy.py" />
-        <option value="$PROJECT_DIR$/backtest.py" />
-        <option value="$PROJECT_DIR$/strategy_data.py" />
         <option value="$PROJECT_DIR$/performance_attribution.py" />
-        <option value="$PROJECT_DIR$/single_factor_strategy.py" />
-        <option value="$PROJECT_DIR$/sf_strategy_test.py" />
         <option value="$PROJECT_DIR$/residual_income.py" />
+        <option value="$PROJECT_DIR$/clustered se.py" />
+        <option value="$PROJECT_DIR$/backtest.py" />
+        <option value="$PROJECT_DIR$/analyst_coverage.py" />
+        <option value="$PROJECT_DIR$/backtest_data.py" />
+        <option value="$PROJECT_DIR$/strategy_data.py" />
+        <option value="$PROJECT_DIR$/single_factor_strategy.py" />
         <option value="$PROJECT_DIR$/database.py" />
+        <option value="$PROJECT_DIR$/intangible_info.py" />
+        <option value="$PROJECT_DIR$/sf_strategy_test.py" />
+        <option value="$PROJECT_DIR$/barra_base.py" />
       </list>
     </option>
   </component>
@@ -402,7 +385,7 @@
     <detection-done>true</detection-done>
     <sorting>DEFINITION_ORDER</sorting>
   </component>
-  <component name="ProjectFrameBounds">
+  <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="-8" />
     <option name="y" value="-8" />
     <option name="width" value="1936" />
@@ -425,7 +408,7 @@
     <panes />
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialApp.py" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
     <property name="FileHistory.git4idea.history.GitHistoryProvider_flatWidth0" value="473" />
     <property name="FileHistory.git4idea.history.GitHistoryProvider_flatOrder0" value="0" />
@@ -482,7 +465,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.database">
+  <component name="RunManager" selected="Python.sf_strategy_test">
     <configuration default="true" type="js.build_tools.gulp" factoryName="Gulp.js">
       <node-interpreter>project</node-interpreter>
       <node-options />
@@ -712,24 +695,6 @@
       <option name="USE_PATTERN" value="false" />
       <method />
     </configuration>
-    <configuration name="analyst_coverage" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="mfm platform" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/analyst_coverage.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-    </configuration>
     <configuration name="barra_base" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -744,6 +709,24 @@
       <module name="mfm platform" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/barra_base.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
+    <configuration name="clustered se" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="ssh://lishi.wang@192.168.66.16:22/home/lishi.wang/anaconda3/bin/python3.6" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="mfm platform" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/clustered se.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -766,20 +749,20 @@
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
     </configuration>
-    <configuration name="fof_handler" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="intangible_info" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
-      <option name="SDK_HOME" value="" />
+      <option name="SDK_HOME" value="ssh://lishi.wang@192.168.66.16:22/home/lishi.wang/anaconda3/bin/python3.6" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <module name="mfm platform" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/fof_handler.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/intangible_info.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -826,18 +809,18 @@
     <list size="6">
       <item index="0" class="java.lang.String" itemvalue="Python.sf_strategy_test" />
       <item index="1" class="java.lang.String" itemvalue="Python.database" />
-      <item index="2" class="java.lang.String" itemvalue="Python.analyst_coverage" />
-      <item index="3" class="java.lang.String" itemvalue="Python.fof_handler" />
-      <item index="4" class="java.lang.String" itemvalue="Python.barra_base" />
-      <item index="5" class="java.lang.String" itemvalue="Python.residual_income" />
+      <item index="2" class="java.lang.String" itemvalue="Python.barra_base" />
+      <item index="3" class="java.lang.String" itemvalue="Python.residual_income" />
+      <item index="4" class="java.lang.String" itemvalue="Python.intangible_info" />
+      <item index="5" class="java.lang.String" itemvalue="Python.clustered se" />
     </list>
     <recent_temporary>
       <list size="5">
         <item index="0" class="java.lang.String" itemvalue="Python.database" />
-        <item index="1" class="java.lang.String" itemvalue="Python.residual_income" />
-        <item index="2" class="java.lang.String" itemvalue="Python.barra_base" />
-        <item index="3" class="java.lang.String" itemvalue="Python.fof_handler" />
-        <item index="4" class="java.lang.String" itemvalue="Python.analyst_coverage" />
+        <item index="1" class="java.lang.String" itemvalue="Python.intangible_info" />
+        <item index="2" class="java.lang.String" itemvalue="Python.clustered se" />
+        <item index="3" class="java.lang.String" itemvalue="Python.residual_income" />
+        <item index="4" class="java.lang.String" itemvalue="Python.barra_base" />
       </list>
     </recent_temporary>
   </component>
@@ -867,25 +850,26 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="0" />
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.18656716" sideWeight="0.5" order="1" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.22077923" sideWeight="0.5138593" order="0" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.510661" order="0" side_tool="true" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32792208" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24891774" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.2391775" sideWeight="0.48720682" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.21212122" sideWeight="0.48720682" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.32900432" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="0" side_tool="true" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.27597404" sideWeight="0.48614073" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="7" y="3" width="1908" height="1028" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25757575" sideWeight="0.48614073" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="10" y="10" width="1902" height="1022" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
-      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.4914712" order="11" side_tool="false" content_ui="tabs" />
+      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.48933902" order="11" side_tool="false" content_ui="tabs" />
       <window_info id="Remote Host" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.28837952" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
@@ -896,13 +880,13 @@
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25324675" sideWeight="0.5101279" order="0" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.510661" order="0" side_tool="true" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
-      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.4936034" order="11" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24458875" sideWeight="0.48987207" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.48933902" order="11" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32792208" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24891774" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.2391775" sideWeight="0.48720682" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.32900432" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Remote Host" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.28837952" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.18656716" sideWeight="0.5" order="1" side_tool="false" content_ui="combo" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
@@ -910,9 +894,9 @@
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.27597404" sideWeight="0.49200428" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="0" side_tool="true" content_ui="tabs" />
-      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="7" y="4" width="1908" height="1028" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25757575" sideWeight="0.48614073" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="9" y="9" width="1902" height="1022" />
     </layout-to-restore>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -1056,7 +1040,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/strategy_data.py</url>
-          <line>435</line>
+          <line>437</line>
           <option name="timeStamp" value="905" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -1163,16 +1147,6 @@
           <url>file://$PROJECT_DIR$/database.py</url>
           <line>533</line>
           <option name="timeStamp" value="1029" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
-          <line>1055</line>
-          <option name="timeStamp" value="1035" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
-          <line>1058</line>
-          <option name="timeStamp" value="1036" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
@@ -1285,9 +1259,39 @@
           <option name="timeStamp" value="1116" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/db_engine.py</url>
-          <line>8</line>
-          <option name="timeStamp" value="1117" />
+          <url>file://$PROJECT_DIR$/intangible_info.py</url>
+          <line>183</line>
+          <option name="timeStamp" value="1140" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/intangible_info.py</url>
+          <line>283</line>
+          <option name="timeStamp" value="1160" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/intangible_info.py</url>
+          <line>307</line>
+          <option name="timeStamp" value="1171" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/intangible_info.py</url>
+          <line>308</line>
+          <option name="timeStamp" value="1172" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/intangible_info.py</url>
+          <line>310</line>
+          <option name="timeStamp" value="1173" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
+          <line>1044</line>
+          <option name="timeStamp" value="1174" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
+          <line>1064</line>
+          <option name="timeStamp" value="1175" />
         </line-breakpoint>
       </breakpoints>
       <breakpoints-dialog>
@@ -1300,7 +1304,7 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="1118" />
+      <option name="time" value="1177" />
     </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
@@ -1313,20 +1317,6 @@
     </watches-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/cairocffi/surfaces.py" />
-    <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/numpy/linalg/linalg.py" />
-    <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/cvxopt/coneprog.py" />
-    <entry file="file://$APPLICATION_HOME_DIR$/helpers/pydev/pydevd.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="238">
-          <caret line="1014" column="0" lean-forward="false" selection-start-line="1014" selection-start-column="0" selection-end-line="1014" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file:///Applications/anaconda/lib/python3.5/site-packages/matplotlib/axes/_axes.py" />
-    <entry file="file://$PROJECT_DIR$/msci.py" />
-    <entry file="file://C:/Intern_Files/hhhs/nesc/style momentum/get_stats.py" />
-    <entry file="file://$PROJECT_DIR$/DrawTable.py" />
     <entry file="file://$PROJECT_DIR$/unique_coverage.csv">
       <provider selected="true" editor-type-id="LargeFileEditor">
         <state relative-caret-position="0">
@@ -1362,27 +1352,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/pandas/stats/fama_macbeth.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="365">
-          <caret line="40" column="23" lean-forward="false" selection-start-line="40" selection-start-column="23" selection-end-line="40" selection-end-column="67" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/numpy/lib/index_tricks.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="210">
           <caret line="338" column="0" lean-forward="false" selection-start-line="338" selection-start-column="0" selection-end-line="338" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/clustered se.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="627">
-          <caret line="56" column="0" lean-forward="false" selection-start-line="56" selection-start-column="0" selection-end-line="56" selection-end-column="0" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1466,14 +1439,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="212">
           <caret line="1596" column="0" lean-forward="false" selection-start-line="1596" selection-start-column="0" selection-end-line="1596" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/backtest_data.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="969">
-          <caret line="64" column="52" lean-forward="false" selection-start-line="64" selection-start-column="52" selection-end-line="64" selection-end-column="52" />
         </state>
       </provider>
     </entry>
@@ -1481,13 +1446,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/performance.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1598">
-          <caret line="103" column="29" lean-forward="false" selection-start-line="103" selection-start-column="29" selection-end-line="103" selection-end-column="29" />
         </state>
       </provider>
     </entry>
@@ -1505,19 +1463,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/analyst_coverage.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="6341">
-          <caret line="373" column="42" lean-forward="false" selection-start-line="373" selection-start-column="42" selection-end-line="373" selection-end-column="42" />
-          <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1498699568605" expanded="true" signature="3089:3516" ph="select b.Inf... CompanyCode" />
-            <marker date="1498699568605" expanded="true" signature="3165:3234" ph="select disti... ReturnDaily" />
-            <marker date="1498699568605" expanded="true" signature="3274:3416" ph="select InfoP... LC_BalanceSheetAll" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/data.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="612">
@@ -1526,18 +1471,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/matplotlib/pyplot.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="224">
-          <caret line="523" column="0" lean-forward="false" selection-start-line="523" selection-start-column="0" selection-end-line="523" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/pandas/core/frame.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="275">
           <caret line="5173" column="0" lean-forward="false" selection-start-line="5173" selection-start-column="0" selection-end-line="5173" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -1545,29 +1482,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="224">
           <caret line="3164" column="0" lean-forward="false" selection-start-line="3164" selection-start-column="0" selection-end-line="3164" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/barra_base.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="13192">
-          <caret line="786" column="37" lean-forward="false" selection-start-line="786" selection-start-column="37" selection-end-line="786" selection-end-column="37" />
-          <folding>
-            <marker date="1499664855990" expanded="true" signature="638:847" ph="..." />
-            <marker date="1499664855990" expanded="true" signature="14002:14319" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/backtest.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4794">
-          <caret line="293" column="68" lean-forward="false" selection-start-line="293" selection-start-column="68" selection-end-line="293" selection-end-column="68" />
-          <folding>
-            <marker date="1500975230534" expanded="true" signature="2210:2451" ph="..." />
-            <marker date="1500975230534" expanded="true" signature="9789:12930" ph="..." />
-            <marker date="1500975230534" expanded="true" signature="40016:40033" ph="..." />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1579,42 +1493,26 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/strategy_data.py">
+    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/pandas/stats/fama_macbeth.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5287">
-          <caret line="311" column="100" lean-forward="false" selection-start-line="311" selection-start-column="100" selection-end-line="311" selection-end-column="100" />
-          <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1501118842000" expanded="true" signature="10110:10412" ph="..." />
-          </folding>
+        <state relative-caret-position="293">
+          <caret line="226" column="4" lean-forward="true" selection-start-line="226" selection-start-column="4" selection-end-line="226" selection-end-column="4" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/performance_attribution.py">
+    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/pandas/stats/plm.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3604">
-          <caret line="212" column="55" lean-forward="false" selection-start-line="212" selection-start-column="55" selection-end-line="212" selection-end-column="55" />
-          <folding>
-            <element signature="e#112#130#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="-1611">
+          <caret line="737" column="27" lean-forward="false" selection-start-line="737" selection-start-column="27" selection-end-line="737" selection-end-column="27" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
+    <entry file="file://$PROJECT_DIR$/clustered se.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1139">
-          <caret line="69" column="0" lean-forward="false" selection-start-line="69" selection-start-column="0" selection-end-line="69" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="18581">
-          <caret line="1093" column="0" lean-forward="false" selection-start-line="1093" selection-start-column="0" selection-end-line="1093" selection-end-column="0" />
+        <state relative-caret-position="517">
+          <caret line="56" column="0" lean-forward="false" selection-start-line="56" selection-start-column="0" selection-end-line="56" selection-end-column="0" />
           <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1501121813948" expanded="true" signature="39978:40186" ph="..." />
+            <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -1627,10 +1525,17 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/db_engine.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="136">
+          <caret line="8" column="0" lean-forward="false" selection-start-line="8" selection-start-column="0" selection-end-line="8" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/residual_income.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="17">
-          <caret line="244" column="43" lean-forward="false" selection-start-line="244" selection-start-column="43" selection-end-line="244" selection-end-column="43" />
+        <state relative-caret-position="4709">
+          <caret line="277" column="66" lean-forward="false" selection-start-line="277" selection-start-column="66" selection-end-line="277" selection-end-column="66" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
             <marker date="1501132107877" expanded="true" signature="1300:1456" ph="select a.Sec... InnerCode" />
@@ -1639,29 +1544,177 @@
             <marker date="1501132107877" expanded="true" signature="1300:1669" ph="select a.Sec... InnerCode" />
             <marker date="1501132107877" expanded="true" signature="1386:1453" ph="select disti... ReturnDaily" />
             <marker date="1501132107877" expanded="true" signature="1493:1559" ph="select Inner... LC_Dividend" />
-            <marker date="1501132107877" expanded="true" signature="20257:20378" ph="select Tradi... QT_TradingDayNew" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/performance.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2635">
+          <caret line="164" column="29" lean-forward="false" selection-start-line="164" selection-start-column="29" selection-end-line="164" selection-end-column="29" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/matplotlib/pyplot.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="232">
+          <caret line="523" column="0" lean-forward="false" selection-start-line="523" selection-start-column="0" selection-end-line="523" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/performance_attribution.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1411">
+          <caret line="94" column="40" lean-forward="false" selection-start-line="94" selection-start-column="40" selection-end-line="94" selection-end-column="40" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/backtest_data.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="850">
+          <caret line="57" column="37" lean-forward="false" selection-start-line="57" selection-start-column="37" selection-end-line="57" selection-end-column="37" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/backtest.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="8500">
+          <caret line="511" column="82" lean-forward="false" selection-start-line="511" selection-start-column="82" selection-end-line="511" selection-end-column="82" />
+          <folding>
+            <marker date="1502089100884" expanded="true" signature="2210:2451" ph="..." />
+            <marker date="1502089100884" expanded="true" signature="9789:12930" ph="..." />
+            <marker date="1502089100884" expanded="true" signature="40016:40033" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/analyst_coverage.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="16745">
+          <caret line="985" column="103" lean-forward="false" selection-start-line="984" selection-start-column="34" selection-end-line="985" selection-end-column="103" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1502089178653" expanded="true" signature="3089:3516" ph="select b.Inf... CompanyCode" />
+            <marker date="1502089178653" expanded="true" signature="3165:3234" ph="select disti... ReturnDaily" />
+            <marker date="1502089178653" expanded="true" signature="3274:3416" ph="select InfoP... LC_BalanceSheetAll" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/database.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-306">
-          <caret line="190" column="49" lean-forward="false" selection-start-line="190" selection-start-column="49" selection-end-line="190" selection-end-column="49" />
+        <state relative-caret-position="1207">
+          <caret line="79" column="66" lean-forward="false" selection-start-line="79" selection-start-column="66" selection-end-line="79" selection-end-column="66" />
           <folding>
-            <marker date="1501140946894" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-            <marker date="1501140946894" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-            <marker date="1501140946894" expanded="true" signature="5383:5436" ph="..." />
-            <marker date="1501140946894" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
-            <marker date="1501140946894" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
+            <marker date="1502853283343" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
+            <marker date="1502853283343" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
+            <marker date="1502853283343" expanded="true" signature="5383:5436" ph="..." />
+            <marker date="1502853283343" expanded="true" signature="27544:27727" ph="select disti... missing_valueSecuMain" />
+            <marker date="1502853283343" expanded="true" signature="28048:28122" ph="select disti... SecuMain" />
+            <marker date="1502853283343" expanded="true" signature="38548:38729" ph="..." />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/db_engine.py">
+    <entry file="file://$PROJECT_DIR$/strategy_data.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="85">
-          <caret line="8" column="10" lean-forward="true" selection-start-line="8" selection-start-column="10" selection-end-line="8" selection-end-column="10" />
+        <state relative-caret-position="4760">
+          <caret line="280" column="43" lean-forward="false" selection-start-line="280" selection-start-column="43" selection-end-line="280" selection-end-column="43" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1502697564845" expanded="true" signature="10110:10412" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/intangible_info.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4097">
+          <caret line="241" column="62" lean-forward="false" selection-start-line="241" selection-start-column="62" selection-end-line="241" selection-end-column="62" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+            <marker date="1502934988265" expanded="true" signature="15134:15225" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/barra_base.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="8007">
+          <caret line="481" column="38" lean-forward="false" selection-start-line="481" selection-start-column="33" selection-end-line="481" selection-end-column="38" />
+          <folding>
+            <marker date="1499664855990" expanded="true" signature="638:847" ph="..." />
+            <marker date="1499664855990" expanded="true" signature="14002:14319" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="531">
+          <caret line="1047" column="53" lean-forward="true" selection-start-line="1047" selection-start-column="53" selection-end-line="1047" selection-end-column="53" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1502697960933" expanded="true" signature="39974:40178" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialApp.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="54601">
+          <caret line="3280" column="17" lean-forward="true" selection-start-line="3280" selection-start-column="17" selection-end-line="3280" selection-end-column="17" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialData.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1676">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialDriver.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1220">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/runtutorial.bat">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/sample.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1551">
+          <caret line="142" column="20" lean-forward="true" selection-start-line="142" selection-start-column="20" selection-end-line="142" selection-end-column="20" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="624">
+          <caret line="187" column="0" lean-forward="true" selection-start-line="187" selection-start-column="0" selection-end-line="187" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://C:/Program Files (x86)/MSCI Barra/Barra Optimizer/tutorials/python/TutorialBase.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="790">
+          <caret line="383" column="41" lean-forward="true" selection-start-line="383" selection-start-column="41" selection-end-line="383" selection-end-column="41" />
           <folding />
         </state>
       </provider>
