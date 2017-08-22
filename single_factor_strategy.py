@@ -767,8 +767,6 @@ class single_factor_strategy(strategy):
     def get_pure_factor(self, bb_obj, *, do_active_bb_pure_factor=False, reg_weight=1,
                         add_constant=False, use_factor_expo=True, expo_weight=1,
                         get_expo_again=True):
-        # 计算因子暴露
-        bb_obj.just_get_factor_expo()
         # 注意，因为这里是用bb对因子进行提纯，而不是用bb归因，因此bb需要lag一期，才不会用到未来信息
         # 否则就是用未来的bb信息来对上一期的已知的因子进行提纯，而这里因子暴露的计算lag不会影响归因时候的计算
         # 因为归因时候的计算会用没有lag的因子值和其他bb数据重新计算暴露
@@ -871,9 +869,7 @@ class single_factor_strategy(strategy):
     # 使用回归的方法检验因子间的相关性, 提出残差, 根据残差大小来检验因子间的相关性
     def get_factor_corr_test(self, bb_obj, *, reg_weight=1, add_constant=False, use_factor_expo=True,
                                 expo_weight=1):
-        # 计算因子暴露
-        bb_obj.just_get_factor_expo()
-        # 同样要进行lag
+        # 要进行lag
         lag_bb_expo = bb_obj.bb_data.factor_expo.shift(1).reindex(major_axis=bb_obj.bb_data.factor_expo.major_axis)
 
         self.get_factor_corr_gs_orth(lag_bb_expo, reg_weight=reg_weight, add_constant=add_constant,
@@ -952,8 +948,8 @@ class single_factor_strategy(strategy):
         else:
             # 将bb的股票池改为当前股票池
             bb_obj.bb_data.stock_pool = stock_pool
-            # 根据股票池生成标记，注意：股票池数据不需要shift，因为这里的barrabase数据是用来事后归因的，不涉及策略构成
-            bb_obj.bb_data.handle_stock_pool(shift=False)
+            # 根据股票池, 生成因子值, 同时生成暴露值
+            bb_obj.construct_barra_base()
 
         # 将回测的基准改为当前的股票池，若为all，则用默认的基准值
         if stock_pool != 'all':
@@ -999,10 +995,7 @@ class single_factor_strategy(strategy):
             self.select_stocks_within_indus(weight=3, direction=direction, select_ratio=[0.8, 1])
         elif select_method == 2 or select_method == 3:
             # 用构造纯因子组合的方法选股，2为组合自己是纯因子组合，3为组合相对基准是纯因子组合
-            # 首先和计算纯因子一样，要计算bb因子的暴露
-            if bb_obj.bb_data.factor_expo.empty:
-                bb_obj.just_get_factor_expo()
-            # 同样需要lag
+            # 首先和计算纯因子一样，要bb因子的暴露, 且同样需要lag
             lag_bb_expo = bb_obj.bb_data.factor_expo.shift(1).reindex(major_axis=bb_obj.bb_data.factor_expo.major_axis)
             # 同样不能有country factor
             lag_bb_expo_no_cf = lag_bb_expo.drop('country_factor', axis=0)

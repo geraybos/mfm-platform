@@ -85,8 +85,9 @@ class performance_attribution(object):
             self.bb.construct_barra_base()
         else:
             self.bb = outside_bb
-            # 外部的bb，可能股票池并不等于当前股票池，需要对当前股票池重新计算暴露
-            self.bb.just_get_factor_expo()
+            # 外部的bb，如果没有factor expo则也需要再次计算
+            if self.bb.bb_data.factor_expo.empty:
+                self.bb.construct_barra_base()
             pass
 
     # 进行业绩归因

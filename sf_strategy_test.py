@@ -41,7 +41,6 @@ def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', d
     # 建立bb对象，否则之后每次循环都要建立一次新的bb对象
     if bb_obj == 'Empty':
         bb_obj = barra_base()
-        bb_obj.just_get_sytle_factor()
     # 外部传入的bb对象，要检测其股票池是否为all，如果不是all，则输出警告，因为可能丢失了数据
     elif bb_obj.bb_data.stock_pool != 'all':
         print('The stockpool of the barra_base obj from outside is NOT "all", be aware of possibile'
@@ -82,7 +81,6 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
     # 建立bb对象，否则之后每次循环都要建立一次新的bb对象
     if bb_obj == 'Empty':
         bb_obj = barra_base()
-        bb_obj.just_get_sytle_factor()
     # 外部传入的bb对象，要检测其股票池是否为all，如果不是all，则输出警告，因为可能丢失了数据
     elif bb_obj.bb_data.stock_pool != 'all':
         print('The stockpool of the barra_base obj from outside is NOT "all", be aware of possibile'
@@ -170,15 +168,15 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 # # orth_mom = strategy_data.simple_orth_gs(ii.intangible_return, bb)
 # orth_mom = orth_mom[0]
 
-sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'), holding_freq='w',
-                       bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['zz500'],
-                       do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
-                       do_data_description=False, do_factor_corr_test=False)
+# sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'), holding_freq='w',
+#                        bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['all'],
+#                        do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
+#                        do_data_description=False, do_factor_corr_test=False)
 
-# sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),
-#                                 bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300', 'zz500'],
-#                                 do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
-#                                 do_data_description=False, holding_freq='w', do_factor_corr_test=False)
+sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),
+                                bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300', 'zz500', 'all', 'zz800'],
+                                do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
+                                do_data_description=False, holding_freq='w', do_factor_corr_test=False)
 
 
 
