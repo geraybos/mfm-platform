@@ -293,13 +293,14 @@ class intangible_info_earnings(intangible_info):
                                     shift=True)
         ret = np.log(price_data['ClosePrice_adj'] / price_data['ClosePrice_adj'].shift(1))
         ret = ret.fillna(0)
-        exp_w = barra_base.construct_expo_weights(126, 504)
-        mom504 = ret.rolling(504).apply(lambda x: (x * exp_w).sum())
+        exp_w = barra_base.construct_expo_weights(5, 21)
+        mom504 = ret.rolling(21).apply(lambda x: (x * exp_w).sum())
 
-        # bb = data.read_data(['rv', 'liquidity', 'lncap', 'runner_value_36', 'runner_value_5'], shift=True)
-        bb = data.read_data(['runner_value_36', 'runner_value_5'], shift=True)
+        # bb = data.read_data(['rv', 'liquidity', 'lncap', 'runner_value_36'], shift=True)
+        bb = data.read_data(['runner_value_36'], shift=True)
 
         # 过滤数据
+        self.strategy_data.handle_stock_pool()
         mom504 = mom504.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
         for item, df in bb.iteritems():
             bb[item] = df.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)

@@ -168,15 +168,15 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 # # orth_mom = strategy_data.simple_orth_gs(ii.intangible_return, bb)
 # orth_mom = orth_mom[0]
 
-# sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'), holding_freq='w',
-#                        bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['all'],
-#                        do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
-#                        do_data_description=False, do_factor_corr_test=False)
+sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'), holding_freq='w',
+                       bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['zz500'],
+                       do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
+                       do_data_description=False, do_factor_corr_test=False)
 
-sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),
-                                bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300', 'zz500', 'all', 'zz800'],
-                                do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
-                                do_data_description=False, holding_freq='w', do_factor_corr_test=False)
+# sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),
+#                                 bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300', 'zz500'],
+#                                 do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+#                                 do_data_description=False, holding_freq='w', do_factor_corr_test=False)
 
 
 
