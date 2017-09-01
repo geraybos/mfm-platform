@@ -959,8 +959,8 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
     bb = barra_base()
-    bb.bb_data.stock_pool = 'zz800'
-    bb.try_to_read = False
+    bb.bb_data.stock_pool = 'cyb'
+    bb.try_to_read = True
     bb.construct_barra_base(if_save=True)
     bb.get_bb_factor_return(if_save=True)
 #     bb.update_barra_base_factor_data()

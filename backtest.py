@@ -229,36 +229,9 @@ class backtest(object):
                 
                 # 根据预计持仓矩阵，进行实际交易
                 self.execute_real_trading(curr_time, cursor, proj_vol_holding)
-                
-        # 循环结束，开始计算持仓的序列
-        self.real_pct_position.holding_matrix = self.real_vol_position.holding_matrix.mul(self.bkt_data.stock_price.\
-                                ix['ClosePrice_adj']).fillna(0.0). \
-                                apply(lambda x: x if (x==0).all() else x.div(x.sum()), axis=1)
-        
-        # 计算账面的价值，注意，这里的账面价值没有加上资金中不能用于投资的部分（即1-trade_ratio那部分）
-        self.account_value = (self.real_vol_position.holding_matrix * 100 * \
-                              self.bkt_data.stock_price.ix['ClosePrice_adj', :, :]).sum(1) + \
-                              self.cash
-                              
-        # 我们的账面价值序列，如果第一天就调仓（默认就是这种情况），最开始会不是初始资金，因此在第一行加入初始资金行
-        # 初始资金这一行的时间设定为回测开始时间的前一秒
-        base_time = self.bkt_start - pd.tseries.offsets.Second(1)
-        base_value = pd.Series(self.initial_money * self.trade_ratio, index = [base_time])
-        # 拼接在一起
-        self.account_value = pd.concat([base_value, self.account_value])
-        # 拼接benchmark价值序列，本来第一项应当是回测开始那天的指数开盘价, 但是由于全收益指数没有开盘价,
-        # 因此只能用第一天的收盘价替代, 即第一天基准指数的收益率一定是0
-        benchmark_base_value = pd.Series(self.benchmark_value.iloc[0], index = [base_time])
-        self.benchmark_value = pd.concat([benchmark_base_value, self.benchmark_value])
 
-        # 计算每天的持股数
-        self.info_series['holding_num'] = (self.real_vol_position.holding_matrix != 0).sum(1)
-        # 计算手续费所占总价值序列的比例, 注意是占上个交易日的账户价值的比例,
-        # 以及不要第一项(即加入的回测开始前1秒那一项)
-        self.info_series['cost_ratio'] = (self.info_series['cost_value']/self.account_value.shift(1)).dropna()
-        # 计算真实的股票仓位的持仓比例和目标持仓比例的差别
-        self.info_series['holding_diff'] = self.real_pct_position.holding_matrix.sub(
-            self.tar_pct_position.holding_matrix).abs().sum(1)
+        # 进行循环结束后, 回测的收尾处理, 包括计算实际持仓矩阵, 账户价值序列, 以及计算一些需要的信息
+        self.finalize_backtest()
 
     # 单独处理回测的第一期，因为这一期没有cursor-1项
     def deal_with_first_day(self, curr_time, curr_tar_pct_holding):
@@ -335,9 +308,10 @@ class backtest(object):
                 # 总交易额, 及总换手率
                 self.info_series.ix[0, 'trading_value'] = self.info_series.ix[0, 'sell_value'] + \
                     self.info_series.ix[0, 'buy_value']
-                # 算换手率时, 由于第一天没有持仓, 因此用初始资金做分母
+                # 算换手率时, 由于第一天没有持仓, 因此用初始资金做分母,
+                # 不过初始资金需要乘以2, 即买卖只算一次
                 self.info_series.ix[0, 'turnover_ratio'] = self.info_series.ix[0, 'trading_value'] / \
-                    (self.initial_money * self.trade_ratio)
+                    (2 * self.initial_money * self.trade_ratio)
 
     # 处理持有的当日退市的股票
     def deal_with_held_delisted(self, curr_time, cursor):
@@ -450,12 +424,48 @@ class backtest(object):
         self.info_series.ix[cursor, 'trading_value'] = self.info_series.ix[cursor, 'sell_value'] +\
             self.info_series.ix[cursor, 'buy_value']
         # 遇到回测期第一天非调仓日的, 持仓价值可能为0, 因此用cash代替
+        # 另外, 这里的换手率计算, 要将base value乘以2, 即买卖只算一次
         if self.info_series.ix[cursor, 'holding_value'] == 0:
             self.info_series.ix[cursor, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] / \
-                self.cash.iloc[cursor-1]
+                (2 * self.cash.iloc[cursor-1])
         else:
-            self.info_series.ix[cursor, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] /\
-                self.info_series.ix[cursor, 'holding_value']
+            self.info_series.ix[cursor, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] / \
+                (2 * self.info_series.ix[cursor, 'holding_value'])
+
+    # 执行回测的循环结束后的收尾函数, 主要功能是
+    # 1.根据回测得到的real_vol_position计算real_pct_position
+    # 2.根据实际持仓矩阵, 计算回测结果的账面价值, 生成价值序列, 价值序列可用于计算策略表现,
+    # 进行归因等. 其他的功能包括总结计算info series里需要计算的那些关于回测的信息
+    def finalize_backtest(self):
+        # 循环结束，开始计算持仓的序列
+        self.real_pct_position.holding_matrix = self.real_vol_position.holding_matrix.mul(self.bkt_data.stock_price.\
+                                ix['ClosePrice_adj']).fillna(0.0). \
+                                apply(lambda x: x if (x==0).all() else x.div(x.sum()), axis=1)
+
+        # 计算账面的价值，注意，这里的账面价值没有加上资金中不能用于投资的部分（即1-trade_ratio那部分）
+        self.account_value = (self.real_vol_position.holding_matrix * 100 * \
+                              self.bkt_data.stock_price.ix['ClosePrice_adj', :, :]).sum(1) + \
+                             self.cash
+
+        # 我们的账面价值序列，如果第一天就调仓（默认就是这种情况），最开始会不是初始资金，因此在第一行加入初始资金行
+        # 初始资金这一行的时间设定为回测开始时间的前一秒
+        base_time = self.bkt_start - pd.tseries.offsets.Second(1)
+        base_value = pd.Series(self.initial_money * self.trade_ratio, index=[base_time])
+        # 拼接在一起
+        self.account_value = pd.concat([base_value, self.account_value])
+        # 拼接benchmark价值序列，本来第一项应当是回测开始那天的指数开盘价, 但是由于全收益指数没有开盘价,
+        # 因此只能用第一天的收盘价替代, 即第一天基准指数的收益率一定是0
+        benchmark_base_value = pd.Series(self.benchmark_value.iloc[0], index=[base_time])
+        self.benchmark_value = pd.concat([benchmark_base_value, self.benchmark_value])
+
+        # 计算每天的持股数
+        self.info_series['holding_num'] = (self.real_vol_position.holding_matrix != 0).sum(1)
+        # 计算手续费所占总价值序列的比例, 注意是占上个交易日的账户价值的比例,
+        # 以及不要第一项(即加入的回测开始前1秒那一项)
+        self.info_series['cost_ratio'] = (self.info_series['cost_value'] / self.account_value.shift(1)).dropna()
+        # 计算真实的股票仓位的持仓比例和目标持仓比例的差别
+        self.info_series['holding_diff'] = self.real_pct_position.holding_matrix.sub(
+            self.tar_pct_position.holding_matrix).abs().sum(1)
             
     # 仅仅初始化performance类，只得到净值和收益数据，而不输出指标和画图
     def initialize_performance(self):

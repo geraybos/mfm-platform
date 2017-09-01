@@ -441,7 +441,7 @@ class database(object):
         sql_query = "select b.TradingDay, a.SecuCode, b.ClosePrice, b.OpenPrice from "\
                     "(select distinct InnerCode, SecuCode from SecuMain "\
                     "where SecuCode in ('000016','000300','000902','000905','000906','H00016','H00300'," \
-                    "'H00905','H00906') and SecuCategory=4) a "\
+                    "'H00905','H00906', '399005', '399006', '399333', '399606') and SecuCategory=4) a "\
                     "left join (select InnerCode, TradingDay, ClosePrice, OpenPrice from QT_IndexQuote "\
                     "where TradingDay>='" + str(self.trading_days.iloc[0]) + "' and TradingDay<='" + \
                     str(self.trading_days.iloc[-1]) + "') b "\
@@ -453,31 +453,32 @@ class database(object):
         index_open_price = index_open_price.reindex(self.data.stock_price.major_axis)
         # 鉴于指数行情的特殊性，将指数行情都存在benchmark price中的每个item的第一列
         index_name = {'000016': 'sz50', '000300': 'hs300', '000902': 'zzlt',
-                      '000905': 'zz500', '000906': 'zz800'}
+                      '000905': 'zz500', '000906': 'zz800', '399005': 'zxb', '399006': 'cyb'}
         for key in index_name:
             self.data.benchmark_price.ix['ClosePrice_'+index_name[key], :, 0] = index_close_price[key].values
             self.data.benchmark_price.ix['OpenPrice_'+index_name[key], :, 0] = index_open_price[key].values
         # 全收益指数只有收盘价, 而且没有中证流通指数的全收益
-        index_adj_name = {'H00016':'adj_sz50', 'H00300':'adj_hs300', 'H00905':'adj_zz500', 'H00906':'adj_zz800'}
+        index_adj_name = {'H00016':'adj_sz50', 'H00300':'adj_hs300', 'H00905':'adj_zz500', 'H00906':'adj_zz800',
+                          '399333':'adj_zxb', '399606': 'adj_cyb'}
         for key in index_adj_name:
             self.data.benchmark_price.ix['ClosePrice_'+index_adj_name[key], :, 0] = index_close_price[key].values
         pass
 
     # 取指数权重数据
     def get_index_weight(self, *, first_date=pd.Timestamp('1900-01-01')):
-        # sql_query = "select b.EndDate, a.SecuCode as index_code, c.SecuCode as comp_code, b.Weight/100 as Weight from "\
-        #             "(select distinct InnerCode, SecuCode from SecuMain "\
-        #             "where SecuCode in ('000001','000016','000300','000905','000906') and SecuCategory=4) a "\
-        #             "left join (select EndDate, IndexCode, InnerCode, Weight from LC_IndexComponentsWeight "\
-        #             "where EndDate>='" + str(first_date) + "' and EndDate<='" + \
-        #             str(self.trading_days.iloc[-1]) + "') b "\
-        #             "on a.InnerCode=b.IndexCode "\
-        #             "left join (select distinct InnerCode, SecuCode from SecuMain) c "\
-        #             "on b.InnerCode=c.InnerCode "\
-        #             "order by EndDate, index_code, comp_code "
-        # weight_data = self.jydb_engine.get_original_data(sql_query)
-        # index_weight = weight_data.pivot_table(index='EndDate', columns=['index_code', 'comp_code'],
-        #                                        values='Weight', aggfunc='first')
+        # 一些不那么重要的指数的权重数据,如中小板, 创业板指数, 没有放入SmartQuant里, 因此还是需要从这里取
+        # 这些不重要的指数主要是用作研究用, 实际上并不能做空这些指数
+        sql_query_minor = "select b.EndDate, a.SecuCode as index_code, c.SecuCode as comp_code, " \
+                    "b.Weight/100 as Weight from (select distinct InnerCode, SecuCode from SecuMain "\
+                    "where SecuCode in ('399005', '399006') and SecuCategory=4) a "\
+                    "left join (select EndDate, IndexCode, InnerCode, Weight from LC_IndexComponentsWeight "\
+                    "where EndDate>='" + str(first_date) + "' and EndDate<='" + \
+                    str(self.trading_days.iloc[-1]) + "') b "\
+                    "on a.InnerCode=b.IndexCode "\
+                    "left join (select distinct InnerCode, SecuCode from SecuMain) c "\
+                    "on b.InnerCode=c.InnerCode "\
+                    "order by EndDate, index_code, comp_code "
+        weight_data_minor = self.jydb_engine.get_original_data(sql_query_minor)
 
         # 从衔接了聚源数据和国泰安数据(2015年后)的表中取指数权重数据), 这个数据从2015年开始就有日度的指数权重数据了
         sql_query = "select b.EndDate, a.SecuCode as index_code, c.SecuCode as comp_code, " \
@@ -490,11 +491,13 @@ class database(object):
                     "SecuCode from SecuMain) c on b.SecuInnerCode=c.InnerCode " \
                     "order by EndDate, index_code, comp_code"
         weight_data = self.jydb_engine.get_original_data(sql_query)
+        # 把两组数据衔接起来一起使用
+        weight_data = weight_data.append(weight_data_minor)
         index_weight = weight_data.pivot_table(index='EndDate', columns=['index_code', 'comp_code'],
                                                values='Weight')
 
         index_name = {'000016': 'sz50', '000300': 'hs300', '000902': 'zzlt',
-                      '000905': 'zz500', '000906': 'zz800'}
+                      '000905': 'zz500', '000906': 'zz800', '399005': 'zxb', '399006': 'cyb'}
         # 更新数据的时候可能出现更新时间段没有新数据的情况，要处理这种情况
         if index_weight.empty:
             index_weight = pd.DataFrame(np.nan, index=self.data.stock_price.major_axis,columns=
@@ -607,7 +610,7 @@ class database(object):
                               'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'CFO_ttm', 'NetIncome_ttm',
                               'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
         if_tradable_name_list = ['is_suspended', 'is_enlisted', 'is_delisted']
-        benchmark_index_name = ['sz50', 'hs300', 'zzlt', 'zz500', 'zz800']
+        benchmark_index_name = ['sz50', 'hs300', 'zzlt', 'zz500', 'zz800', 'zxb', 'cyb']
         benchmark_data_type = ['ClosePrice', 'OpenPrice', 'Weight', 'ClosePrice_adj']
         benchmark_price_name_list = [a+'_'+b for a in benchmark_data_type for b in benchmark_index_name]
         # 注意中证流通指数没有closeprice adj, 即全收益数据
@@ -686,11 +689,12 @@ if __name__ == '__main__':
     db.get_trading_days()
     db.get_labels()
     # db.get_AdjustFactor()
-    db.get_existing_factor(5)
+    # db.get_existing_factor(5)
     # db.get_ClosePrice_adj()
-    # db.get_index_price()
-    # db.get_index_weight()
-    data.write_data(db.data.stock_price, file_name=['runner_value_5'])
+    db.get_index_price()
+    db.get_index_weight()
+    data.write_data(db.data.benchmark_price)
+    # data.write_data(db.data.stock_price, file_name=['runner_value_5'])
     print("time: {0} seconds\n".format(time.time()-start_time))
 
 

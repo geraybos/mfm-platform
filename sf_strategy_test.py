@@ -49,9 +49,9 @@ def sf_test_multiple_pools(factor='default', *, direction='+', bb_obj='Empty', d
     # 根据股票池进行循环
     for stock_pool in stock_pools:
         # 建立单因子测试对象
-        # curr_sf = single_factor_strategy()
+        curr_sf = single_factor_strategy()
         from intangible_info import intangible_info_earnings
-        curr_sf = intangible_info_earnings()
+        # curr_sf = intangible_info_earnings()
 
         # 进行当前股票池下的单因子测试
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
@@ -168,9 +168,9 @@ def sf_test_multiple_pools_parallel(factor='default', *, direction='+', bb_obj='
 # # orth_mom = strategy_data.simple_orth_gs(ii.intangible_return, bb)
 # orth_mom = orth_mom[0]
 
-sf_test_multiple_pools(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'), holding_freq='w',
+sf_test_multiple_pools(factor='growth_zz500', direction='+', bkt_start=pd.Timestamp('2010-04-02'), holding_freq='w',
                        bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['zz500'],
-                       do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
+                       do_bb_pure_factor=False, do_pa=False, select_method=0, do_active_pa=True,
                        do_data_description=False, do_factor_corr_test=False)
 
 # sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),

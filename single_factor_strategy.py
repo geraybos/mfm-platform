@@ -22,10 +22,11 @@ from strategy_data import strategy_data
 from position import position
 from strategy import strategy
 from backtest import backtest
+from dynamic_backtest import dynamic_backtest
 from barra_base import barra_base
 
 
-# 单因子表现测试
+# 单因子策略的类, 包括测试单因子表现的单因子测试模块
 
 class single_factor_strategy(strategy):
     """ Single factor test strategy.
@@ -65,9 +66,6 @@ class single_factor_strategy(strategy):
                       use_factor_expo = True, expo_weight = 1):
         # 对调仓期进行循环
         for cursor, time in self.holding_days.iteritems():
-            if time == pd.Timestamp('2010-05-04'):
-                print('a')
-                pass
             curr_factor_data = self.strategy_data.factor.ix[0, time, :]
             # 对因子值进行排序，注意这里的秩（rank），类似于得分
             if direction is '+':
@@ -373,6 +371,21 @@ class single_factor_strategy(strategy):
         print(output_str)
 
         pass
+
+    # 初始化回测对象, 为构造动态化的策略做准备
+    def initialize_dynamic_backtest(self, *, bkt_obj=None, bkt_start='default', bkt_end='default'):
+        # 如果有外来的回测对象, 则使用这个对象
+        if isinstance(bkt_obj, dynamic_backtest):
+            self.dy_bkt = bkt_obj
+        # 如果没有, 则自己建立这个对象
+        else:
+            # 如果自身的持仓矩阵还是空的, 则需要建立持仓矩阵
+            if self.position.holding_matrix.empty:
+                # 持仓矩阵的日期由调仓日决定, 持仓矩阵的股票油策略数据类里的股票决定
+                if self.holding_days.empty:
+                    self.generate_holding_days()
+                self.initialize_position(self.strategy_data.stock_price.ix[0, self.holding_days, :])
+            self.dy_bkt = dynamic_backtest(self.position, bkt_start=bkt_start, bkt_end=bkt_end)
 
     # 单因子的因子收益率计算和检验，用来判断因子有效性，
     # holding_freq为回归收益的频率，默认为月，可调整为与调仓周期一样，也可不同

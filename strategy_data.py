@@ -279,7 +279,7 @@ class strategy_data(data):
     # 目前，基于barra的业绩归因、barra基础因子内部回归都可以用这个线性回归模型，暂不支持新增因子
     @staticmethod
     def constrained_gls_barra_base(asset_return, bb, *, weights='default', indus_ret_weights = 'default',
-                                   n_style = 10, n_indus=28):
+                                   n_style=10, n_indus=28):
         """Solving constrained gls problem using quadratic programming.
         
         asset_return: return of asset universe.
@@ -327,6 +327,10 @@ class strategy_data(data):
         num_valid_all = x.shape[1]
         num_valid_indus = final_weight.shape[0]
         num_valid_style = num_valid_all - num_valid_indus - 1
+
+        # 如果有效的观测数据个数小于有效因子数, 则优化问题无解, 直接返回nan
+        if x.shape[0] < num_valid_all:
+            return [np.full(n_style+n_indus+1, np.nan), pd.Series(np.nan, index=x.index)]
 
         # 设置行业因子收益的加权求和限制为0
         indus_cons = pd.Series(np.arange(num_valid_all) * 0)
