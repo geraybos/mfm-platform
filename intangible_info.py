@@ -288,28 +288,31 @@ class intangible_info_earnings(intangible_info):
         self.get_table3()
 
     def construct_factor(self):
-        price_data = data.read_data(['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
-                                    ['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
-                                    shift=True)
-        ret = np.log(price_data['ClosePrice_adj'] / price_data['ClosePrice_adj'].shift(1))
-        ret = ret.fillna(0)
-        exp_w = barra_base.construct_expo_weights(126, 504)
-        mom504 = ret.rolling(504).apply(lambda x: (x * exp_w).sum())
+        # price_data = data.read_data(['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
+        #                             ['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
+        #                             shift=True)
+        # ret = np.log(price_data['ClosePrice_adj'] / price_data['ClosePrice_adj'].shift(1))
+        # ret = ret.fillna(0)
+        # exp_w = barra_base.construct_expo_weights(5, 21)
+        # mom = ret.rolling(21).apply(lambda x: (x * exp_w).sum())
 
-        bb = data.read_data(['rv', 'liquidity', 'lncap', 'runner_value_36'], shift=True)
+        mom = data.read_data(['runner_value_8'], shift=True)
+        mom = - mom['runner_value_8']
+
+        bb = data.read_data(['rv', 'liquidity', 'lncap'], shift=True)
         # bb = data.read_data(['runner_value_36'], shift=True)
 
         # 过滤数据
-        self.strategy_data.handle_stock_pool()
-        mom504 = mom504.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
+        # self.strategy_data.handle_stock_pool()
+        mom = mom.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
         for item, df in bb.iteritems():
             bb[item] = df.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
 
         # 进行回归
-        orth_mom = strategy_data.simple_orth_gs(mom504, bb)
-        orth_mom = orth_mom[0]
+        orth_mom = strategy_data.simple_orth_gs(mom, bb)
+        orth_mom = - orth_mom[0]
 
-        self.strategy_data.factor = pd.Panel({'mom':-orth_mom})
+        self.strategy_data.factor = pd.Panel({'mom':orth_mom})
 
 
 if __name__ == '__main__':

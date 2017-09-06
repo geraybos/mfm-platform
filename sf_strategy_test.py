@@ -174,7 +174,7 @@ sf_test_multiple_pools(factor='growth_zz500', direction='+', bkt_start=pd.Timest
                        do_data_description=False, do_factor_corr_test=False)
 
 # sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),
-#                                 bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['hs300', 'zz500'],
+#                                 bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['sz50', 'zxb', 'cyb', 'hs300', 'zz500'],
 #                                 do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
 #                                 do_data_description=False, holding_freq='w', do_factor_corr_test=False)
 

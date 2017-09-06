@@ -309,9 +309,9 @@ class backtest(object):
                 self.info_series.ix[0, 'trading_value'] = self.info_series.ix[0, 'sell_value'] + \
                     self.info_series.ix[0, 'buy_value']
                 # 算换手率时, 由于第一天没有持仓, 因此用初始资金做分母,
-                # 不过初始资金需要乘以2, 即买卖只算一次
+                # 这里初始资金不需要乘以2, 更好的方法是加入现金的变化, 这个等加入现金资产后再来改
                 self.info_series.ix[0, 'turnover_ratio'] = self.info_series.ix[0, 'trading_value'] / \
-                    (2 * self.initial_money * self.trade_ratio)
+                    (self.initial_money * self.trade_ratio)
 
     # 处理持有的当日退市的股票
     def deal_with_held_delisted(self, curr_time, cursor):
@@ -425,9 +425,10 @@ class backtest(object):
             self.info_series.ix[cursor, 'buy_value']
         # 遇到回测期第一天非调仓日的, 持仓价值可能为0, 因此用cash代替
         # 另外, 这里的换手率计算, 要将base value乘以2, 即买卖只算一次
+        # 同样的, 第一次调仓的时候不需要乘以2, 更好的方法等加入现金资产后再来对这里进行修改
         if self.info_series.ix[cursor, 'holding_value'] == 0:
             self.info_series.ix[cursor, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] / \
-                (2 * self.cash.iloc[cursor-1])
+                (self.cash.iloc[cursor-1])
         else:
             self.info_series.ix[cursor, 'turnover_ratio'] = self.info_series.ix[cursor, 'trading_value'] / \
                 (2 * self.info_series.ix[cursor, 'holding_value'])

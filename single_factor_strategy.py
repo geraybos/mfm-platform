@@ -708,7 +708,7 @@ class single_factor_strategy(strategy):
     # 如果当前因子已经是计算过的因子暴露了, 则使用False, 否则会winsorize两次
     # expo weight为计算暴露时计算barra风格的市值加权暴露还是简单的暴露, 1为市值加权暴露, 0为简单暴露
     # get_expo_again为指示对提纯后的残差因子是否要再次计算暴露, 计算暴露的话, 不能再winsorize
-    # 再次计算暴露后的因子将不再与base中的因子正交, 但是确拥有了和其他因子暴露之间的可比性
+    # 再次计算暴露后的因子将不再与base中的因子正交, 但是却拥有了和其他因子暴露之间的可比性
     # 如不再次计算暴露, 则保留了正交性, 不再与其他因子暴露之间可比, 但是用回归的方法算因子收益的时候
     # 可以得到相对base因子的纯因子收益, 在这个角度上更有参考性, 因此是否重新计算暴露, 两者都会经常用到
     def get_pure_factor_gs_orth(self, base_expo, *, do_active_bb_pure_factor=False, reg_weight=1,
