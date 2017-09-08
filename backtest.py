@@ -28,10 +28,9 @@ class backtest(object):
     foo
     """
     
-    def __init__(self, bkt_position, *, initial_money=100000000, trade_ratio=0.95,
-                 buy_cost=1.5/1000, sell_cost=1.5/1000, bkt_start=None, bkt_end=None,
-                 risk_free_rate=0.0, bkt_stock_data=None, bkt_benchmark_data=None,
-                 infinitesimal=1e-4):
+    def __init__(self, bkt_position, *, initial_money=100000000, buy_cost=1.5/1000,
+                 sell_cost=1.5/1000, bkt_start=None, bkt_end=None, risk_free_rate=None,
+                 bkt_stock_data=None, bkt_benchmark_data=None, infinitesimal=1e-4):
         """ Initialize backtest object.
         
         foo
@@ -83,6 +82,20 @@ class backtest(object):
         assert not stock_in_condition.any(), \
                'Some stocks in the input holding matrix are NOT included in the backtest database, '\
                'please check it carefully!\n'
+
+        # 读取无风险利率数据
+        if isinstance(risk_free_rate, pd.Series):
+            self.risk_free_rate = risk_free_rate
+        elif os.path.isfile('const_data.csv'):
+            self.bkt_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True,
+                                                   encoding='GB18030')
+            if 'risk_free' in self.bkt_data.const_data.columns:
+                self.risk_free_rate = self.bkt_data.const_data['risk_free']
+            else:
+                self.risk_free_rate = pd.Series(0.0, index=self.bkt_data.const_data.index)
+        else:
+            self.risk_free_rate = pd.Series(0.0, index=self.bkt_data.stock_price.major_axis)
+
         # 检测回测数据是否覆盖了回测时间段
         # 检测起始时间
         if bkt_start is None:
@@ -125,13 +138,11 @@ class backtest(object):
             self.bkt_end = default_end
         else:
             self.bkt_end = bkt_end
-            
+
         # 对回测的其他数据进行初始化
         self.initial_money = initial_money
-        self.trade_ratio = trade_ratio
         self.buy_cost = buy_cost
         self.sell_cost = sell_cost
-        self.risk_free_rate = risk_free_rate
         
         # 以回测期（而不是回测数据期或调仓期）为时间索引的持仓量矩阵，注意vol的持仓单位为手，pct的持仓单位为百分比
         start_loc = self.bkt_data.stock_price.major_axis.get_loc(self.bkt_start)
@@ -140,8 +151,10 @@ class backtest(object):
         self.tar_pct_position = position(backtest_period_holding_matrix)
         # 初始化持仓目标矩阵
         self.tar_pct_position.holding_matrix = self.bkt_position.holding_matrix.reindex(
-                                               index = self.tar_pct_position.holding_matrix.index, 
-                                               method = 'ffill')
+            index=self.tar_pct_position.holding_matrix.index, method='ffill')
+        self.tar_pct_position.cash_ratio = self.bkt_position.cash_ratio.reindex(
+            index=self.tar_pct_position.cash_ratio.index, method='ffill')
+
         # 初始化实际持仓矩阵
         self.real_vol_position = position(backtest_period_holding_matrix)
         # 初始化实际持仓的百分比
@@ -150,17 +163,17 @@ class backtest(object):
         self.tar_vol_position = position(backtest_period_holding_matrix)
         
         # 将回测数据期也调整为回测期
-        self.bkt_data.stock_price = data.align_index(self.tar_pct_position.holding_matrix, self.bkt_data.stock_price, 
-                                                     axis = 'major')
-        self.bkt_data.benchmark_price = data.align_index(self.tar_pct_position.holding_matrix, self.bkt_data.benchmark_price, 
-                                                         axis = 'major')
-        self.bkt_data.if_tradable = data.align_index(self.tar_pct_position.holding_matrix, self.bkt_data.if_tradable, 
-                                                     axis = 'major')
+        self.bkt_data.stock_price = data.align_index(self.tar_pct_position.holding_matrix,
+            self.bkt_data.stock_price, axis = 'major')
+        self.bkt_data.benchmark_price = data.align_index(self.tar_pct_position.holding_matrix,
+            self.bkt_data.benchmark_price, axis = 'major')
+        self.bkt_data.if_tradable = data.align_index(self.tar_pct_position.holding_matrix,
+            self.bkt_data.if_tradable, axis = 'major')
         
         # 初始化回测要用到的现金数据：
         self.cash = pd.Series(np.zeros(self.real_vol_position.holding_matrix.shape[0]), 
-                                 index = self.real_vol_position.holding_matrix.index)
-        self.cash.ix[0] = self.initial_money*self.trade_ratio
+                                index=self.real_vol_position.holding_matrix.index)
+        self.cash.ix[0] = self.initial_money * (1 - self.bkt_position.cash_ratio.iloc[0])
         # 初始化回测得到的账户价值数据：
         self.account_value = []
         # 初始化计算业绩指标及作图用到的benchmark价值数据

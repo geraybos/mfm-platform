@@ -48,8 +48,8 @@ class strategy(object):
         pass
         
     # 选股函数，这里的选股函数为空
-    def select_stocks(self, *, select_ratio = [0.8, 1], direction = '+', weight = 0,
-                      use_factor_expo = True, expo_weight = 1):
+    def select_stocks(self, *, select_ratio=[0.8, 1], direction='+', weight=0, use_factor_expo=True,
+                      expo_weight=1):
         pass
     
     # 生成调仓日，这里的默认生成函数为直接从目录中读取

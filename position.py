@@ -19,16 +19,21 @@ class position(object):
     """ This is the class of holding matrix.
     
     holding_matrix (pd.DataFrame) : the holding_matrix of this position
+    cash_ratio(pd.Series): the cash position ratio of the whole position
     """
     
-    def __init__(self, standard='default'):
-        if standard is 'default':
+    def __init__(self, standard=None):
+        # 现金资产比例, 为一个series, 现金资产代表了持仓里的杠杆, 现金资产的比例越高, 则杠杆月越低
+        # 现在还不支持期货资产, 但是可以通过现金资产来模拟由于持有期货资产带来的保证金的影响
+        # 只要根据期货资产的保证金比例, 相应的转化成现金资产的比例,
+        # 就可以做到模拟持有期货资产保证金带来降杠杆的情况
+        if standard is None:
             self.holding_matrix = pd.DataFrame()
+            self.cash_ratio = pd.Series()
         else:
-            self.holding_matrix = pd.DataFrame(np.zeros(standard.shape), 
-                                               index=standard.index,
-                                               columns=standard.columns)
-        
+            self.holding_matrix = pd.DataFrame(0.0, index=standard.index, columns=standard.columns)
+            self.cash_ratio = pd.Series(0.0, index=standard.index)
+
     # 根据某一指标，对持仓进行加权，如对市值进行加权
     def weighted_holding(self, weights):
         """ Get the weighted holding matrix

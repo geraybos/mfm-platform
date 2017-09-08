@@ -41,10 +41,6 @@ class single_factor_strategy(strategy):
         self.strategy_data.stock_price = data.read_data(['FreeMarketValue'],['FreeMarketValue'],shift = True)
         # 用来画图的pdf对象
         self.pdfs = None
-        
-    # 读取因子数据的函数
-    def read_factor_data(self, file_name, factor_name, *, shift = True):
-        self.strategy_data.factor = data.read_data(file_name, factor_name, shift = shift)
 
     # 生成调仓日的函数
     # holding_freq为持仓频率，默认为月，这个参数将作为resample的参数
@@ -62,7 +58,7 @@ class single_factor_strategy(strategy):
         
     # 选取股票，选股比例默认为最前的80%到100%，方向默认为因子越大越好，weight=1为市值加权，0为等权
     # weight=3 为按照因子值加权, 需注意因子是否进行了标准化
-    def select_stocks(self, *, select_ratio = [0.8, 1], direction = '+', weight = 0,
+    def select_stocks(self, *, select_ratio=[0.8, 1], direction='+', weight=0,
                       use_factor_expo = True, expo_weight = 1):
         # 对调仓期进行循环
         for cursor, time in self.holding_days.iteritems():
@@ -120,7 +116,7 @@ class single_factor_strategy(strategy):
     # 分行业选股，跟上面的选股方式一样，只是在每个行业里选固定比例的股票
     # weight等于0为等权，等于1为直接市值加权，等于2则行业内等权, 行业间按基准加权
     # 等于3为行业内市值加权, 行业间按基准加权
-    def select_stocks_within_indus(self, *, select_ratio = [0.8, 1], direction = '+', weight=0):
+    def select_stocks_within_indus(self, *, select_ratio=[0.8, 1], direction='+', weight=0):
         # 读取行业数据：
         industry = data.read_data(['Industry'], ['Industry'])
         industry = industry['Industry']
@@ -945,7 +941,7 @@ class single_factor_strategy(strategy):
         # 如果传入的是str，则读取同名文件，如果是dataframe，则直接传入因子, 如果是None,
         # 则使用内部的构建因子函数construct_factor
         if type(factor) == str:
-            self.read_factor_data([factor], [factor], shift=True)
+            self.strategy_data.factor = data.read_data([factor], shift=True)
         elif factor is None:
             # 如果传入的是None, 那么看策略类本身是否有内部构建其因子的函数
             self.construct_factor()
