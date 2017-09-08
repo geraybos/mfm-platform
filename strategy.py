@@ -48,11 +48,12 @@ class strategy(object):
         pass
         
     # 选股函数，这里的选股函数为空
-    def select_stocks(self):
+    def select_stocks(self, *, select_ratio = [0.8, 1], direction = '+', weight = 0,
+                      use_factor_expo = True, expo_weight = 1):
         pass
     
     # 生成调仓日，这里的默认生成函数为直接从目录中读取
-    def generate_holding_days(self):
+    def generate_holding_days(self, *, holding_freq='w', start_date='default', end_date='default', loc=0):
         self.holding_days = pd.read_csv(str(os.path.abspath('.'))+'/holding_days.csv', 
                                         parse_dates = [0], squeeze = True)
         print('Please note that, as the default method, '

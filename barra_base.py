@@ -879,6 +879,9 @@ class barra_base(object):
         lag_mv = self.bb_data.stock_price.ix['FreeMarketValue'].shift(1)
         # 循环回归，计算因子收益
         for time, temp_data in self.bb_factor_return.iterrows():
+            if time == pd.Timestamp('2015-07-07'):
+                print('a')
+                pass
             outcome = strategy_data.constrained_gls_barra_base(
                        self.bb_data.stock_price.ix['daily_return', time, :],
                        lag_factor_expo.ix[:, time, :],
@@ -961,8 +964,8 @@ if __name__ == '__main__':
     bb = barra_base()
     bb.bb_data.stock_pool = 'cyb'
     bb.try_to_read = True
-    bb.construct_barra_base(if_save=True)
-    bb.get_bb_factor_return(if_save=True)
+    bb.construct_barra_base(if_save=False)
+    bb.get_bb_factor_return(if_save=False)
 #     bb.update_barra_base_factor_data()
     print("time: {0} seconds\n".format(time.time()-start_time))
     pass

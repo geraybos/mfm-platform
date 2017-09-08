@@ -28,9 +28,9 @@ class backtest(object):
     foo
     """
     
-    def __init__(self, bkt_position, *, initial_money = 100000000, trade_ratio = 0.95, 
-                 buy_cost = 1.5/1000, sell_cost = 1.5/1000, bkt_start = 'default', bkt_end = 'default',
-                 risk_free_rate = 0.0, bkt_stock_data = 'default', bkt_benchmark_data = 'default',
+    def __init__(self, bkt_position, *, initial_money=100000000, trade_ratio=0.95,
+                 buy_cost=1.5/1000, sell_cost=1.5/1000, bkt_start=None, bkt_end=None,
+                 risk_free_rate=0.0, bkt_stock_data=None, bkt_benchmark_data=None,
                  infinitesimal=1e-4):
         """ Initialize backtest object.
         
@@ -52,7 +52,7 @@ class backtest(object):
         # 初始化回测用到的股价数据类
         self.bkt_data = backtest_data()
         # 初始化股价数据，包括收盘价, vwap(交易量加权平均价)等
-        if bkt_stock_data == 'default':
+        if bkt_stock_data is None:
             self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','ClosePrice_adj'],
                                                   ['ClosePrice_adj','vwap_adj'])
         else:
@@ -61,7 +61,7 @@ class backtest(object):
         # 初始化基准价格数据，默认设为中证500，只需要收盘数据, 开盘数据只是为了初始化序列的第一个值
         # 注意, 因为做空期货实际上做空的是指数的全收益序列, 因此我们要计算基准的全收益价格序列
         # 基准指数的全收益价格序列没有开盘价, 因此只能全部用收盘价替代
-        if bkt_benchmark_data == 'default':
+        if bkt_benchmark_data is None:
             self.bkt_data.benchmark_price = data.read_data(['ClosePrice_adj_zz500'], ['ClosePrice_adj'])
         else:
             self.bkt_data.benchmark_price = data.read_data([bkt_benchmark_data], [bkt_benchmark_data])
@@ -85,7 +85,7 @@ class backtest(object):
                'please check it carefully!\n'
         # 检测回测数据是否覆盖了回测时间段
         # 检测起始时间
-        if bkt_start == 'default':
+        if bkt_start is None:
             assert self.bkt_data.stock_price.major_axis[0]<=self.bkt_position.holding_matrix.index[0], \
                    'The default start time of backtest is earlier than the start time in backtest database, '\
                    'please try to set a later start time which must be a trading day\n'
@@ -94,7 +94,7 @@ class backtest(object):
                    'The input start time of backtest is earlier than the start time in backteset database, '\
                    'please try to set a later start time which must be a trading day, or try to set it as default\n'
         # 检测结束时间
-        if bkt_end == 'default':
+        if bkt_end is None:
             # 如果回测数据中的最后一天直接在最后一个调仓日前，则直接报错
             assert self.bkt_data.stock_price.major_axis[-1]>self.bkt_position.holding_matrix.index[-1], \
                    'The default end time of backtest is later than the end time in backtest database, '\
@@ -114,12 +114,12 @@ class backtest(object):
         # 起始时间：默认为第一个调仓日，如有输入数据，则为输入数据和默认时间的较晚日期
         default_start = self.bkt_data.stock_price.major_axis[self.bkt_data.stock_price.major_axis.
                             get_loc(self.bkt_position.holding_matrix.index[0])]
-        if bkt_start == 'default':
+        if bkt_start is None:
             self.bkt_start = default_start
         else:
             self.bkt_start = max(default_start, bkt_start)
         # 停止时间：默认为最后一个调仓日后的21个交易日，如有输入数据，则以输入数据为准
-        if bkt_end == 'default':
+        if bkt_end is None:
             default_end = self.bkt_data.stock_price.major_axis[self.bkt_data.stock_price.major_axis.
                             get_loc(self.bkt_position.holding_matrix.index[-1])+21]
             self.bkt_end = default_end
@@ -171,9 +171,8 @@ class backtest(object):
                                             'holding_num', 'holding_sus', 'target_sus', 'buy_cap',
                                             'sell_bottom', 'holding_diff'])
         
-        # 暂时用一个警告的string初始化performance对象，防止提前调用此对象出错
-        self.bkt_performance = 'The performance object of this backtest object has NOT been initialized, '\
-                               'please try to call this attribute after call backtest.get_performance()\n'
+        # 初始化performance对象
+        self.bkt_performance = None
 
         # 初始化结束时，目标和实际持仓矩阵、回测数据都是一样的时间股票索引（即策略持仓股票为股票索引，回测期间为时间索引），
         # 传入的bkt_position股票索引是一样的，但是时间索引为调仓日的时间
@@ -476,7 +475,7 @@ class backtest(object):
             info_series=self.info_series, risk_free_rate = self.risk_free_rate, holding_days=holding_days)
             
     # 计算回测得到的收益率数据，得到业绩指标以及绘图
-    def get_performance(self, *, foldername='', pdfs='default'):
+    def get_performance(self, *, foldername='', pdfs=None):
         # 初始化performance对象
         self.initialize_performance()
         
@@ -489,9 +488,9 @@ class backtest(object):
     # is_real_world为是否对回测出的模拟真实数据进行归因，real_world_type为0，为使用回测的策略对数收益率
     # 为1，为使用策略的超额对数收益率（即对基准进行每日再平衡）， 为2，为使用策略超额净值计算出的超额收益率（即对基准进行调仓日再平衡）
     # 如果不使用模拟的真实数据进行归因，则使用日收益数据直接计算组合收益率，这种情况下，如进行超额归因，则是对基准进行每日再平衡
-    def get_performance_attribution(self, *, benchmark_weight='default', outside_bb='Empty', discard_factor=[],
+    def get_performance_attribution(self, *, benchmark_weight=None, outside_bb=None, discard_factor=[],
                                     show_warning=True, is_real_world=False, real_world_type=0,
-                                    foldername='', pdfs='default', enable_reading_pa_return=True):
+                                    foldername='', pdfs=None, enable_reading_pa_return=True):
         if is_real_world:
             if real_world_type == 0:
                 self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.log_return,
@@ -517,8 +516,10 @@ class backtest(object):
                 ideal_return = ideal_port_return * 1
             self.bkt_pa = performance_attribution(self.real_pct_position, ideal_return,
                                                   benchmark_weight=benchmark_weight)
+        # 设置归因警告提示
+        self.bkt_pa.show_warning = show_warning
         self.bkt_pa.execute_performance_attribution(outside_bb=outside_bb, discard_factor=discard_factor,
-                                                    show_warning=show_warning, foldername=foldername,
+                                                    foldername=foldername,
                                                     enable_reading_pa_return=enable_reading_pa_return)
         self.bkt_pa.plot_performance_attribution(foldername=foldername, pdfs=pdfs)
 

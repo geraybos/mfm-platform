@@ -23,19 +23,20 @@ class database(object):
 
     foo
     """
-    def __init__(self, *, start_date = 'default', end_date = datetime.now().date().strftime('%Y-%m-%d'), market="83"):
+    def __init__(self, *, start_date=None, end_date=pd.Timestamp(datetime.now().date().strftime('%Y-%m-%d')),
+                 market="83"):
         # 储存交易日表
         self.trading_days = pd.Series()
         # 数据库取出来后整理成型的数据
         self.data = data()
         # 聚源数据库的引擎
-        self.jydb_engine = 'NOT initialized yet!'
+        self.jydb_engine = None
         # smart quant数据库引擎，取常用的行情数据
-        self.sq_engine = 'NOT initialized yet!'
+        self.sq_engine = None
         # smart quant数据库中取出的数据
         self.sq_data = pd.DataFrame()
         # 朝阳永续数据库引擎，取分析师预期数据
-        self.gg_engine = 'NOT initialized yet!'
+        self.gg_engine = None
         # 所取数据的开始、截止日期，市场代码
         self.start_date = start_date
         self.end_date = end_date
@@ -63,9 +64,9 @@ class database(object):
         sql_query = "select TradingDate as trading_days from QT_TradingDayNew where SecuMarket=" +\
                     self.market +" and IfTradingDay=1 "
         # 如果指定了开始结束日期，则选取开始结束日期之间的交易日
-        if self.start_date != 'default':
+        if isinstance(self.start_date, pd.Timestamp):
             sql_query = sql_query + "and TradingDate>=" + "'" + str(self.start_date) + "' "
-        if self.end_date != 'default':
+        if isinstance(self.end_date, pd.Timestamp):
             sql_query = sql_query + "and TradingDate<=" + "'" + str(self.end_date) + "' "
         sql_query = sql_query + 'order by trading_days'
 
@@ -583,7 +584,7 @@ class database(object):
            self.save_data()
 
     # 更新数据的主函数
-    def update_data_from_db(self, *, end_date='default'):
+    def update_data_from_db(self, *, end_date=None):
         # 更新标记
         self.is_update = True
         # 首先读取ClosePrice_adj数据，将其当作更新数据时的参照标签
@@ -595,7 +596,7 @@ class database(object):
         self.start_date = last_day
 
         # 可以设置更新数据的更新截止日，默认为更新到当天
-        if end_date != 'default':
+        if isinstance(self.end_date, pd.Timestamp):
             self.end_date = end_date
 
         # 更新数据
@@ -680,9 +681,9 @@ class database(object):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    db = database(start_date='2007-01-01', end_date='2017-06-21')
+    db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-06-21'))
     # db.get_data_from_db()
-    # db.update_data_from_db(end_date='2017-06-21')
+    # db.update_data_from_db(end_date=pd.Timestamp('2017-06-21'))
     db.initialize_jydb()
     db.initialize_sq()
     db.initialize_gg()

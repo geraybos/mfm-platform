@@ -67,7 +67,7 @@ class strategy_data(data):
 
     # 对数据进行winsorization
     @staticmethod
-    def winsorization(raw_data, *, percentile = 0.01):
+    def winsorization(raw_data, *, percentile=0.01):
         """ Winsorize the data.
         
         raw_data (pd.DataFrame): data you'd like to winsorize
@@ -106,7 +106,7 @@ class strategy_data(data):
     # 将大于3 sigma的数据部分压缩到一个限制范围内，默认为3.5
     # 注意输入数据为z score后的数据
     @staticmethod
-    def compress_tail_data(raw_data, *, limit = 3.5):
+    def compress_tail_data(raw_data, *, limit=3.5):
         # 首先计算数据的均值，进行平移，使得新数据均值为0
         # 这是因为按照barra的zscore方法做出来的数据均值并不是0，标准差一定是1
         mu = raw_data.mean(1)
@@ -125,7 +125,7 @@ class strategy_data(data):
 
     # 计算因子暴露，简单加权
     @staticmethod
-    def get_exposure(factor, *, percentile = 0.01, compress = True, limit = 3.5):
+    def get_exposure(factor, *, percentile=0.01, compress=True, limit=3.5):
         temp_data = strategy_data.winsorization(factor, percentile = percentile)
         # 如有需要，对尾部数据进行压缩
         if compress:
@@ -139,7 +139,7 @@ class strategy_data(data):
     
     # 计算市值加权的因子暴露
     @staticmethod
-    def get_cap_wgt_exposure(factor, mv, *, percentile = 0.01, compress = True, limit = 3.5):
+    def get_cap_wgt_exposure(factor, mv, *, percentile=0.01, compress=True, limit=3.5):
         temp_data = strategy_data.winsorization(factor, percentile = percentile)
         # 如有需要，对尾部数据进行压缩
         if compress:
@@ -235,7 +235,7 @@ class strategy_data(data):
         
     # 对数据进行回归取残差提纯，即gram-schmidt正交化
     @staticmethod
-    def simple_orth_gs(obj, base, *, weights = 'default', add_constant=True):
+    def simple_orth_gs(obj, base, *, weights=None, add_constant=True):
         # 定义回归函数
         # 注意，用barra base回归时，行业暴露已经包含截距项，因此不能再添加截距项
         def reg_func(y, x, *, weights=1, add_constant=True):
@@ -250,7 +250,7 @@ class strategy_data(data):
         new_obj = obj*np.nan
         pvalues = pd.DataFrame(np.nan, index=obj.index, columns=base.items)
         rsquared = pd.DataFrame(np.nan, index=obj.index, columns=['rsquared', 'rsquared_adj'])
-        if weights is 'default':
+        if weights is None:
             for cursor, date in enumerate(obj.index):
                 curr_results = reg_func(obj.ix[cursor], base.ix[:,cursor,:], add_constant=add_constant)
                 if type(curr_results) != str:
@@ -278,7 +278,7 @@ class strategy_data(data):
     # 用二次规划问题求解此线性回归问题
     # 目前，基于barra的业绩归因、barra基础因子内部回归都可以用这个线性回归模型，暂不支持新增因子
     @staticmethod
-    def constrained_gls_barra_base(asset_return, bb, *, weights='default', indus_ret_weights = 'default',
+    def constrained_gls_barra_base(asset_return, bb, *, weights=None, indus_ret_weights=None,
                                    n_style=10, n_indus=28):
         """Solving constrained gls problem using quadratic programming.
         
@@ -288,9 +288,9 @@ class strategy_data(data):
         indus_ret_weights: weights that put on the constraints of industry factors returns, usually as the \
                            market value, default means equal weight
         """
-        if weights is 'default':
+        if weights is None:
             weights = pd.Series(1, index=asset_return.index)
-        if indus_ret_weights is 'default':
+        if indus_ret_weights is None:
             indus_ret_weights = pd.Series(1, index=asset_return.index)
             
         # 设置权重
@@ -364,57 +364,7 @@ class strategy_data(data):
         
         return [results_s, residuals]
 
-    # 此函数用于计算基准的因子暴露，以及涉及基准的因子暴露计算的超额因子暴露的计算的调整
-    # 在计算基准的因子暴露时（或基于基准因子暴露的超额组合因子暴露），会出现基准中的成分股不能交易的情况，
-    # 这会导致基准的因子暴露计算不准确，因为不能交易的成分股，其因子暴露数据已经被过滤掉了，
-    # 但是其确实在基准中还有权重，因此我们需要把这些成分股的因子暴露数据用此前的数据填充
-    # 填充这个数据的原则是，用这支股票上一个可交易日的数据来填充，无论其是否是nan
-    @staticmethod
-    def adjust_benchmark_related_expo(original_expo, holding_matrix, if_tradable):
-        """The function of adjusting benchmark related factor exposures
-        
-        :param original_expo: (pd.Panel) original factor exposure data
-        :param holding_matrix: (pd.DataFrame) holding matrix of the benchmark or benchmark related portfolio.
-            note that after returning the adjusted factor exposure, you are expected to get factor exposure of
-            portfolio using this holding matrix, or error may come out. This parameter may has different index
-            compared to original expo.
-        :param if_tradable: (pd.DataFrame) marks indicate if this stock is tradabale at a time. Must have the same index
-            as original expo.
-        :return: (pd.Panel) the adjusted factor exposure data, which is expected to be used to get portfolio factor
-            exposure with holding matrix parameter.
-        """
-        # 首先新建因子暴露数据，重索引为持仓的时间段，并将nan填为0
-        adjusted_expo = original_expo.reindex(major_axis=holding_matrix.index).fillna(0.0)
 
-        # 得到那些有持仓，却不可交易的股票
-        held_but_nontradable = np.logical_and(holding_matrix != 0.0,
-                                              np.logical_not(if_tradable.reindex(holding_matrix.index)))
-
-        # 首先调整非country factor因子
-        # 填充非country factor因子的原则，永远是用上一个可交易时的数据填充，不管那个数据是不是nan
-        for item in original_expo.items:
-            if item != 'country_factor':
-                # 创建用于fillna的expo，首先将可交易，且数据为nan的地方填成0，
-                # 这样可以保证之后需要填充的持有且不可交易的地方，会被上一个可交易时的值填充，即使上一个可交易时的值是nan
-                # 如果不这样做，则会被上一个可交易且非nan（有数据）的填充，损失真实性
-                tradable_and_null = np.logical_and(if_tradable, original_expo.ix[item].isnull())
-                # 乘以1为防止传引用
-                fillna_expo = original_expo.ix[item] * 1
-                fillna_expo[tradable_and_null] = 0.0
-                # 这时用于fillna的expo就可以向前填充了，这里为nan的地方都是不可以交易的地方，
-                # 而向前填nan则意味着用可交易时的数据填充不可交易时的数据
-                fillna_expo = fillna_expo.fillna(method='ffill').reindex(index=holding_matrix.index)
-                # 将每个因子中，那些持有且不可交易的股票暴露重新设置为nan
-                adjusted_expo[item][held_but_nontradable.astype(bool)] = np.nan
-                # 然后用fillna_expo的数据去填充这些nan，这样可以做到始终用上一个可交易时的数据填充，保证：
-                # 第一，有持仓却不可交易的地方永远是被上一个可交易的数据填充的，无论那个数据是不是nan
-                # 第二，无持仓且不可交易的地方仍然是0，虽然其取值不会影响后面的组合暴露的计算
-                adjusted_expo[item] = adjusted_expo[item].fillna(fillna_expo)
-        # 对于country factor，需要用1去填充，直接用1填充所有的nan数据即可
-        if 'country_factor' in original_expo.items:
-            adjusted_expo['country_factor'] = original_expo.ix['country_factor', holding_matrix.index, :].fillna(1.0)
-
-        return adjusted_expo
 
     # 计算净利润增长率的函数, 因为净利润增长, 涉及净利润是负数的情况比较麻烦, 所以专门写一个函数来计算
     # lag为传入序列要计算的成长率, 1则是计算每隔一期的成长, 2则是每隔两期(注意这样会少一些数据)
@@ -474,7 +424,119 @@ class strategy_data(data):
             r2_adj = results_fm._ols_result.r2_adj.replace(np.inf, np.nan).replace(-np.inf, np.nan).mean()
             return results_fm.mean_beta, results_fm.t_stat, r2, r2_adj
 
+    # # 此函数用于计算基准的因子暴露，以及涉及基准的因子暴露计算的超额因子暴露的计算的调整
+    # # 在计算基准的因子暴露时（或基于基准因子暴露的超额组合因子暴露），会出现基准中的成分股不能交易的情况，
+    # # 这会导致基准的因子暴露计算不准确，因为不能交易的成分股，其因子暴露数据已经被过滤掉了，
+    # # 但是其确实在基准中还有权重，因此我们需要把这些成分股的因子暴露数据用此前的数据填充
+    # # 填充这个数据的原则是，用这支股票上一个可交易日的数据来填充，无论其是否是nan
+    # @staticmethod
+    # def adjust_benchmark_related_expo(original_expo, holding_matrix, if_tradable):
+    #     """The function of adjusting benchmark related factor exposures
+    #
+    #     :param original_expo: (pd.Panel) original factor exposure data
+    #     :param holding_matrix: (pd.DataFrame) holding matrix of the benchmark or benchmark related portfolio.
+    #         note that after returning the adjusted factor exposure, you are expected to get factor exposure of
+    #         portfolio using this holding matrix, or error may come out. This parameter may has different index
+    #         compared to original expo.
+    #     :param if_tradable: (pd.DataFrame) marks indicate if this stock is tradabale at a time. Must have the same index
+    #         as original expo.
+    #     :return: (pd.Panel) the adjusted factor exposure data, which is expected to be used to get portfolio factor
+    #         exposure with holding matrix parameter.
+    #     """
+    #     # 首先新建因子暴露数据，重索引为持仓的时间段，并将nan填为0
+    #     adjusted_expo = original_expo.reindex(major_axis=holding_matrix.index).fillna(0.0)
+    #
+    #     # 得到那些有持仓，却不可交易的股票
+    #     held_but_nontradable = np.logical_and(holding_matrix != 0.0,
+    #                                           np.logical_not(if_tradable.reindex(holding_matrix.index)))
+    #
+    #     # 首先调整非country factor因子
+    #     # 填充非country factor因子的原则，永远是用上一个可交易时的数据填充，不管那个数据是不是nan
+    #     for item in original_expo.items:
+    #         if item != 'country_factor':
+    #             # 创建用于fillna的expo，首先将可交易，且数据为nan的地方填成0，
+    #             # 这样可以保证之后需要填充的持有且不可交易的地方，会被上一个可交易时的值填充，即使上一个可交易时的值是nan
+    #             # 如果不这样做，则会被上一个可交易且非nan（有数据）的填充，损失真实性
+    #             tradable_and_null = np.logical_and(if_tradable, original_expo.ix[item].isnull())
+    #             # 乘以1为防止传引用
+    #             fillna_expo = original_expo.ix[item] * 1
+    #             fillna_expo[tradable_and_null] = 0.0
+    #             # 这时用于fillna的expo就可以向前填充了，这里为nan的地方都是不可以交易的地方，
+    #             # 而向前填nan则意味着用可交易时的数据填充不可交易时的数据
+    #             fillna_expo = fillna_expo.fillna(method='ffill').reindex(index=holding_matrix.index)
+    #             # 将每个因子中，那些持有且不可交易的股票暴露重新设置为nan
+    #             adjusted_expo[item][held_but_nontradable.astype(bool)] = np.nan
+    #             # 然后用fillna_expo的数据去填充这些nan，这样可以做到始终用上一个可交易时的数据填充，保证：
+    #             # 第一，有持仓却不可交易的地方永远是被上一个可交易的数据填充的，无论那个数据是不是nan
+    #             # 第二，无持仓且不可交易的地方仍然是0，虽然其取值不会影响后面的组合暴露的计算
+    #             adjusted_expo[item] = adjusted_expo[item].fillna(fillna_expo)
+    #     # 对于country factor，需要用1去填充，直接用1填充所有的nan数据即可
+    #     if 'country_factor' in original_expo.items:
+    #         adjusted_expo['country_factor'] = original_expo.ix['country_factor', holding_matrix.index, :].fillna(
+    #             1.0)
+    #
+    #     return adjusted_expo
 
+    # 计算组合的超额暴露时, 有时候不能用简单的超额持仓乘以因子暴露的方法来计算
+    # 如,在基准组合成分股调整的时候, 那一个持仓区间会出现持有的股票调仓时在指数内, 之后不在指数内的情况
+    # 如果直接过滤, 会把持仓中的这部分股票剔除掉, 这是不对的. 应该把这些股票的暴露值用最近的有效数据进行填充
+    # 计算组合的暴露, 且组合有投资域时, 一样会有这个问题, 即组合可能持有不在投资域内的股票, 不能轻易的剔除他们的数据
+    # 具体的更改思路见多因子研究框架的笔记
+    @staticmethod
+    def get_port_expo(holding_matrix, factor_expo, if_tradable, *, show_warning=True):
+        """The function of calculating portfolio (acitve) factor exposures
+
+        :param holding_matrix: (pd.DataFrame) portfolio (active) holding matrix, it may has different
+            index compared to factor_expo
+        :param factor_expo: (pd.Panel) factor exposure data
+        :param if_tradable: (pd.Panel) marks indicate if a stock is tradable(investable, or in pool)
+            at a time. have the index as factor_expo, since they usually come from the same
+            strategy_data object
+        :param show_warning: (Bool) indicate if the function prints a warning message to user when
+            the portfolio holds stocks that are not in stock pool
+        :return: (pd.DataFrame) the (relative) factor exposure of the portfolio, with index same as
+            holding matrix and columns same as factor_expo's items
+        """
+        # 创建调整后因子暴露的panel
+        adjusted_factor_expo = factor_expo.reindex(major_axis=holding_matrix.index).fillna(0.0)
+
+        # 标记需要填充暴露值的那些地方, 即持有的, 可交易的, 且不在投资域的
+        held_tradable = np.logical_and(holding_matrix != 0.0,
+                            if_tradable['if_tradable'].reindex(holding_matrix.index))
+        held_tradable_notinpool = np.logical_and(held_tradable,
+                            np.logical_not(if_tradable['if_inpool'].reindex(holding_matrix.index)))
+
+        # 如果设置了警告提醒, 且有持有的, 可交易的, 且不在投资域的持仓, 则输出提示用户
+        if show_warning and held_tradable_notinpool.any().any():
+            print('Warning: There are some stocks held in position which are tradable and not in stock '
+                  'pool. Be aware of possible mis-selection of stocks outside stock pool. Note that '
+                  'index component adjustment may also cause this problem. \n')
+
+        # 填充的原则是, 将不在投资域内的, 持有的, 且可交易的股票的因子暴露值,
+        # 用上一个最近的可交易且在指数内的值填充, 无论是不是nan
+        # country factor的填充原则也是一样的, 因此不做区分
+        for item in factor_expo.items:
+            # 首先将可交易, 且在投资域内的(即investable)数据为nan的地方填成0
+            # 这样可以保证之后需要填充的可交易且不在投资域内的地方都被最近的一个数据填充, 即使这个数据是nan
+            # 如果不这样做, 则会被上一个investable的非nan数据填充, 这样就不真实了
+            inv_null = np.logical_and(if_tradable['if_inv'], factor_expo[item].isnull())
+            # 乘以1防止传引用
+            fillna_expo = factor_expo[item] * 1
+            fillna_expo[inv_null] = 0.0
+            # 这时, 用来fillna的expo就可以向前填充了, 这里被填充的地方都是不可交易或不在投资域的地方
+            fillna_expo = fillna_expo.fillna(method='ffill').reindex(index=holding_matrix.index)
+            # 将因子中, 那些持有且可交易,且不在投资域中的(即需要填充的那些)那些股票的暴露设置为nan
+            adjusted_factor_expo[item][held_tradable_notinpool] = np.nan
+            # 用fillna_expo中的数据去填充这些nan, 这样可以做到始终用上一个可交易时的数据填充, 保证:
+            # 第一, 有持仓, 可交易, 不在投资域中的地方永远是被上一个可交易的数据填充的, 即使那个数据是nan
+            # 第二, 不需要填充的, 且此前是nan的地方, 都会变成0, 而0不会影响之后组合暴露的计算
+            adjusted_factor_expo[item] = adjusted_factor_expo[item].fillna(fillna_expo)
+
+        # 因子暴露值调整完成后, 根据持仓矩阵计算组合的因子暴露
+        port_expo = np.einsum('ijk,jk->ji', adjusted_factor_expo, holding_matrix)
+        port_expo = pd.DataFrame(port_expo, index=holding_matrix.index, columns=factor_expo.items)
+
+        return port_expo
 
 
         

@@ -21,13 +21,13 @@ class position(object):
     holding_matrix (pd.DataFrame) : the holding_matrix of this position
     """
     
-    def __init__(self, standard = 'default'):
+    def __init__(self, standard='default'):
         if standard is 'default':
             self.holding_matrix = pd.DataFrame()
         else:
             self.holding_matrix = pd.DataFrame(np.zeros(standard.shape), 
-                                               index = standard.index, 
-                                               columns = standard.columns)
+                                               index=standard.index,
+                                               columns=standard.columns)
         
     # 根据某一指标，对持仓进行加权，如对市值进行加权
     def weighted_holding(self, weights):

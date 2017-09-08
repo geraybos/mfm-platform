@@ -13,6 +13,7 @@ from pandas import Series, DataFrame, Panel
 from datetime import datetime
 import os
 import statsmodels.api as sm
+from matplotlib.backends.backend_pdf import PdfPages
 
 from data import data
 from strategy_data import strategy_data
@@ -27,11 +28,11 @@ class performance_attribution(object):
     foo
     """
 
-    def __init__(self, input_position, portfolio_returns, *, benchmark_weight='default',
-                 intra_holding_deviation=pd.Series(), trans_cost=pd.Series()):
+    def __init__(self, input_position, portfolio_returns, *, benchmark_weight=None,
+                 intra_holding_deviation=pd.Series(), trans_cost=pd.Series(), show_warning=True):
         self.pa_position = position(input_position.holding_matrix)
         # 如果传入基准持仓数据，则归因超额收益
-        if type(benchmark_weight) != str:
+        if isinstance(benchmark_weight, pd.DataFrame):
             # 一些情况下benchmark的权重和不为1（一般为差一点），为了防止偏差，这里重新归一化
             # 同时将时间索引控制在回测期间内
             new_benchmark_weight = benchmark_weight.reindex(self.pa_position.holding_matrix.index).\
@@ -41,7 +42,7 @@ class performance_attribution(object):
             print('Note that with benchmark_weight being passed, the performance attribution will be base on the '
                   'active part of the portfolio against the benchmark. Please make sure that the portfolio returns '
                   'you passed to the pa is the corresponding active return! \n')
-        elif benchmark_weight == 'default':
+        else:
             self.pa_position.holding_matrix = input_position.holding_matrix
 
         # 传入的组合收益
@@ -51,7 +52,7 @@ class performance_attribution(object):
         # 这会导致country factor的暴露不总是, 只有在使用真实世界的超额归因的时候, 才会用到这个数据
         self.intra_holding_diviation = intra_holding_deviation
         # 如果传入了这个参数, 但确做的不是超额归因, 要报错
-        if not self.intra_holding_diviation.empty and type(benchmark_weight) == str:
+        if not self.intra_holding_diviation.empty and benchmark_weight is None:
             print('Warning: intra-holding deviation be passed but no benchmark weight. The pa system '
                   'has automatically ignored the intra-holding deviation, since it is implied by'
                   'no benchmark weight being passed that the pa will not be based on active part! \n')
@@ -65,7 +66,6 @@ class performance_attribution(object):
                   'transaction cost! \n')
             self.trans_cost = pd.Series()
 
-
         self.pa_returns = pd.DataFrame()
         self.port_expo = pd.DataFrame()
         self.port_pa_returns = pd.DataFrame()
@@ -78,17 +78,18 @@ class performance_attribution(object):
 
         self.discarded_stocks_num = pd.DataFrame()
         self.discarded_stocks_wgt = pd.DataFrame()
+        self.show_warning = show_warning
 
     # 建立barra因子库，有些时候可以直接用在其他地方（如策略中）已计算出的barra因子库，就可以不必计算了
-    def construct_bb(self, *, outside_bb='Empty'):
-        if outside_bb == 'Empty':
-            self.bb.construct_barra_base()
-        else:
+    def construct_bb(self, *, outside_bb=None):
+        if isinstance(outside_bb, barra_base):
             self.bb = outside_bb
             # 外部的bb，如果没有factor expo则也需要再次计算
             if self.bb.bb_data.factor_expo.empty:
                 self.bb.construct_barra_base()
             pass
+        else:
+            self.bb.construct_barra_base()
 
     # 进行业绩归因
     # 用discard_factor可以定制用来归因的因子，将不需要的因子的名字或序号以list写入即可
@@ -129,14 +130,9 @@ class performance_attribution(object):
             columns=self.bb.bb_data.factor_expo.minor_axis, fill_value=0.0)
 
         # 首先根据持仓比例计算组合在各个因子上的暴露
-        # 如果采用相对基准的超额归因，则可能出现基准的成分股中有不可交易的股票，从而其没有因子暴露数据
-        # 没有因子暴露数据，却在超额持仓中，会导致超额组合的暴露不正确。需要对这些股票的因子暴露进行修正
-        adjusted_factor_expo = strategy_data.adjust_benchmark_related_expo(self.bb.bb_data.factor_expo,
-                                self.pa_position.holding_matrix, self.bb.bb_data.if_tradable.ix['if_tradable'])
-        self.port_expo = np.einsum('ijk,jk->ji', adjusted_factor_expo.fillna(0),
-            self.pa_position.holding_matrix.fillna(0))
-        self.port_expo = pd.DataFrame(self.port_expo, index=self.pa_returns.index, 
-                                      columns=self.bb.bb_data.factor_expo.items)
+        # 计算组合暴露需要用专门定制的函数来进行修正计算, 不能简单的用持仓矩阵乘以因子暴露
+        self.port_expo = strategy_data.get_port_expo(self.pa_position.holding_matrix,
+            self.bb.bb_data.factor_expo, self.bb.bb_data.if_tradable, show_warning=self.show_warning)
 
         # 根据因子收益和因子暴露计算组合在因子上的收益，注意因子暴露用的是组合上一期的因子暴露
         self.port_pa_returns = self.pa_returns.mul(self.port_expo.shift(1))
@@ -220,7 +216,7 @@ class performance_attribution(object):
     # 注意，此类股票的出现必然导致归因的不准确，因为它们归入到了组合总收益中，但不会被归入到缺少暴露值的因子收益中，因此进入到残余收益中
     # 这样不仅会使得残余收益含入因子收益，而且使得残余收益与因子收益之间具有显著相关性
     # 如果这样暴露缺失的股票比例很大，则使得归因不具有参考价值
-    def handle_discarded_stocks(self, *, show_warning=True, foldername=''):
+    def handle_discarded_stocks(self, *, foldername=''):
         self.discarded_stocks_num = self.pa_returns.mul(0)
         self.discarded_stocks_wgt = self.pa_returns.mul(0)
         # 因子暴露有缺失值，没有参与归因的股票
@@ -236,7 +232,7 @@ class performance_attribution(object):
         self.discarded_stocks_wgt['total'] = self.discarded_stocks_wgt.sum(1)
 
         # 循环输出警告
-        if show_warning:
+        if self.show_warning:
             for time, temp_data in self.discarded_stocks_num.iterrows():
                 # 一旦没有归因的股票数超过总持股数的100%，或其权重超过100%，则输出警告
                 if temp_data.ix['total'] >= 1*((self.pa_position.holding_matrix.ix[time] != 0).sum()) or \
@@ -257,13 +253,13 @@ class performance_attribution(object):
             text_file.write(target_str)
 
     # 进行画图
-    def plot_performance_attribution(self, foldername='', pdfs='default'):
+    def plot_performance_attribution(self, foldername='', pdfs=None):
         self.plot_pa_return(foldername=foldername, pdfs=pdfs)
         self.plot_pa_risk(foldername=foldername, pdfs=pdfs)
 
 
     # 对收益归因的结果进行画图
-    def plot_pa_return(self, *, foldername='', pdfs='default'):
+    def plot_pa_return(self, *, foldername='', pdfs=None):
         # 处理中文图例的字体文件
         from matplotlib.font_manager import FontProperties
         # chifont = FontProperties(fname='/System/Library/Fonts/STHeiti Light.ttc')
@@ -287,7 +283,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_RetSource.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第二张图分解组合的累计风格收益
@@ -302,7 +298,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_CumRetStyle.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第三张图分解组合的累计行业收益
@@ -333,7 +329,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_CumRetIndus.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第四张图画组合的累计风格暴露
@@ -348,7 +344,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_CumExpoStyle.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第五张图画组合的累计行业暴露
@@ -370,7 +366,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_CumExpoIndus.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第六张图画组合的每日风格暴露
@@ -385,7 +381,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_ExpoStyle.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第七张图画组合的每日行业暴露
@@ -407,7 +403,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_ExpoIndus.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第八张图画用于归因的bb的风格因子的纯因子收益率，即回归得到的因子收益率，仅供参考
@@ -422,11 +418,11 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorRet.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
     # 对风险归因的结果进行画图
-    def plot_pa_risk(self, *, foldername='', pdfs='default'):
+    def plot_pa_risk(self, *, foldername='', pdfs=None):
         # 处理中文图例的字体文件
         from matplotlib.font_manager import FontProperties
         # chifont = FontProperties(fname='/System/Library/Fonts/STHeiti Light.ttc')
@@ -450,7 +446,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_RiskSource.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第二张图分解组合的风格风险贡献
@@ -465,7 +461,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_RiskStyle.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第三张图分解组合的行业风险贡献
@@ -496,7 +492,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_RiskIndus.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第四张图画用于归因的bb的风格因子纯因子收益率的波动率，以供参考
@@ -513,7 +509,7 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorVol.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
         # 第五张图画用于归因的bb的风格因子纯因子收益率与组合收益的相关系数，以供参考
@@ -528,17 +524,17 @@ class performance_attribution(object):
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorCorr.png', dpi=1200,
                     bbox_inches='tight')
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
     # 进行业绩归因
-    def execute_performance_attribution(self, *, outside_bb='Empty', discard_factor=[], show_warning=True, 
-                                        foldername='', enable_reading_pa_return=True):
+    def execute_performance_attribution(self, *, outside_bb=None, discard_factor=[], foldername='',
+                                        enable_reading_pa_return=True):
         self.construct_bb(outside_bb=outside_bb)
         self.get_pa_return(discard_factor=discard_factor, enable_reading_pa_return=enable_reading_pa_return)
         self.analyze_pa_return_outcome()
         self.analyze_pa_risk_outcome()
-        self.handle_discarded_stocks(show_warning=show_warning, foldername=foldername)
+        self.handle_discarded_stocks(foldername=foldername)
 
 
 

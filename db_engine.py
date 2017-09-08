@@ -17,7 +17,7 @@ class db_engine(object):
     foo
     """
     def __init__(self, *, server_type, driver, username, password, server_ip, port, db_name, 
-                 add_info = ''):
+                 add_info=''):
         # 创建引擎的string
         self.engine_str = server_type+'+'+driver+'://'+username+':'+password+'@'+server_ip+':'+ \
                           port+'/'+db_name 

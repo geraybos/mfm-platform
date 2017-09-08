@@ -12,15 +12,15 @@
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/mfm_platform$strategy_data.coverage" NAME="strategy_data Coverage Results" MODIFIED="1493364434117" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$optimizer.coverage" NAME="optimizer Coverage Results" MODIFIED="1504668853592" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$sf_strategy_test.coverage" NAME="sf_strategy_test Coverage Results" MODIFIED="1504662216754" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$sf_strategy_test.coverage" NAME="sf_strategy_test Coverage Results" MODIFIED="1504856446190" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$multi_factor_strategy.coverage" NAME="multi_factor_strategy Coverage Results" MODIFIED="1503993829503" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$fof_handler__1_.coverage" NAME="fof_handler Coverage Results" MODIFIED="1497439846408" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$analyst_coverage.coverage" NAME="analyst_coverage Coverage Results" MODIFIED="1497494370705" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$database.coverage" NAME="database Coverage Results" MODIFIED="1504175246793" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$barra_base.coverage" NAME="barra_base Coverage Results" MODIFIED="1504232097352" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$barra_base.coverage" NAME="barra_base Coverage Results" MODIFIED="1504753163769" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$single_factor_strategy.coverage" NAME="single_factor_strategy Coverage Results" MODIFIED="1493885895177" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$residual_income.coverage" NAME="residual_income Coverage Results" MODIFIED="1501140961619" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/mfm_platform$intangible_info.coverage" NAME="intangible_info Coverage Results" MODIFIED="1504085500697" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/mfm_platform$intangible_info.coverage" NAME="intangible_info Coverage Results" MODIFIED="1504750960902" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$fof_handler.coverage" NAME="fof_handler Coverage Results" MODIFIED="1497851271948" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/mfm_platform$clustered_se.coverage" NAME="clustered se Coverage Results" MODIFIED="1501637772311" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
@@ -48,12 +48,11 @@
           <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="433">
-                  <caret line="772" column="47" lean-forward="true" selection-start-line="772" selection-start-column="47" selection-end-line="772" selection-end-column="47" />
+                <state relative-caret-position="0">
+                  <caret line="929" column="58" lean-forward="false" selection-start-line="929" selection-start-column="58" selection-end-line="929" selection-end-column="58" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1504668710509" expanded="true" signature="40601:40805" ph="..." />
-                    <marker date="1504668710509" expanded="true" signature="46921:47014" ph="..." />
+                    <marker date="1504856009774" expanded="true" signature="38332:38536" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -62,12 +61,12 @@
           <file leaf-file-name="backtest.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/backtest.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="17">
-                  <caret line="313" column="59" lean-forward="false" selection-start-line="313" selection-start-column="59" selection-end-line="313" selection-end-column="59" />
+                <state relative-caret-position="8415">
+                  <caret line="506" column="13" lean-forward="false" selection-start-line="506" selection-start-column="13" selection-end-line="506" selection-end-column="13" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1504665345175" expanded="true" signature="2210:2451" ph="..." />
-                    <marker date="1504665345175" expanded="true" signature="40446:40463" ph="..." />
+                    <marker date="1504842648706" expanded="true" signature="2166:2407" ph="..." />
+                    <marker date="1504842648706" expanded="true" signature="40194:40211" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -76,31 +75,19 @@
           <file leaf-file-name="strategy.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="17">
-                  <caret line="32" column="21" lean-forward="false" selection-start-line="32" selection-start-column="21" selection-end-line="32" selection-end-column="21" />
+                <state relative-caret-position="714">
+                  <caret line="51" column="63" lean-forward="false" selection-start-line="51" selection-start-column="63" selection-end-line="51" selection-end-column="63" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="sf_strategy_test.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="sf_strategy_test.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="323">
-                  <caret line="173" column="76" lean-forward="true" selection-start-line="173" selection-start-column="76" selection-end-line="173" selection-end-column="76" />
+                <state relative-caret-position="486">
+                  <caret line="176" column="41" lean-forward="false" selection-start-line="176" selection-start-column="41" selection-end-line="176" selection-end-column="41" />
                   <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="fof_handler.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/fof_handler.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="517">
-                  <caret line="410" column="12" lean-forward="false" selection-start-line="410" selection-start-column="12" selection-end-line="410" selection-end-column="12" />
-                  <folding>
-                    <element signature="e#0#18#0" expanded="true" />
-                  </folding>
                 </state>
               </provider>
             </entry>
@@ -108,8 +95,8 @@
           <file leaf-file-name="performance_attribution.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/performance_attribution.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="259">
-                  <caret line="181" column="37" lean-forward="false" selection-start-line="181" selection-start-column="37" selection-end-line="181" selection-end-column="37" />
+                <state relative-caret-position="8908">
+                  <caret line="536" column="59" lean-forward="false" selection-start-line="536" selection-start-column="59" selection-end-line="536" selection-end-column="59" />
                   <folding />
                 </state>
               </provider>
@@ -118,25 +105,11 @@
           <file leaf-file-name="strategy_data.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/strategy_data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="5984">
-                  <caret line="352" column="0" lean-forward="false" selection-start-line="352" selection-start-column="0" selection-end-line="352" selection-end-column="0" />
+                <state relative-caret-position="207">
+                  <caret line="463" column="64" lean-forward="false" selection-start-line="463" selection-start-column="64" selection-end-line="463" selection-end-column="64" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1504168597700" expanded="true" signature="10110:10412" ph="..." />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="optimizer.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/optimizer.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="381">
-                  <caret line="252" column="18" lean-forward="false" selection-start-line="252" selection-start-column="18" selection-end-line="252" selection-end-column="33" />
-                  <folding>
-                    <element signature="e#0#18#0" expanded="true" />
-                    <marker date="1504588180684" expanded="true" signature="2884:2967" ph="..." />
-                    <marker date="1504588180684" expanded="true" signature="4233:4594" ph="..." />
+                    <marker date="1504849530324" expanded="true" signature="10087:10389" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -154,11 +127,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="dynamic_backtest.py" pinned="false" current-in-tab="false">
+          <file leaf-file-name="dynamic_backtest.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/dynamic_backtest.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1258">
-                  <caret line="74" column="0" lean-forward="false" selection-start-line="74" selection-start-column="0" selection-end-line="74" selection-end-column="0" />
+                <state relative-caret-position="391">
+                  <caret line="125" column="99" lean-forward="true" selection-start-line="125" selection-start-column="99" selection-end-line="125" selection-end-column="99" />
                   <folding>
                     <element signature="e#0#18#0" expanded="true" />
                   </folding>
@@ -170,15 +143,14 @@
       </split-first>
       <split-second>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-          <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="single_factor_strategy.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="334">
-                  <caret line="994" column="86" lean-forward="true" selection-start-line="994" selection-start-column="86" selection-end-line="994" selection-end-column="86" />
+                <state relative-caret-position="4934">
+                  <caret line="1150" column="12" lean-forward="true" selection-start-line="1150" selection-start-column="12" selection-end-line="1150" selection-end-column="12" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1504668710509" expanded="true" signature="40601:40805" ph="..." />
-                    <marker date="1504668710509" expanded="true" signature="46921:47014" ph="..." />
+                    <marker date="1504856009774" expanded="true" signature="38332:38536" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -187,41 +159,11 @@
           <file leaf-file-name="strategy_data.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/strategy_data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="403">
-                  <caret line="343" column="69" lean-forward="false" selection-start-line="343" selection-start-column="69" selection-end-line="343" selection-end-column="69" />
+                <state relative-caret-position="1411">
+                  <caret line="83" column="12" lean-forward="false" selection-start-line="83" selection-start-column="12" selection-end-line="83" selection-end-column="12" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1504168597700" expanded="true" signature="10110:10412" ph="..." />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="database.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/database.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="446">
-                  <caret line="695" column="44" lean-forward="false" selection-start-line="695" selection-start-column="44" selection-end-line="695" selection-end-column="44" />
-                  <folding>
-                    <marker date="1504175242056" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-                    <marker date="1504175242056" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-                    <marker date="1504175242056" expanded="true" signature="5383:5436" ph="..." />
-                    <marker date="1504175242056" expanded="true" signature="26637:26768" ph="select disti... SecuMain" />
-                    <marker date="1504175242056" expanded="true" signature="27578:27761" ph="select disti... missing_valueSecuMain" />
-                    <marker date="1504175242056" expanded="true" signature="28082:28156" ph="select disti... SecuMain" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="optimizer.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/optimizer.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="526">
-                  <caret line="344" column="90" lean-forward="true" selection-start-line="344" selection-start-column="90" selection-end-line="344" selection-end-column="90" />
-                  <folding>
-                    <element signature="e#0#18#0" expanded="true" />
-                    <marker date="1504588180684" expanded="true" signature="4233:4594" ph="..." />
+                    <marker date="1504849530324" expanded="true" signature="10087:10389" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -230,21 +172,38 @@
           <file leaf-file-name="intangible_info.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/intangible_info.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="590">
-                  <caret line="313" column="0" lean-forward="true" selection-start-line="313" selection-start-column="0" selection-end-line="313" selection-end-column="0" />
+                <state relative-caret-position="4777">
+                  <caret line="283" column="12" lean-forward="false" selection-start-line="283" selection-start-column="12" selection-end-line="283" selection-end-column="12" />
                   <folding>
-                    <marker date="1504602046871" expanded="true" signature="15269:15360" ph="..." />
+                    <marker date="1504750319802" expanded="true" signature="15278:15369" ph="..." />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="slsqp.py" pinned="false" current-in-tab="false">
-            <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/scipy/optimize/slsqp.py">
+          <file leaf-file-name="performance_attribution.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/performance_attribution.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="68">
-                  <caret line="28" column="0" lean-forward="false" selection-start-line="28" selection-start-column="0" selection-end-line="28" selection-end-column="0" />
+                <state relative-caret-position="500">
+                  <caret line="150" column="0" lean-forward="true" selection-start-line="150" selection-start-column="0" selection-end-line="150" selection-end-column="0" />
                   <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="database.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/database.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="119">
+                  <caret line="687" column="22" lean-forward="true" selection-start-line="687" selection-start-column="22" selection-end-line="687" selection-end-column="22" />
+                  <folding>
+                    <marker date="1504856967367" expanded="true" signature="2028:2160" ph="select Tradi... QT_TradingDayNew" />
+                    <marker date="1504856967367" expanded="true" signature="2803:2946" ph="select disti... ReturnDaily" />
+                    <marker date="1504856967367" expanded="true" signature="5377:5430" ph="..." />
+                    <marker date="1504856967367" expanded="true" signature="26631:26762" ph="select disti... SecuMain" />
+                    <marker date="1504856967367" expanded="true" signature="27572:27755" ph="select disti... missing_valueSecuMain" />
+                    <marker date="1504856967367" expanded="true" signature="28076:28150" ph="select disti... SecuMain" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -252,12 +211,24 @@
           <file leaf-file-name="backtest.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/backtest.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1424">
-                  <caret line="439" column="32" lean-forward="true" selection-start-line="439" selection-start-column="32" selection-end-line="439" selection-end-column="32" />
+                <state relative-caret-position="8109">
+                  <caret line="477" column="57" lean-forward="false" selection-start-line="477" selection-start-column="57" selection-end-line="477" selection-end-column="57" />
                   <folding>
                     <element signature="e#112#130#0" expanded="true" />
-                    <marker date="1504665345175" expanded="true" signature="2210:2451" ph="..." />
-                    <marker date="1504665345175" expanded="true" signature="40446:40463" ph="..." />
+                    <marker date="1504842648706" expanded="true" signature="2166:2407" ph="..." />
+                    <marker date="1504842648706" expanded="true" signature="40194:40211" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="performance.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/performance.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="306">
+                  <caret line="28" column="61" lean-forward="false" selection-start-line="28" selection-start-column="61" selection-end-line="28" selection-end-column="61" />
+                  <folding>
+                    <element signature="e#112#130#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
@@ -266,33 +237,31 @@
           <file leaf-file-name="barra_base.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/barra_base.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="16150">
-                  <caret line="961" column="33" lean-forward="false" selection-start-line="961" selection-start-column="33" selection-end-line="961" selection-end-column="33" />
+                <state relative-caret-position="17">
+                  <caret line="32" column="46" lean-forward="false" selection-start-line="32" selection-start-column="46" selection-end-line="32" selection-end-column="46" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="dynamic_backtest.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/dynamic_backtest.py">
+          <file leaf-file-name="db_engine.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/db_engine.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="429">
-                  <caret line="94" column="85" lean-forward="true" selection-start-line="94" selection-start-column="85" selection-end-line="94" selection-end-column="85" />
+                <state relative-caret-position="102">
+                  <caret line="9" column="19" lean-forward="true" selection-start-line="9" selection-start-column="19" selection-end-line="9" selection-end-column="19" />
                   <folding>
-                    <element signature="e#0#18#0" expanded="true" />
+                    <element signature="e#112#148#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="multi_factor_strategy.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/multi_factor_strategy.py">
+          <file leaf-file-name="backtest_data.py" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/backtest_data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1037">
-                  <caret line="78" column="23" lean-forward="false" selection-start-line="78" selection-start-column="23" selection-end-line="78" selection-end-column="23" />
-                  <folding>
-                    <element signature="e#0#18#0" expanded="true" />
-                  </folding>
+                <state relative-caret-position="262">
+                  <caret line="39" column="18" lean-forward="true" selection-start-line="39" selection-start-column="18" selection-end-line="39" selection-end-column="18" />
+                  <folding />
                 </state>
               </provider>
             </entry>
@@ -310,9 +279,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>simple</find>
-      <find>drop</find>
-      <find>discard</find>
       <find>diff</find>
       <find>difference</find>
       <find>pure</find>
@@ -327,7 +293,6 @@
       <find>just</find>
       <find>+'.csv'</find>
       <find>start</find>
-      <find>adjust_benchmark</find>
       <find>x</find>
       <find>obj_add_params</find>
       <find>tar_vol</find>
@@ -340,10 +305,12 @@
       <find>isinstance</find>
       <find>bool</find>
       <find>is_curr_</find>
+      <find>adjust_benchmark</find>
+      <find>type(pdfs) != str</find>
+      <find>type(self.pdfs) != str</find>
+      <find>benchmark_price</find>
     </findStrings>
     <replaceStrings>
-      <replace>liability</replace>
-      <replace>self.data.raw_data</replace>
       <replace>if_inv</replace>
       <replace>FreeShares</replace>
       <replace>6</replace>
@@ -372,6 +339,8 @@
       <replace>country_factor_returns</replace>
       <replace>w</replace>
       <replace>obj_func_params</replace>
+      <replace>isinstance(pdfs, PdfPages)</replace>
+      <replace>isinstance(self.pdfs, PdfPages)</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
@@ -382,30 +351,31 @@
       <list>
         <option value="$PROJECT_DIR$/msci.py" />
         <option value="$PROJECT_DIR$/DrawTable.py" />
-        <option value="$PROJECT_DIR$/position.py" />
         <option value="$PROJECT_DIR$/test_holding.py" />
         <option value="$PROJECT_DIR$/主动估值表/fof_handler.py" />
         <option value="$PROJECT_DIR$/cf_index.csv" />
         <option value="$PROJECT_DIR$/bonds_index.csv" />
         <option value="$PROJECT_DIR$/fof_handler.py" />
-        <option value="$PROJECT_DIR$/data.py" />
-        <option value="$PROJECT_DIR$/performance.py" />
-        <option value="$PROJECT_DIR$/strategy.py" />
         <option value="$PROJECT_DIR$/residual_income.py" />
         <option value="$PROJECT_DIR$/clustered se.py" />
         <option value="$PROJECT_DIR$/analyst_coverage.py" />
-        <option value="$PROJECT_DIR$/backtest_data.py" />
-        <option value="$PROJECT_DIR$/performance_attribution.py" />
         <option value="$PROJECT_DIR$/multi_factor_strategy.py" />
         <option value="$PROJECT_DIR$/dynamic_backtest.py" />
-        <option value="$PROJECT_DIR$/strategy_data.py" />
-        <option value="$PROJECT_DIR$/database.py" />
-        <option value="$PROJECT_DIR$/barra_base.py" />
         <option value="$PROJECT_DIR$/optimizer.py" />
         <option value="$PROJECT_DIR$/intangible_info.py" />
-        <option value="$PROJECT_DIR$/sf_strategy_test.py" />
+        <option value="$PROJECT_DIR$/barra_base.py" />
+        <option value="$PROJECT_DIR$/performance_attribution.py" />
         <option value="$PROJECT_DIR$/backtest.py" />
+        <option value="$PROJECT_DIR$/performance.py" />
+        <option value="$PROJECT_DIR$/data.py" />
+        <option value="$PROJECT_DIR$/position.py" />
+        <option value="$PROJECT_DIR$/strategy_data.py" />
+        <option value="$PROJECT_DIR$/strategy.py" />
         <option value="$PROJECT_DIR$/single_factor_strategy.py" />
+        <option value="$PROJECT_DIR$/sf_strategy_test.py" />
+        <option value="$PROJECT_DIR$/database.py" />
+        <option value="$PROJECT_DIR$/backtest_data.py" />
+        <option value="$PROJECT_DIR$/db_engine.py" />
       </list>
     </option>
   </component>
@@ -493,7 +463,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.optimizer">
+  <component name="RunManager" selected="Python.sf_strategy_test">
     <configuration default="true" type="js.build_tools.gulp" factoryName="Gulp.js">
       <node-interpreter>project</node-interpreter>
       <node-options />
@@ -847,10 +817,10 @@
     </list>
     <recent_temporary>
       <list size="5">
-        <item index="0" class="java.lang.String" itemvalue="Python.optimizer" />
-        <item index="1" class="java.lang.String" itemvalue="Python.barra_base" />
-        <item index="2" class="java.lang.String" itemvalue="Python.database" />
-        <item index="3" class="java.lang.String" itemvalue="Python.intangible_info" />
+        <item index="0" class="java.lang.String" itemvalue="Python.barra_base" />
+        <item index="1" class="java.lang.String" itemvalue="Python.intangible_info" />
+        <item index="2" class="java.lang.String" itemvalue="Python.optimizer" />
+        <item index="3" class="java.lang.String" itemvalue="Python.database" />
         <item index="4" class="java.lang.String" itemvalue="Python.multi_factor_strategy" />
       </list>
     </recent_temporary>
@@ -885,7 +855,7 @@
     <editor active="true" />
     <layout>
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32900432" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25757575" sideWeight="0.51492536" order="0" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25757575" sideWeight="0.5191898" order="0" side_tool="true" content_ui="tabs" />
       <window_info id="File Transfer" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.19372295" sideWeight="0.48933902" order="11" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32792208" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24891774" sideWeight="0.48827294" order="2" side_tool="false" content_ui="tabs" />
@@ -895,8 +865,8 @@
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32995737" sideWeight="0.5" order="0" side_tool="true" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.25757575" sideWeight="0.48507464" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="18" y="17" width="1884" height="1004" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.25757575" sideWeight="0.48294243" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="FLOATING" visible="false" show_stripe_button="false" weight="0.3296875" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" x="18" y="48" width="1884" height="1004" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
@@ -1071,32 +1041,32 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/strategy_data.py</url>
-          <line>441</line>
+          <line>391</line>
           <option name="timeStamp" value="905" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>419</line>
+          <line>420</line>
           <option name="timeStamp" value="906" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/performance_attribution.py</url>
-          <line>160</line>
+          <line>156</line>
           <option name="timeStamp" value="914" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/performance_attribution.py</url>
-          <line>150</line>
+          <line>146</line>
           <option name="timeStamp" value="916" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>210</line>
+          <line>211</line>
           <option name="timeStamp" value="937" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/backtest.py</url>
-          <line>377</line>
+          <line>376</line>
           <option name="timeStamp" value="962" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -1156,62 +1126,62 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>533</line>
+          <line>534</line>
           <option name="timeStamp" value="1023" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>534</line>
+          <line>535</line>
           <option name="timeStamp" value="1024" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>539</line>
+          <line>540</line>
           <option name="timeStamp" value="1028" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>536</line>
+          <line>537</line>
           <option name="timeStamp" value="1029" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>173</line>
+          <line>174</line>
           <option name="timeStamp" value="1059" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>201</line>
+          <line>202</line>
           <option name="timeStamp" value="1060" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>202</line>
+          <line>203</line>
           <option name="timeStamp" value="1061" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>207</line>
+          <line>208</line>
           <option name="timeStamp" value="1062" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/performance_attribution.py</url>
-          <line>144</line>
+          <line>140</line>
           <option name="timeStamp" value="1063" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>495</line>
+          <line>496</line>
           <option name="timeStamp" value="1082" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>454</line>
+          <line>455</line>
           <option name="timeStamp" value="1084" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>525</line>
+          <line>526</line>
           <option name="timeStamp" value="1086" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -1221,27 +1191,27 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>224</line>
+          <line>225</line>
           <option name="timeStamp" value="1095" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>225</line>
+          <line>226</line>
           <option name="timeStamp" value="1096" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>228</line>
+          <line>229</line>
           <option name="timeStamp" value="1097" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>245</line>
+          <line>246</line>
           <option name="timeStamp" value="1098" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>253</line>
+          <line>254</line>
           <option name="timeStamp" value="1099" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -1256,17 +1226,17 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>193</line>
+          <line>194</line>
           <option name="timeStamp" value="1114" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>196</line>
+          <line>197</line>
           <option name="timeStamp" value="1115" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/database.py</url>
-          <line>198</line>
+          <line>199</line>
           <option name="timeStamp" value="1116" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -1281,18 +1251,8 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/intangible_info.py</url>
-          <line>290</line>
-          <option name="timeStamp" value="1172" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/intangible_info.py</url>
           <line>314</line>
           <option name="timeStamp" value="1173" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
-          <line>1050</line>
-          <option name="timeStamp" value="1174" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/multi_factor_strategy.py</url>
@@ -1350,9 +1310,44 @@
           <option name="timeStamp" value="1273" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/single_factor_strategy.py</url>
-          <line>1070</line>
-          <option name="timeStamp" value="1279" />
+          <url>file://$PROJECT_DIR$/performance_attribution.py</url>
+          <line>137</line>
+          <option name="timeStamp" value="1282" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/performance_attribution.py</url>
+          <line>34</line>
+          <option name="timeStamp" value="1283" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/intangible_info.py</url>
+          <line>312</line>
+          <option name="timeStamp" value="1285" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/intangible_info.py</url>
+          <line>319</line>
+          <option name="timeStamp" value="1286" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/barra_base.py</url>
+          <line>967</line>
+          <option name="timeStamp" value="1287" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/barra_base.py</url>
+          <line>882</line>
+          <option name="timeStamp" value="1288" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/strategy_data.py</url>
+          <line>331</line>
+          <option name="timeStamp" value="1291" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/performance_attribution.py</url>
+          <line>133</line>
+          <option name="timeStamp" value="1292" />
         </line-breakpoint>
       </breakpoints>
       <breakpoints-dialog>
@@ -1365,7 +1360,7 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="1280" />
+      <option name="time" value="1295" />
     </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
@@ -1503,13 +1498,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/db_engine.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="136">
-          <caret line="8" column="0" lean-forward="false" selection-start-line="8" selection-start-column="0" selection-end-line="8" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/residual_income.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="4709">
@@ -1526,24 +1514,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/performance.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2635">
-          <caret line="164" column="29" lean-forward="false" selection-start-line="164" selection-start-column="29" selection-end-line="164" selection-end-column="29" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/matplotlib/pyplot.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="232">
           <caret line="523" column="0" lean-forward="false" selection-start-line="523" selection-start-column="0" selection-end-line="523" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/backtest_data.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="850">
-          <caret line="57" column="37" lean-forward="false" selection-start-line="57" selection-start-column="37" selection-end-line="57" selection-end-column="37" />
         </state>
       </provider>
     </entry>
@@ -1616,22 +1590,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/position.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="340">
-          <caret line="25" column="39" lean-forward="true" selection-start-line="25" selection-start-column="39" selection-end-line="25" selection-end-column="39" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/data.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="317">
-          <caret line="35" column="25" lean-forward="true" selection-start-line="35" selection-start-column="25" selection-end-line="35" selection-end-column="25" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/scipy/optimize/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-3422">
@@ -1646,14 +1604,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/barra_base.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="16150">
-          <caret line="961" column="33" lean-forward="false" selection-start-line="961" selection-start-column="33" selection-end-line="961" selection-end-column="33" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/numpy/core/numeric.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="219">
@@ -1662,37 +1612,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/database.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="446">
-          <caret line="695" column="44" lean-forward="false" selection-start-line="695" selection-start-column="44" selection-end-line="695" selection-end-column="44" />
-          <folding>
-            <marker date="1504175242056" expanded="true" signature="2060:2192" ph="select Tradi... QT_TradingDayNew" />
-            <marker date="1504175242056" expanded="true" signature="2809:2952" ph="select disti... ReturnDaily" />
-            <marker date="1504175242056" expanded="true" signature="5383:5436" ph="..." />
-            <marker date="1504175242056" expanded="true" signature="26637:26768" ph="select disti... SecuMain" />
-            <marker date="1504175242056" expanded="true" signature="27578:27761" ph="select disti... missing_valueSecuMain" />
-            <marker date="1504175242056" expanded="true" signature="28082:28156" ph="select disti... SecuMain" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.PyCharm2017.1/system/remote_sources/-637400458/1973088094/scipy/optimize/slsqp.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="68">
           <caret line="28" column="0" lean-forward="false" selection-start-line="28" selection-start-column="0" selection-end-line="28" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/strategy_data.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="403">
-          <caret line="343" column="69" lean-forward="false" selection-start-line="343" selection-start-column="69" selection-end-line="343" selection-end-column="69" />
-          <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1504168597700" expanded="true" signature="10110:10412" ph="..." />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1706,46 +1629,126 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/performance_attribution.py">
+    <entry file="file://$PROJECT_DIR$/data.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="259">
-          <caret line="181" column="37" lean-forward="false" selection-start-line="181" selection-start-column="37" selection-end-line="181" selection-end-column="37" />
+        <state relative-caret-position="204">
+          <caret line="56" column="60" lean-forward="false" selection-start-line="56" selection-start-column="60" selection-end-line="56" selection-end-column="60" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/backtest.py">
+    <entry file="file://$PROJECT_DIR$/position.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1424">
-          <caret line="439" column="32" lean-forward="true" selection-start-line="439" selection-start-column="32" selection-end-line="439" selection-end-column="32" />
+        <state relative-caret-position="-969">
+          <caret line="29" column="53" lean-forward="true" selection-start-line="29" selection-start-column="53" selection-end-line="29" selection-end-column="53" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/multi_factor_strategy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="884">
+          <caret line="52" column="63" lean-forward="false" selection-start-line="52" selection-start-column="63" selection-end-line="52" selection-end-column="63" />
           <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1504665345175" expanded="true" signature="2210:2451" ph="..." />
-            <marker date="1504665345175" expanded="true" signature="40446:40463" ph="..." />
+            <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/strategy.py">
       <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="714">
+          <caret line="51" column="63" lean-forward="false" selection-start-line="51" selection-start-column="63" selection-end-line="51" selection-end-column="63" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/backtest.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="8109">
+          <caret line="477" column="57" lean-forward="false" selection-start-line="477" selection-start-column="57" selection-end-line="477" selection-end-column="57" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1504842648706" expanded="true" signature="2166:2407" ph="..." />
+            <marker date="1504842648706" expanded="true" signature="40194:40211" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/performance.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="306">
+          <caret line="28" column="61" lean-forward="false" selection-start-line="28" selection-start-column="61" selection-end-line="28" selection-end-column="61" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/intangible_info.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4777">
+          <caret line="283" column="12" lean-forward="false" selection-start-line="283" selection-start-column="12" selection-end-line="283" selection-end-column="12" />
+          <folding>
+            <marker date="1504750319802" expanded="true" signature="15278:15369" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/database.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="119">
+          <caret line="687" column="22" lean-forward="true" selection-start-line="687" selection-start-column="22" selection-end-line="687" selection-end-column="22" />
+          <folding>
+            <marker date="1504856967367" expanded="true" signature="2028:2160" ph="select Tradi... QT_TradingDayNew" />
+            <marker date="1504856967367" expanded="true" signature="2803:2946" ph="select disti... ReturnDaily" />
+            <marker date="1504856967367" expanded="true" signature="5377:5430" ph="..." />
+            <marker date="1504856967367" expanded="true" signature="26631:26762" ph="select disti... SecuMain" />
+            <marker date="1504856967367" expanded="true" signature="27572:27755" ph="select disti... missing_valueSecuMain" />
+            <marker date="1504856967367" expanded="true" signature="28076:28150" ph="select disti... SecuMain" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4934">
+          <caret line="1150" column="12" lean-forward="true" selection-start-line="1150" selection-start-column="12" selection-end-line="1150" selection-end-column="12" />
+          <folding>
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1504856009774" expanded="true" signature="38332:38536" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/performance_attribution.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="500">
+          <caret line="150" column="0" lean-forward="true" selection-start-line="150" selection-start-column="0" selection-end-line="150" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/barra_base.py">
+      <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="17">
-          <caret line="32" column="21" lean-forward="false" selection-start-line="32" selection-start-column="21" selection-end-line="32" selection-end-column="21" />
+          <caret line="32" column="46" lean-forward="false" selection-start-line="32" selection-start-column="46" selection-end-line="32" selection-end-column="46" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/sf_strategy_test.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="323">
-          <caret line="173" column="76" lean-forward="true" selection-start-line="173" selection-start-column="76" selection-end-line="173" selection-end-column="76" />
+        <state relative-caret-position="486">
+          <caret line="176" column="41" lean-forward="false" selection-start-line="176" selection-start-column="41" selection-end-line="176" selection-end-column="41" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/optimizer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="526">
-          <caret line="344" column="90" lean-forward="true" selection-start-line="344" selection-start-column="90" selection-end-line="344" selection-end-column="90" />
+        <state relative-caret-position="1096">
+          <caret line="251" column="0" lean-forward="true" selection-start-line="251" selection-start-column="0" selection-end-line="251" selection-end-column="0" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
             <marker date="1504588180684" expanded="true" signature="4233:4594" ph="..." />
@@ -1753,45 +1756,42 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/multi_factor_strategy.py">
+    <entry file="file://$PROJECT_DIR$/strategy_data.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1037">
-          <caret line="78" column="23" lean-forward="false" selection-start-line="78" selection-start-column="23" selection-end-line="78" selection-end-column="23" />
+        <state relative-caret-position="1411">
+          <caret line="83" column="12" lean-forward="false" selection-start-line="83" selection-start-column="12" selection-end-line="83" selection-end-column="12" />
           <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/intangible_info.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="590">
-          <caret line="313" column="0" lean-forward="true" selection-start-line="313" selection-start-column="0" selection-end-line="313" selection-end-column="0" />
-          <folding>
-            <marker date="1504602046871" expanded="true" signature="15269:15360" ph="..." />
+            <element signature="e#112#130#0" expanded="true" />
+            <marker date="1504849530324" expanded="true" signature="10087:10389" ph="..." />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/dynamic_backtest.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="429">
-          <caret line="94" column="85" lean-forward="true" selection-start-line="94" selection-start-column="85" selection-end-line="94" selection-end-column="85" />
+        <state relative-caret-position="391">
+          <caret line="125" column="99" lean-forward="true" selection-start-line="125" selection-start-column="99" selection-end-line="125" selection-end-column="99" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/single_factor_strategy.py">
+    <entry file="file://$PROJECT_DIR$/db_engine.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="334">
-          <caret line="994" column="86" lean-forward="true" selection-start-line="994" selection-start-column="86" selection-end-line="994" selection-end-column="86" />
+        <state relative-caret-position="102">
+          <caret line="9" column="19" lean-forward="true" selection-start-line="9" selection-start-column="19" selection-end-line="9" selection-end-column="19" />
           <folding>
-            <element signature="e#112#130#0" expanded="true" />
-            <marker date="1504668710509" expanded="true" signature="40601:40805" ph="..." />
-            <marker date="1504668710509" expanded="true" signature="46921:47014" ph="..." />
+            <element signature="e#112#148#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/backtest_data.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="262">
+          <caret line="39" column="18" lean-forward="true" selection-start-line="39" selection-start-column="18" selection-end-line="39" selection-end-column="18" />
+          <folding />
         </state>
       </provider>
     </entry>

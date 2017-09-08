@@ -39,7 +39,7 @@ class data(object):
 
     # 读取数据的函数
     @staticmethod
-    def read_data(file_name, item_name='default', *, shift = False):
+    def read_data(file_name, item_name=None, *, shift = False):
         """ Get the data from csv file.
         
         file_name: name of the file.
@@ -54,10 +54,10 @@ class data(object):
         obj = {}
         for i, s in enumerate(file_name):
             temp_df = pd.read_csv(str(os.path.abspath('.'))+'/'+s+'.csv',
-                                   index_col = 0, parse_dates = True, encoding='GB18030')
+                                   index_col=0, parse_dates=True, encoding='GB18030')
             if shift:
                 temp_df = temp_df.shift(1)
-            if item_name == 'default':
+            if item_name is None:
                 obj[file_name[i]] = temp_df
             else:
                 obj[item_name[i]] = temp_df
@@ -66,14 +66,14 @@ class data(object):
 
     # 写数据的函数
     @staticmethod
-    def write_data(written_data, *, file_name='default'):
+    def write_data(written_data, *, file_name=None):
         """ Write the data to csv file
 
         :param written_data: (pd.Panel) name of data to be written to csv file
         :param file_name: (list) list of strings containing names of csv files, note it has to be the same length of
         items in written_data, if it sets to default, the file name will be the name of items of the written data
         """
-        if file_name == 'default':
+        if file_name is None:
             for cursor, item_name in enumerate(written_data.items):
                 written_data.ix[cursor].to_csv(str(item_name)+'.csv', index_label='datetime', na_rep='NaN',
                                                encoding='GB18030')
@@ -84,7 +84,7 @@ class data(object):
         
     # 重新对齐索引的函数
     @staticmethod
-    def align_index(standard, raw_data, *, axis = 'both'):
+    def align_index(standard, raw_data, *, axis='both'):
         """Align the index of second data to first data.
         
         standard (pd.DataFrame): data of standard index
@@ -100,8 +100,8 @@ class data(object):
         return aligned_data
     
     # 读取上市、退市、停牌数据，并生成可否交易的矩阵
-    def generate_if_tradable(self, *, file_name = ['is_enlisted','is_delisted','is_suspended'], 
-                             item_name = ['is_enlisted','is_delisted','is_suspended'], 
+    def generate_if_tradable(self, *, file_name=['is_enlisted','is_delisted','is_suspended'],
+                             item_name=['is_enlisted','is_delisted','is_suspended'],
                              shift = False):
         # 读取上市、退市、停牌数据
         self.if_tradable = data.read_data(file_name, item_name, shift = shift)

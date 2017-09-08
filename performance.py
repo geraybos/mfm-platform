@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from pandas import Series, DataFrame, Panel
 from datetime import datetime
 import os
+from matplotlib.backends.backend_pdf import PdfPages
 
 from data import data
 from backtest_data import backtest_data
@@ -24,8 +25,8 @@ class performance(object):
     foo
     """
     
-    def __init__(self, account_value, *, benchmark = pd.Series(), holding_days='default', info_series='default',
-                 tradedays_one_year = 252, risk_free_rate = 0.0):
+    def __init__(self, account_value, *, benchmark = pd.Series(), holding_days=None, info_series=None,
+                 tradedays_one_year=252, risk_free_rate=0.0):
         """ Initialize performance object.
         
         foo
@@ -125,6 +126,7 @@ class performance(object):
         max_dd = 0
         past_peak_loc = 0
         low_loc = 0
+        temp_past_peak_loc = 0
         for i, curr_account_value in enumerate(account_value_series):
             if curr_account_value >= past_peak:
                 past_peak = curr_account_value
@@ -225,7 +227,7 @@ class performance(object):
             annual_ac_calmar, win_ratio * 100,
             )
 
-        if type(self.info_series) != str:
+        if isinstance(self.info_series, pd.DataFrame):
             target_str = target_str + \
                          'Average turnover ratio: {0:.2f}%\n'\
                          'Average number of stocks holding: {1:.2f}\n' \
@@ -256,7 +258,7 @@ class performance(object):
 
 
     # 画图
-    def plot_performance(self, *, foldername='', pdfs='default'):
+    def plot_performance(self, *, foldername='', pdfs=None):
         
         # 第一张图为策略自身累积收益曲线
         f1 = plt.figure()
@@ -274,7 +276,7 @@ class performance(object):
             
         ax1.legend(loc = 'best')
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/CumLog.png', dpi=1200)
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf')
         
         # 第二张图为策略超额收益曲线，只有在有benchmark的时候才画
@@ -289,7 +291,7 @@ class performance(object):
             plt.grid()
 
             plt.savefig(str(os.path.abspath('.')) + '/' +foldername+'/ActiveCumLog.png', dpi=1200)
-            if type(pdfs) != str:
+            if isinstance(pdfs, PdfPages):
                 plt.savefig(pdfs, format='pdf')
             
         # 第三张图为策略账户净值曲线
@@ -308,7 +310,7 @@ class performance(object):
             
         ax3.legend(loc = 'best')
         plt.savefig(str(os.path.abspath('.')) + '/' +foldername+'/NetValue.png', dpi=1200)
-        if type(pdfs) != str:
+        if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf')
         
         # 第四张图为策略超额收益净值，只有在有benchmark的时候才画
@@ -323,7 +325,7 @@ class performance(object):
             plt.grid()
 
             plt.savefig(str(os.path.abspath('.')) + '/'+foldername+'/ActiveNetValue.png', dpi=1200)
-            if type(pdfs) != str:
+            if isinstance(pdfs, PdfPages):
                 plt.savefig(pdfs, format='pdf')
 
         # 第五张图画策略的持股数曲线
