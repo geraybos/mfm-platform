@@ -48,9 +48,11 @@ class dynamic_backtest(backtest):
             # 如果为非调仓日
             elif curr_time not in self.bkt_position.holding_matrix.index:
                 # 移动持仓和现金
-                self.real_vol_position.holding_matrix.ix[cursor, :] = self.real_vol_position.holding_matrix.ix[
-                                                                      cursor - 1, :]
-                self.cash.ix[cursor] = self.cash.ix[cursor - 1]
+                self.real_vol_position.holding_matrix.ix[cursor, :] = \
+                    self.real_vol_position.holding_matrix.ix[cursor - 1, :] * 1
+                # 注意这里应当还有昨天的现金无风险收益, 暂时还未添加
+                self.real_vol_position.cash.iloc[cursor] = \
+                    self.real_vol_position.cash.iloc[cursor - 1] * 1
 
                 # 处理当日退市的股票
                 self.deal_with_held_delisted(curr_time, cursor)
@@ -58,9 +60,11 @@ class dynamic_backtest(backtest):
             # 如果为调仓日
             else:
                 # 首先，将上一期的持仓移动到这一期，同时移动现金
-                self.real_vol_position.holding_matrix.ix[cursor, :] = self.real_vol_position.holding_matrix.ix[
-                                                                      cursor - 1, :]
-                self.cash.ix[cursor] = self.cash.ix[cursor - 1]
+                self.real_vol_position.holding_matrix.ix[cursor, :] = \
+                    self.real_vol_position.holding_matrix.ix[cursor - 1, :] * 1
+                # 注意这里应当还有昨天的现金无风险收益, 暂时还未添加
+                self.real_vol_position.cash.iloc[cursor] = \
+                    self.real_vol_position.cash.iloc[cursor - 1] * 1
 
                 # 首先必须有对当天退市股票的处理
                 self.deal_with_held_delisted(curr_time, cursor)
@@ -94,9 +98,13 @@ class dynamic_backtest(backtest):
             curr_real_pct_matrix = curr_real_pct_matrix.div(curr_real_pct_matrix.sum())
         self.real_pct_position.holding_matrix.ix[curr_time, :] = curr_real_pct_matrix
 
-        # 计算账面的价值，注意，这里的账面价值没有加上资金中不能用于投资的部分（即1-trade_ratio那部分）
-        self.account_value.ix[curr_time] = (self.real_vol_position.holding_matrix.ix[curr_time, :] * \
-            100 * self.bkt_data.stock_price.ix['ClosePrice_adj', :, :]).sum() + self.cash.ix[curr_time]
+        # 计算账面的价值
+        self.account_value.ix[curr_time] = (self.real_vol_position.holding_matrix.ix[curr_time, :] *
+            100 * self.bkt_data.stock_price.ix['ClosePrice_adj', :, :]).sum() + \
+            self.real_vol_position.cash.ix[curr_time]
+        # 现金的实际持有比例, 为实际现金数量除以账面价值
+        self.real_pct_position.cash.ix[curr_time] = self.real_vol_position.cash.ix[curr_time].\
+            div(self.account_value.ix[curr_time])
 
         # 如果是第一期, 需要将账面价值序列和基准序列进行拼接, 及加上初始资金的第一项, 时间为回测开始前1秒
         # 这一点和一般的backtest的操作是一样的, 只不过改到了只有底一期的时候才加上去
@@ -106,7 +114,7 @@ class dynamic_backtest(backtest):
             # 我们的账面价值序列，如果第一天就调仓（默认就是这种情况），最开始会不是初始资金，因此在第一行加入初始资金行
             # 初始资金这一行的时间设定为回测开始时间的前一秒
             base_time = self.bkt_start - pd.tseries.offsets.Second(1)
-            base_value = pd.Series(self.initial_money * self.trade_ratio, index=[base_time])
+            base_value = pd.Series(self.initial_money, index=[base_time])
             # 拼接在一起
             self.account_value = pd.concat([base_value, self.account_value])
             # 拼接benchmark价值序列，本来第一项应当是回测开始那天的指数开盘价, 但是由于全收益指数没有开盘价,
@@ -124,7 +132,10 @@ class dynamic_backtest(backtest):
         # 计算真实的股票仓位的持仓比例和目标持仓比例的差别
         self.info_series.ix[curr_time, 'holding_diff'] = self.real_pct_position.holding_matrix. \
             ix[curr_time, :].sub(self.tar_pct_position.holding_matrix.ix[curr_time, :]).abs().sum()
-
+        # 计算真实的现金仓位的比例和目标的现金仓位比例的差别,
+        # 注意, 现金的比例差别应该和股票的比例差别一致
+        self.info_series.ix[curr_time, 'cash_diff'] = self.real_pct_position.cash.iloc[cursor].\
+            sub(self.tar_pct_position.cash.iloc[cursor-1])
 
 
 

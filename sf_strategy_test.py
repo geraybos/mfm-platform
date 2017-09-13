@@ -165,7 +165,7 @@ def sf_test_multiple_pools_parallel(factor=None, *, direction='+', bb_obj=None, 
 # # orth_mom = strategy_data.simple_orth_gs(ii.intangible_return, bb)
 # orth_mom = orth_mom[0]
 
-sf_test_multiple_pools(factor='growth_zz500', direction='+', bkt_start=pd.Timestamp('2010-04-06'), holding_freq='w',
+sf_test_multiple_pools(factor='growth_zz500', direction='+', bkt_start=pd.Timestamp('2010-04-09'), holding_freq='w',
                        bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['zz500'],
                        do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
                        do_data_description=False, do_factor_corr_test=False, loc=-1)

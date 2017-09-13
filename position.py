@@ -19,7 +19,7 @@ class position(object):
     """ This is the class of holding matrix.
     
     holding_matrix (pd.DataFrame) : the holding_matrix of this position
-    cash_ratio(pd.Series): the cash position ratio of the whole position
+    cash(pd.Series): the cash position of the whole position
     """
     
     def __init__(self, standard=None):
@@ -29,10 +29,10 @@ class position(object):
         # 就可以做到模拟持有期货资产保证金带来降杠杆的情况
         if standard is None:
             self.holding_matrix = pd.DataFrame()
-            self.cash_ratio = pd.Series()
+            self.cash = pd.Series()
         else:
             self.holding_matrix = pd.DataFrame(0.0, index=standard.index, columns=standard.columns)
-            self.cash_ratio = pd.Series(0.0, index=standard.index)
+            self.cash = pd.Series(0.0, index=standard.index)
 
     # 根据某一指标，对持仓进行加权，如对市值进行加权
     def weighted_holding(self, weights):
@@ -121,8 +121,13 @@ class position(object):
         """
         self.holding_matrix.ix[time] = self.holding_matrix.ix[time].sub(to_be_subtracted, fill_value = 0)
 
+    # 添加现金资产的函数, 单位自定义
+    def add_cash(self, time, to_be_addded):
+        self.cash.ix[time] += to_be_addded
 
-
+    # 减少现金资产的函数, 单位自定义
+    def subtract_cash(self, time, to_be_subtracted):
+        self.cash.ix[time] -= to_be_subtracted
 
 
 

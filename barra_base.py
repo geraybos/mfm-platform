@@ -59,12 +59,13 @@ class barra_base(object):
         # 初始化无风险利率序列
         if os.path.isfile('const_data.csv'):
             self.bb_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True, encoding='GB18030')
-            if 'risk_free' not in self.bb_data.const_data.columns:
-                self.bb_data.const_data['risk_free'] = 0
+            if 'risk_free_rate' not in self.bb_data.const_data.columns:
+                self.bb_data.const_data['risk_free_rate'] = 0
             else:
                 print('risk free rate successfully loaded')
         else:
-            self.bb_data.const_data = pd.DataFrame(0, index=self.bb_data.stock_price.major_axis, columns=['risk_free'])
+            self.bb_data.const_data = pd.DataFrame(0, index=self.bb_data.stock_price.major_axis,
+                                                   columns=['risk_free_rate'])
         # 读取价格数据
         if 'ClosePrice_adj' not in self.bb_data.stock_price.items:
             temp_closeprice = data.read_data(['ClosePrice_adj'], ['ClosePrice_adj'])
@@ -76,7 +77,7 @@ class barra_base(object):
         # 计算每只股票的日超额收益
         if 'daily_excess_return' not in self.bb_data.stock_price.items:
             self.bb_data.stock_price['daily_excess_return'] = self.bb_data.stock_price.ix['daily_return'].sub(
-                self.bb_data.const_data.ix[:, 'risk_free'], axis=0)
+                self.bb_data.const_data.ix[:, 'risk_free_rate'], axis=0)
         # 读取交易量数据
         if 'Volume' not in self.bb_data.stock_price.items:
             volume = data.read_data(['Volume'], ['Volume'])
