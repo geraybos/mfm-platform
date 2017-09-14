@@ -49,7 +49,7 @@ class performance_attribution(object):
         self.port_returns = portfolio_returns
 
         # 有可能被传入的调仓期间的偏离, 即由于调仓期内多头与空头涨幅不一致带来的组合价值的偏离,
-        # 这会导致country factor的暴露不总是, 只有在使用真实世界的超额归因的时候, 才会用到这个数据
+        # 这会导致country factor的暴露不总是0, 只有在使用真实世界的超额归因的时候, 才会用到这个数据
         self.intra_holding_diviation = intra_holding_deviation
         # 如果传入了这个参数, 但确做的不是超额归因, 要报错
         if not self.intra_holding_diviation.empty and benchmark_weight is None:

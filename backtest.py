@@ -531,11 +531,13 @@ class backtest(object):
                 self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.log_return,
                     benchmark_weight=benchmark_weight)
             elif real_world_type == 1:
-                assert type(benchmark_weight) != str, 'No benchmark weight passed while executing pa on active return!'
+                assert isinstance(benchmark_weight, pd.DataFrame), \
+                    'No benchmark weight passed while executing pa on active return!'
                 self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_return,
                     benchmark_weight=benchmark_weight)
             elif real_world_type == 2:
-                assert type(benchmark_weight) != str, 'No benchmark weight passed while executing pa on active return!'
+                assert isinstance(benchmark_weight, pd.DataFrame) != str, \
+                    'No benchmark weight passed while executing pa on active return!'
                 self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_nv_return,
                     benchmark_weight=benchmark_weight, trans_cost=self.info_series['cost_ratio'],
                     intra_holding_deviation=self.bkt_performance.intra_holding_diviation)
@@ -544,7 +546,7 @@ class backtest(object):
             ideal_port_return = backtest.ideal_world_backtest(self.tar_pct_position.holding_matrix,
                 self.bkt_position.holding_matrix.index, trading_cost=0)
             # 判断是否进行超额归因, 如果是超额归因, 还需要减去基准指数的收益
-            if type(benchmark_weight) != str:
+            if isinstance(benchmark_weight, pd.DataFrame):
                 # 注意理想世界简单回测的超额收益, 就直接用两者收益相减了, 这意味着超额收益是基于每日再平衡的
                 ideal_return = ideal_port_return - self.bkt_performance.log_return_bench
             else:
