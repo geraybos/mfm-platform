@@ -108,27 +108,35 @@ class performance(object):
         holding_value = holding_value.div(self.account_value.iloc[0])
 
         # 第一步计算昨天到今天换仓时间的收益, 以昨天的资产比例为基础
-        self.base_cash_value1 = self.net_account_value.mul(adjusted_cash_ratio).shift(1)
-        self.base_stock_value1 = self.net_account_value.mul(1 - adjusted_cash_ratio).shift(1)
+        base_cash_value1 = self.net_account_value.mul(adjusted_cash_ratio).shift(1)
+        base_stock_value1 = self.net_account_value.mul(1 - adjusted_cash_ratio).shift(1)
         # 计算方法为, 首先用昨天的现金比例和今天的现金收益算出现金带来的资产增值
         # 注意, 默认现金收益是隔夜带来的
-        value_added_cash1 = self.base_cash_value1 * (np.exp(self.risk_free_rate) - 1)
+        value_added_cash1 = base_cash_value1 * (np.exp(self.risk_free_rate) - 1)
         # 用总的资产增值减去现金资产带来的增值, 则等于股票资产带来的增值
         value_added_stock1 = holding_value.sub(self.net_account_value.shift(1)).sub(value_added_cash1)
         # 昨天到今天调仓时的收益, 即股票带来的价值, 除以股票资产的基础值
-        self.log_return_equity1 = np.log(value_added_stock1.div(self.base_stock_value1) + 1).ix[1:]
+        self.log_return_equity1 = np.log(value_added_stock1.div(base_stock_value1) + 1).ix[1:]
 
         # 第二步计算今天换仓到今天结算的收益, 以今天换仓后的资产比例为基础
         # 这一部分没有现金收益, 且换仓的手续费也被算在了这里
         # 需要或取换仓完成后的股票资产比例, 具体方法是, 因为换仓后到结束的现金资产无收益
         # 因此今天结算时的现金数目等于今天换仓后的现金数目
-        self.base_cash_value2 = self.net_account_value*adjusted_cash_ratio
-        self.base_stock_value2 = holding_value - self.base_cash_value2
+        base_cash_value2 = self.net_account_value*adjusted_cash_ratio
+        base_stock_value2 = holding_value - base_cash_value2
         # 因为没有现金增值, 因此所有增值都是股票带来的增值
         value_added_stock2 = self.net_account_value.sub(holding_value)
         # 今天调仓到今天结算的收益, 即股票带来的价值, 除以股票资产的基础值
-        self.log_return_equity2 = np.log(value_added_stock2.div(self.base_stock_value2) + 1).ix[1:]
+        self.log_return_equity2 = np.log(value_added_stock2.div(base_stock_value2) + 1).ix[1:]
 
+        # 将需要的数据储存下来, 这些数据在之后的计算中会用到, 如计算超额净值和收益
+        self.return_data = pd.DataFrame({'log_return_equity1': self.log_return_equity1,
+            'log_return_equity2': self.log_return_equity2, 'log_return_bench': self.log_return_bench,
+            'risk_free_rate': self.risk_free_rate, 'base_cash_value1': base_cash_value1,
+            'base_stock_value1': base_stock_value1, 'base_cash_value2': base_cash_value2,
+            'base_stock_value2': base_stock_value2})
+        # 不要第一行的那个基础起始点
+        self.return_data = self.return_data.iloc[1:]
 
     # 计算组合的超额收益和超额净值的函数
     # 注意, 有现金资产的情况下, benchmark的比例只会和股票资产比例一致,
@@ -144,16 +152,13 @@ class performance(object):
         self.net_benchmark = self.benchmark / bench_base_value
 
         # 有一个问题是, benchmark的价格并无vwap, 只有收盘价价格, 因此benchmark的调仓价格只能是收盘价
-        # 所以现在统一把benchmark都设定在用收盘价换仓, 因此, 起第二部分的return是0,
+        # 所以现在统一把benchmark都设定在用收盘价换仓, 因此, 其第二部分的return是0,
         # 且股票资产基数按照昨天的股票资产比例来计算(参照第一部分的收益率计算)
-        return_data = pd.DataFrame({'log_return_equity1': self.log_return_equity1,
-                                    'log_return_equity2': self.log_return_equity2,
-                                    'log_return_bench': self.log_return_bench,
-                                    'risk_free_rate': self.risk_free_rate})
+
         # shift一天, 即一个周期第一天为上个调仓日后的第一天, 一直到下一个调仓日的当天
-        return_data['mark'] = not self.holding_days.asof(return_data.index).shift(1).\
+        self.return_data['mark'] = self.holding_days.asof(self.return_data.index).shift(1).\
             replace(pd.tslib.NaT, self.account_value.index[0])
-        grouped = return_data.groupby('mark')
+        grouped = self.return_data.groupby('mark')
 
         # 定义每个调仓周期内的收益序列计算方法
         # 每个调仓周期内用周期内股票资产的净值加上现金部分的净值
@@ -171,14 +176,16 @@ class performance(object):
             if get_deviation:
                 intra_deviation = stock_nav_before - bench_nav_before
                 # 最后一天, 因为是换仓日, 且假设了benchmark在收盘换仓, 因此deviation一定是0
-                intra_deviation.iloc[0] = 0.0
-                return intra_deviation
+                # 注意, 在整个回测的最后一个调仓周期, 调仓周期的最后一天不一定是调仓日
+                if intra_deviation.index[-1] in self.holding_days:
+                    intra_deviation.iloc[-1] = 0.0
+                    return intra_deviation
             # 如果不是计算intra deviation, 则继续我们的计算
             # 同时计算现金部分, 现金部分的收益全部在这一部分实现
             cash_nav = np.exp(x['risk_free_rate'].cumsum())
             # 这部分净值序列的起始资产比例为对应的base1, 即上一个调仓日结算时的比例
-            base_cash_ratio1 = x.ix[-1, 'base_cash_value1'].div(x.ix[-1, 'base_cash_value1'].add(
-                x.ix[-1, 'base_stock_value1']))
+            base_cash_ratio1 = x.ix[-1, 'base_cash_value1'] / (x.ix[-1, 'base_cash_value1'] +
+                x.ix[-1, 'base_stock_value1'])
             # 于是nav的序列
             active_nav_before = (stock_nav_before - bench_nav_before) * (1 - base_cash_ratio1) + \
                 cash_nav * base_cash_ratio1
@@ -190,52 +197,55 @@ class performance(object):
             # 2. 现金的无风险收益算在隔夜上, 同样也全部分配到了第一部分
             # 因此第二部分的收益就只有换仓后的股票资产的收益
             # 而其股票资产的基准比例为对应的base2, 即换仓时价值对应的那个比例
-            base_cash_ratio2 = x.ix[-1, 'base_cash_value2'].div(x.ix[-1, 'base_cash_value2'].add(
-                x.ix[-1, 'base_stock_value2']))
+            base_cash_ratio2 = x.ix[-1, 'base_cash_value2'] / (x.ix[-1, 'base_cash_value2'] +
+                x.ix[-1, 'base_stock_value2'])
             active_nav_after = stock_nav_after * (1 - base_cash_ratio2)
 
             # 最后总的nav序列为前后两个nav之和
             intra_active_nav = active_nav_before + active_nav_after
+            intra_active_nav_change = intra_active_nav - 1
 
             # 如果只是为了得到周期最后一天的净值, 则只返回最后一个, 否则返回一个序列
             if get_node_value:
-                return intra_active_nav.iloc[-1]
+                return intra_active_nav_change.iloc[-1]
             else:
-                return intra_active_nav
+                return intra_active_nav_change
 
 
-            active_stock_nav = np.exp(x['log_return_equity'].cumsum()) - np.exp(x['log_return_bench'].cumsum())
-            cash_nav = np.exp(x['risk_free_rate'].cumsum())
-            # 如果是为了计算调仓期内的股票多头空头偏差, 则直接返回股票资产的超额收益
-            if get_deviation:
-                return active_stock_nav
-            # 找到距离这一期第一天最近的一个调仓日
-            latest_holidng_day = self.holding_days.asof(x.index[0])
-            # 根据这个调仓日寻找比例
-            base_cash_ratio = self.cash_ratio.ix[latest_holidng_day]
-            intra_holding_nav = active_stock_nav * (1 - base_cash_ratio) + cash_nav * base_cash_ratio
-
-            return intra_holding_nav
+            # active_stock_nav = np.exp(x['log_return_equity'].cumsum()) - np.exp(x['log_return_bench'].cumsum())
+            # cash_nav = np.exp(x['risk_free_rate'].cumsum())
+            # # 如果是为了计算调仓期内的股票多头空头偏差, 则直接返回股票资产的超额收益
+            # if get_deviation:
+            #     return active_stock_nav
+            # # 找到距离这一期第一天最近的一个调仓日
+            # latest_holidng_day = self.holding_days.asof(x.index[0])
+            # # 根据这个调仓日寻找比例
+            # base_cash_ratio = self.cash_ratio.ix[latest_holidng_day]
+            # intra_holding_nav = active_stock_nav * (1 - base_cash_ratio) + cash_nav * base_cash_ratio
+            #
+            # return intra_holding_nav
 
         intra_holding = grouped.apply(func_intra_nav).reset_index(0, drop=True)
 
-        # 算每个调仓周期的最后一天的周期内净值
-        def func_holding_node_nav(x):
-            active_stock_nav = np.exp(x['log_return_equity'].sum()) - np.exp(x['log_return_bench'].sum())
-            cash_nav = np.exp(x['risk_free_rate'].sum())
-            # 找到距离这一期第一天最近的一个调仓日
-            latest_holidng_day = self.holding_days.asof(x.index[0])
-            # 根据这个调仓日寻找比例
-            base_cash_ratio = self.cash_ratio.ix[latest_holidng_day]
-            holding_node_nav = active_stock_nav * (1 - base_cash_ratio) + cash_nav * base_cash_ratio
+        # # 算每个调仓周期的最后一天的周期内净值
+        # def func_holding_node_nav(x):
+        #     active_stock_nav = np.exp(x['log_return_equity'].sum()) - np.exp(x['log_return_bench'].sum())
+        #     cash_nav = np.exp(x['risk_free_rate'].sum())
+        #     # 找到距离这一期第一天最近的一个调仓日
+        #     latest_holidng_day = self.holding_days.asof(x.index[0])
+        #     # 根据这个调仓日寻找比例
+        #     base_cash_ratio = self.cash_ratio.ix[latest_holidng_day]
+        #     holding_node_nav = active_stock_nav * (1 - base_cash_ratio) + cash_nav * base_cash_ratio
+        #
+        #     return holding_node_nav
 
-            return holding_node_nav
-
-        holding_node_value = grouped.apply(func_holding_node_nav)
+        holding_node_value = grouped.apply(func_intra_nav, get_node_value=True)
         # 此后的每个周期内的净值，都需要加上此前所有周期的最后一天的净值，注意首先需要shift一个调仓周期
-        # 因为每个调仓周期最后的净值，要到下一个周期内才加上
-        holding_node_value_cum = holding_node_value.shift(1).cumsum().fillna(0). \
-            reindex(intra_holding.index, method='ffill')
+        # 因为每个周期结束的净值, 其label是上一个周期的最后一天(即上一个调仓日)
+        # 在将index设置为每天后(而非每个调仓周期), 需要再次shift一天, 因为当前周期的最后一天
+        # 即当前周期的那个调仓日, 其不需要加上这个周期结束时的数据, 而是在下一天才开始加入
+        holding_node_value_cum = holding_node_value.shift(1).cumsum().fillna(0.0). \
+            reindex(intra_holding.index, method='ffill').shift(1).fillna(0.0)
         self.active_net_account_value = holding_node_value_cum + intra_holding
         self.active_net_account_value += 1
         self.active_net_account_value = pd.concat([pd.Series(1.0, index=[self.base_timestamp]),
@@ -252,6 +262,7 @@ class performance(object):
         # 因此把这个量提取出来, 不用shift, 因为归因里会自己shift
         self.intra_holding_diviation = grouped.apply(func_intra_nav, get_deviation=True). \
             reset_index(0, drop=True)
+        pass
 
 
             
@@ -328,11 +339,13 @@ class performance(object):
         
         annual_r = performance.annual_return(self.cum_log_return, self.tradedays_one_year)
         annual_std = performance.annual_std(self.log_return, self.tradedays_one_year)
-        annual_sharpe = performance.annual_sharpe(annual_r, annual_std, self.risk_free_rate)
+        # 无风险收益这里暂时用平均值替代一下, 之后需要修改
+        annual_sharpe = performance.annual_sharpe(annual_r, annual_std, self.risk_free_rate.mean())
         max_dd, peak_loc, low_loc = performance.max_drawdown(self.account_value)
         annual_calmar = performance.annual_calmar_ratio(annual_r, max_dd)
+        # 无风险收益这里暂时用平均值替代一下, 之后需要修改
         annual_sortino = performance.annual_sortino_ratio(self.log_return, annual_r, return_target=0.0,
-                            tradedays_one_year=self.tradedays_one_year, risk_free_rate=self.risk_free_rate)
+            tradedays_one_year=self.tradedays_one_year, risk_free_rate=self.risk_free_rate.mean())
         if isinstance(self.benchmark, pd.Series):
             annual_ac_r = self.annual_active_return()
             annual_ac_std = self.annual_active_std()
@@ -360,9 +373,10 @@ class performance(object):
                      'Max drawdown: {3:.2f}%\n' \
                      'Max drawdown happened between {4} and {5}\n' \
                      'Annual Calmar ratio: {6:.2f}\n' \
-                     'Annual Sortino ratio: {7:.2f}\n'.format(
+                     'Annual Sortino ratio: {7:.2f}\n' \
+                     'Averge cash ratio: {8:.2f}%\n '.format(
             annual_r*100, annual_std*100, annual_sharpe, max_dd*100, self.cum_log_return.index[peak_loc],
-            self.cum_log_return.index[low_loc], annual_calmar, annual_sortino
+            self.cum_log_return.index[low_loc], annual_calmar, annual_sortino, self.cash_ratio.mean()*100
             )
 
         if isinstance(self.benchmark, pd.Series):
@@ -492,6 +506,20 @@ class performance(object):
             plt.grid()
 
             plt.savefig(str(os.path.abspath('.')) + '/'+foldername+'/NumStocksHolding.png', dpi=1200)
+            plt.savefig(pdfs, format='pdf')
+
+        # 第六张图画策略的现金比例图
+        if (self.cash_ratio >= 1e-6).any():
+            f6 = plt.figure()
+            ax6 = f6.add_subplot(1, 1, 1)
+            plt.plot(self.cash_ratio, 'b-')
+            ax6.set_xlabel('Time')
+            ax6.set_ylabel('Ratio of Cash Asset')
+            ax6.set_title('The Ratio of Cash Asset in Total Portfolio')
+            plt.xticks(rotation=30)
+            plt.grid()
+
+            plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/CashRatio.png', dpi=1200)
             plt.savefig(pdfs, format='pdf')
 
             

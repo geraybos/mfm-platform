@@ -27,7 +27,7 @@ class intangible_info(single_factor_strategy):
     def __init__(self, *, time_range=252*3):
         single_factor_strategy.__init__(self)
         # 用于取数据的database类, 并且初始化数据
-        self.db = database(start_date='2007-01-01', end_date='2017-06-21')
+        self.db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-06-21'))
         self.db.initialize_jydb()
         self.db.initialize_sq()
         self.db.initialize_gg()
@@ -309,10 +309,10 @@ class intangible_info_earnings(intangible_info):
             bb[item] = df.where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
 
         # 进行回归
-        orth_mom = strategy_data.simple_orth_gs(mom, bb)
-        orth_mom = - orth_mom[0]
+        # orth_mom = strategy_data.simple_orth_gs(mom, bb)
+        # orth_mom = - orth_mom[0]
 
-        self.strategy_data.factor = pd.Panel({'mom':orth_mom})
+        self.strategy_data.factor = pd.Panel({'mom':-mom})
 
 
 if __name__ == '__main__':
