@@ -71,13 +71,23 @@ class barra_base(object):
             temp_closeprice = data.read_data(['ClosePrice_adj'], ['ClosePrice_adj'])
             self.bb_data.stock_price['ClosePrice_adj'] = temp_closeprice.ix['ClosePrice_adj']
         # 计算每只股票的日对数收益率
-        if 'daily_return' not in self.bb_data.stock_price.items:
-            self.bb_data.stock_price['daily_return'] = np.log(self.bb_data.stock_price.ix['ClosePrice_adj'].div(
+        if 'daily_log_return' not in self.bb_data.stock_price.items:
+            self.bb_data.stock_price['daily_log_return'] = np.log(self.bb_data.stock_price.ix['ClosePrice_adj'].div(
                 self.bb_data.stock_price.ix['ClosePrice_adj'].shift(1)))
-        # 计算每只股票的日超额收益
-        if 'daily_excess_return' not in self.bb_data.stock_price.items:
-            self.bb_data.stock_price['daily_excess_return'] = self.bb_data.stock_price.ix['daily_return'].sub(
+        # 计算每只股票的日超额对数收益
+        if 'daily_excess_log_return' not in self.bb_data.stock_price.items:
+            self.bb_data.stock_price['daily_excess_log_return'] = self.bb_data.stock_price.ix['daily_log_return'].sub(
                 self.bb_data.const_data.ix[:, 'risk_free_rate'], axis=0)
+        # 计算每只股票的日简单收益，注意是按日复利的日化收益，即代表净值增值
+        if 'daily_simple_return' not in self.bb_data.stock_price.items:
+            self.bb_data.stock_price['daily_simple_return'] = self.bb_data.stock_price.ix['ClosePrice_adj'].div(
+                self.bb_data.stock_price.ix['ClosePrice_adj'].shift(1)).sub(1.0)
+        # 计算每只股票的日超额简单收益，注意是按日复利的日化收益，
+        # 另外注意risk_free_rate默认是连续复利，要将其转化成对应的简单收益
+        if 'daily_excess_simple_return' not in self.bb_data.stock_price.items:
+            self.bb_data.const_data['risk_free_rate_simple'] = np.exp(self.bb_data.const_data['risk_free_rate']) - 1
+            self.bb_data.stock_price['daily_excess_simple_return'] = self.bb_data.stock_price. \
+                ix['daily_simple_return'].sub(self.bb_data.const_data['risk_free_rate_simple'], axis=0)
         # 读取交易量数据
         if 'Volume' not in self.bb_data.stock_price.items:
             volume = data.read_data(['Volume'], ['Volume'])
@@ -167,8 +177,8 @@ class barra_base(object):
             beta = data.read_data(['beta'+self.filename_appendix+'.csv'], ['beta'])
             self.bb_data.factor['beta'] = beta.ix['beta']
         else:
-            # 所有股票的日对数收益的市值加权，加权用前一交易日的市值数据进行加权
-            cap_wgt_universe_return = self.bb_data.stock_price.ix['daily_excess_return'].mul(
+            # 所有股票的日简单收益的市值加权，加权用前一交易日的市值数据进行加权
+            cap_wgt_universe_return = self.bb_data.stock_price.ix['daily_excess_simple_return'].mul(
                                        self.bb_data.stock_price.ix['FreeMarketValue'].shift(1)).div(
                                        self.bb_data.stock_price.ix['FreeMarketValue'].shift(1).sum(1), axis=0).sum(1)
             
@@ -193,14 +203,14 @@ class barra_base(object):
                 return pd.Series({'beta':results.params[1],'hsigma':hsigma})
             # 按照Barra的方法进行回归
             # 储存回归结果的dataframe
-            temp_beta = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
-            temp_hsigma = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_return'].index):
+            temp_beta = self.bb_data.stock_price.ix['daily_excess_simple_return']*np.nan
+            temp_hsigma = self.bb_data.stock_price.ix['daily_excess_simple_return']*np.nan
+            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_simple_return'].index):
                 # 至少第252期时才回归
                 if cursor<=250:
                     continue
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_return',cursor-251:cursor+1,:]
+                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return',cursor-251:cursor+1,:]
                 curr_x = cap_wgt_universe_return.ix[cursor-251:cursor+1]
                 temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
                 temp_beta.ix[cursor,:] = temp.ix['beta']
@@ -218,8 +228,8 @@ class barra_base(object):
             beta = data.read_data(['beta'+self.filename_appendix], ['beta'])
             self.bb_data.factor['beta'] = beta.ix['beta']
         else:
-            # 所有股票的日对数收益的市值加权，加权用前一交易日的市值数据进行加权
-            cap_wgt_universe_return = self.bb_data.stock_price.ix['daily_excess_return'].mul(
+            # 所有股票的日简单收益的市值加权，加权用前一交易日的市值数据进行加权
+            cap_wgt_universe_return = self.bb_data.stock_price.ix['daily_excess_simple_return'].mul(
                 self.bb_data.stock_price.ix['FreeMarketValue'].shift(1)).div(
                 self.bb_data.stock_price.ix['FreeMarketValue'].shift(1).sum(1), axis=0).sum(1)
 
@@ -245,11 +255,11 @@ class barra_base(object):
                 return pd.Series({'beta': results.params[1], 'hsigma': hsigma})
             # 按照Barra的方法进行回归
             # 股票收益的数据
-            complete_return_data = self.complete_bb_data.stock_price.ix['daily_excess_return']
+            complete_return_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return']
             # 计算每期beta的函数
             def one_time_beta(cursor):
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-                # curr_data = self.complete_bb_data.stock_price.ix['daily_excess_return', cursor - 251:cursor+1, :]
+                # curr_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return', cursor - 251:cursor+1, :]
                 curr_data = complete_return_data.ix[cursor - 251:cursor+1, :]
                 curr_x = cap_wgt_universe_return.ix[cursor - 251:cursor+1]
                 temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
@@ -260,7 +270,7 @@ class barra_base(object):
                 ncpus = 20
                 p = mp.ProcessPool(ncpus)
                 # 从252期开始
-                data_size = np.arange(251, self.bb_data.stock_price.ix['daily_excess_return'].shape[0])
+                data_size = np.arange(251, self.bb_data.stock_price.ix['daily_excess_simple_return'].shape[0])
                 chunksize = int(len(data_size)/ncpus)
                 results = p.map(one_time_beta, data_size, chunksize=chunksize)
                 # 储存结果
@@ -283,9 +293,9 @@ class barra_base(object):
             self.bb_data.factor['momentum'] = momentum.ix['momentum']
         else:
             # 计算momentum因子
-            # 首先数据有一个21天的lag
+            # 首先数据有一个21天的lag， 注意收益要用对数收益
             # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-            lag_return = self.complete_bb_data.stock_price.ix['daily_excess_return'].shift(21)
+            lag_return = self.complete_bb_data.stock_price.ix['daily_excess_log_return'].shift(21)
             # rolling后求sum，504个交易日，126的半衰期
             exponential_weights = barra_base.construct_expo_weights(126, 504)
             # 定义momentum的函数
@@ -296,7 +306,7 @@ class barra_base(object):
                 threshold_condition = df.notnull().sum(0) >= 63
                 mom = mom.where(threshold_condition, np.nan)
                 return mom
-            momentum = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
+            momentum = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
             for cursor, date in enumerate(lag_return.index):
                 # 至少504+21期才开始计算
                 if cursor<=(502+21):
@@ -320,13 +330,13 @@ class barra_base(object):
             def func_dastd(df, *, weights):
                 iweights = pd.Series(weights, index=df.index)
                 return df.mul(iweights, axis=0).std(0)
-            dastd = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_return'].index):
+            dastd = self.bb_data.stock_price.ix['daily_excess_simple_return']*np.nan
+            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_simple_return'].index):
                 # 至少252期才开始计算
                 if cursor<=250:
                     continue
-                # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_return', cursor-251:cursor+1,:]
+                # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据，且要用简单收益
+                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return', cursor-251:cursor+1,:]
                 temp = func_dastd(curr_data, weights=exponential_weights)
                 dastd.ix[cursor,:] = temp
   
@@ -354,13 +364,13 @@ class barra_base(object):
                 # 为避免出现z_min<=-1调整后的极端值，cmra改为z_max-z_min
                 # 注意：改变后并未改变因子排序，而是将因子原本的scale变成了exp(scale)
                 return z_max - z_min
-            cmra = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_return'].index):
+            cmra = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
+            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少252期才开始计算
                 if cursor <= 250:
                     continue
-                # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_return', cursor-251:cursor+1, :]
+                # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据，且要用对数收益
+                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_log_return', cursor-251:cursor+1, :]
                 temp = func_cmra(curr_data)
                 cmra.ix[cursor,:] = temp
         self.bb_data.raw_data['cmra'] = cmra
@@ -464,8 +474,8 @@ class barra_base(object):
                 months = np.arange(20,63,21)
                 months_stom = df.ix[months]
                 return np.log(np.exp(months_stom).mean(axis=0))
-            stoq = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_return'].index):
+            stoq = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
+            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少63期才开始计算
                 if cursor<=61:
                     continue
@@ -487,8 +497,8 @@ class barra_base(object):
                 months = np.arange(20,252,21)
                 months_stom = df.ix[months]
                 return np.log(np.exp(months_stom).mean(axis=0))
-            stoa = self.bb_data.stock_price.ix['daily_excess_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_return'].index):
+            stoa = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
+            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少252期才开始计算
                 if cursor<=250:
                     continue
@@ -884,7 +894,7 @@ class barra_base(object):
                 print('a')
                 pass
             outcome = strategy_data.constrained_gls_barra_base(
-                       self.bb_data.stock_price.ix['daily_return', time, :],
+                       self.bb_data.stock_price.ix['daily_simple_return', time, :],
                        lag_factor_expo.ix[:, time, :],
                        weights = np.sqrt(lag_mv.ix[time, :]),
                        indus_ret_weights = lag_mv.ix[time, :],

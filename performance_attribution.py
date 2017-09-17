@@ -29,7 +29,7 @@ class performance_attribution(object):
     """
 
     def __init__(self, input_position, portfolio_returns, *, benchmark_weight=None,
-                 intra_holding_deviation=pd.Series(), trans_cost=pd.Series(), show_warning=True):
+                 intra_holding_deviation=None, trans_cost=None, show_warning=True):
         self.pa_position = position(input_position.holding_matrix)
         # 如果传入基准持仓数据，则归因超额收益
         if isinstance(benchmark_weight, pd.DataFrame):
@@ -45,26 +45,36 @@ class performance_attribution(object):
         else:
             self.pa_position.holding_matrix = input_position.holding_matrix
 
-        # 传入的组合收益
+        # 检测是否要对现金部分进行归因，设置一个检测现金部分的阈值
+        self.pa_position.cash = input_position.cash
+        if (self.pa_position.cash >= 1e-6).any():
+            self.do_cash_pa = True
+        else:
+            self.do_cash_pa = False
+
+        # 传入的组合收益, 由于传入的组合收益是对数收益，而归因基于简单收益
+        # 因此，要将对数收益转换成简单收益
+        # 归因使用简单收益的原因是, 归因涉及同一时间上不同资产的组合加总，简单收益更为准确
         self.port_returns = portfolio_returns
+        self.port_returns = np.exp(self.port_returns).sub(1.0)
 
         # 有可能被传入的调仓期间的偏离, 即由于调仓期内多头与空头涨幅不一致带来的组合价值的偏离,
         # 这会导致country factor的暴露不总是0, 只有在使用真实世界的超额归因的时候, 才会用到这个数据
-        self.intra_holding_diviation = intra_holding_deviation
+        self.intra_holding_deviation = intra_holding_deviation
         # 如果传入了这个参数, 但确做的不是超额归因, 要报错
-        if not self.intra_holding_diviation.empty and benchmark_weight is None:
+        if isinstance(intra_holding_deviation, pd.Series) and benchmark_weight is None:
             print('Warning: intra-holding deviation be passed but no benchmark weight. The pa system '
                   'has automatically ignored the intra-holding deviation, since it is implied by'
                   'no benchmark weight being passed that the pa will not be based on active part! \n')
-            self.intra_holding_diviation = pd.Series()
+            self.intra_holding_deviation = None
         # 有可能传入的手续费带来的负收益序列, 在真实归因时用到
         # 如果传入了手续费序列, 但是其都是0, 则自动不画手续费曲线
         self.trans_cost = trans_cost
-        if not self.trans_cost.empty and (self.trans_cost == 0).all():
+        if isinstance(self.trans_cost, pd.Series) and (self.trans_cost == 0).all():
             print('Warning: transaction cost series has been passed but is an all-zeros series. The pa'
                   'system has automatically ignored this series, since it is implied that there is no '
                   'transaction cost! \n')
-            self.trans_cost = pd.Series()
+            self.trans_cost = None
 
         self.pa_returns = pd.DataFrame()
         self.port_expo = pd.DataFrame()
@@ -144,10 +154,22 @@ class performance_attribution(object):
         # 注意, 如果进行的是真实世界的超额收益归因, 如果传入了偏离度序列, 则要将country factor因子的暴露重新
         # 调整为偏离度序列, 然后重新计算收益, 注意, 这里的调整是原始的暴露加上偏离度序列,
         # 因为原始的暴露可能因为调仓日和起始回测日的原因, 导致最开始的几天是-1.
-        if not self.intra_holding_diviation.empty:
-            self.port_expo['country_factor'] += self.intra_holding_diviation
+        if isinstance(self.intra_holding_deviation, pd.Series):
+            self.port_expo['country_factor'] += self.intra_holding_deviation
             self.port_pa_returns['country_factor'] = self.pa_returns['country_factor'].\
                 mul(self.port_expo['country_factor'].shift(1))
+
+        if self.do_cash_pa:
+            # 首先要将在bb中的无风险收益的时间索引重索引为归因时间段
+            self.risk_free_rate_simple = self.bb.bb_data.const_data['risk_free_rate_simple'].\
+                reindex(index=self.pa_position.holding_matrix.index)
+            # 现在来根据现金资产的存在对收益归因进行调整，首先，组合的暴露全部被现金比例等比例缩小
+            self.port_expo = self.port_expo.mul(1 - self.pa_position.cash, axis=0)
+            # 组合在因子上的收益，也要进行一样的调整，因为组合的暴露被等比例缩小了
+            self.port_pa_returns = self.port_pa_returns.mul(1 - self.pa_position.cash, axis=0)
+            # 现金部分的收益，应该等于上一期的现金因子的暴露，乘以无风险利率
+            # 为了保证第一天的收益都到residual上去，第一天的现金收益也要fillna成0
+            self.cash_returns = self.pa_position.cash.shift(1).mul(self.risk_free_rate_simple).fillna(0.0)
 
         # 计算各类因子的总收益情况
         # 注意, 由于计算组合收益的时候, 组合暴露要用上一期的暴露, 因此第一期统一没有因子收益
@@ -167,9 +189,36 @@ class performance_attribution(object):
         self.residual_returns = self.port_returns - (self.style_factor_returns+self.industry_factor_returns+
                                                      self.country_factor_returns)
         # 如果有手续费序列, 则残余收益应当是减去手续费的(手续费为负, 因此残余收益会变大)
-        if not self.trans_cost.empty:
+        if isinstance(self.trans_cost, pd.Series):
             self.residual_returns -= self.trans_cost
         pass
+        # 如果要做现金部分的归因，则还需要减去现金
+        if self.do_cash_pa:
+            self.residual_returns -= self.cash_returns
+
+        # 与风险不同，归因最后画出的图是对累计收益曲线进行分解，因此还需要计算各个部分的累计曲线
+        # 首先计算组合的累计净值，之所以要先算净值，是因为净值是作为之后算各个部分累计收益时的基数
+        port_nav = self.port_returns.add(1).cumprod()
+        # 算各个部分的累计收益贡献，这一期的简单收益（或净值增长）乘以上一期的组合净值基数
+        # 就可以得到这一期该部分取得的收益，注意，fillna是为了让第一期的各个部分的收益都跑到residual那里去
+        self.port_pa_returns_cum = self.port_pa_returns.mul(port_nav.shift(1), axis=0).fillna(0).cumsum()
+        self.style_factor_returns_cum = self.port_pa_returns_cum.ix[:, 0:self.bb.n_style].sum(1)
+        self.industry_factor_returns_cum = self.port_pa_returns_cum.ix[:,
+                                           self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].sum(1)
+        self.country_factor_returns_cum = self.port_pa_returns_cum.ix[:, (self.bb.n_style+self.bb.n_indus)]
+        # 残余收益的部分，第一期要填成自身第一期的收益
+        self.residual_returns_cum = self.residual_returns.mul(port_nav.shift(1))
+        self.residual_returns_cum.iloc[0] = self.residual_returns.iloc[0]
+        self.residual_returns_cum = self.residual_returns_cum.cumsum()
+        # 手续费方面，由于手续费的cost_ratio是占上一个交易日的账户价值的比例（见backtest）
+        # 因此计算方法也是一样的，只不过port_nav在shift过后，将第一期的nan填成1，以表示最一开始的资产净值是1
+        if isinstance(self.trans_cost, pd.Series):
+            self.trans_cost_cum = self.trans_cost.mul(port_nav.shift(1).fillna(1)).cumsum()
+        if self.do_cash_pa:
+            self.cash_returns_cum = self.cash_returns.mul(port_nav.shift(1)).fillna(0).cumsum()
+        # 最后计算组合的累计简单收益，以做参考
+        self.port_returns_cum = port_nav.sub(1)
+
 
     # 进行风险归因
     def analyze_pa_risk_outcome(self):
@@ -199,17 +248,25 @@ class performance_attribution(object):
                                                  + self.country_factor_risks)
 
         # 为了保证风险归因的真实性, 如果有手续费在, 需要计算手续费对组合风险的影响
-        if not self.trans_cost.empty:
+        if isinstance(self.trans_cost, pd.Series):
             # 计算手续费的风险
             self.trans_cost_sigma = self.trans_cost.expanding().std()
             # 计算手续费与组合的相关系数
             self.trans_cost_corr = self.trans_cost.expanding().corr(self.port_returns)
             # 默认手续费暴露是1, 计算手续费的风险贡献
-            self.trans_cost_risk = self.trans_cost_sigma * self.trans_cost_corr
+            self.trans_cost_risks = self.trans_cost_sigma * self.trans_cost_corr
             # 于是, 残余风险要减去手续费的风险, 即将手续费的风险贡献从残余收益风险贡献中剥离出去
-            self.residual_risks -= self.trans_cost_risk
-
-
+            self.residual_risks -= self.trans_cost_risks
+        # 如果要做现金部分的归因，还需要计算现金部分的收益对组合风险的影响
+        if self.do_cash_pa:
+            # 现金的风险
+            self.cash_sigma = self.risk_free_rate_simple.expanding().std()
+            # 现金与组合的相关系数
+            self.cash_corr = self.risk_free_rate_simple.expanding().corr(self.port_returns)
+            # 计算现金部分的风险贡献
+            self.cash_risks = self.pa_position.cash.shift(1) * self.cash_sigma * self.cash_corr
+            # 残余风险要减去现金部分的风险
+            self.residual_risks -= self.cash_risks
 
     # 处理那些没有归因的股票，即有些股票被策略选入，但因没有因子暴露值，而无法纳入归因的股票
     # 此dataframe处理这些股票，储存每期这些股票的个数，以及它们在策略中的持仓权重
@@ -268,16 +325,19 @@ class performance_attribution(object):
         # 第一张图分解组合的累计收益来源
         f1 = plt.figure()
         ax1 = f1.add_subplot(1,1,1)
-        plt.plot(self.style_factor_returns.cumsum()*100, label='style')
-        plt.plot(self.industry_factor_returns.cumsum()*100, label='industry')
-        plt.plot(self.country_factor_returns.cumsum()*100, label='country')
-        plt.plot(self.residual_returns.cumsum()*100, label='residual')
+        plt.plot(self.style_factor_returns_cum*100, label='style')
+        plt.plot(self.industry_factor_returns_cum*100, label='industry')
+        plt.plot(self.country_factor_returns_cum*100, label='country')
+        plt.plot(self.residual_returns_cum*100, label='residual')
         # 如果有手续费序列, 则画出手续费序列
-        if not self.trans_cost.empty:
-            plt.plot(self.trans_cost.cumsum()*100, label='trans_cost')
+        if isinstance(self.trans_cost, pd.Series):
+            plt.plot(self.trans_cost_cum*100, label='trans_cost')
+        # 如果有现金序列, 则画出现金序列
+        if self.do_cash_pa:
+            plt.plot(self.cash_returns_cum*100, label='cash')
         ax1.set_xlabel('Time')
-        ax1.set_ylabel('Cumulative Log Return (%)')
-        ax1.set_title('The Cumulative Log Return of Factor Groups')
+        ax1.set_ylabel('Cumulative Simple Return (%)')
+        ax1.set_title('The Cumulative Simple Return of Factor Groups')
         ax1.legend(loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -289,10 +349,10 @@ class performance_attribution(object):
         # 第二张图分解组合的累计风格收益
         f2 = plt.figure()
         ax2 = f2.add_subplot(1,1,1)
-        plt.plot((self.port_pa_returns.ix[:, 0:self.bb.n_style].cumsum(0)*100))
+        plt.plot((self.port_pa_returns_cum.ix[:, 0:self.bb.n_style]*100))
         ax2.set_xlabel('Time')
-        ax2.set_ylabel('Cumulative Log Return (%)')
-        ax2.set_title('The Cumulative Log Return of Style Factors')
+        ax2.set_ylabel('Cumulative Simple Return (%)')
+        ax2.set_title('The Cumulative Simple Return of Style Factors')
         ax2.legend(self.port_pa_returns.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -314,16 +374,17 @@ class performance_attribution(object):
             qualified_rank = part1+part2
         f3 = plt.figure()
         ax3 = f3.add_subplot(1, 1, 1)
-        indus_rank = self.port_pa_returns.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
-            cumsum(0).ix[-1].rank(ascending=False)
-        for i, j in enumerate(self.port_pa_returns.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
+        indus_rank = self.port_pa_returns_cum.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+            iloc[-1].rank(ascending=False)
+        for i, j in enumerate(self.port_pa_returns_cum.ix[:,
+                              self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
-                plt.plot((self.port_pa_returns.ix[:, j].cumsum(0) * 100), label=j+str(indus_rank[j]))
+                plt.plot((self.port_pa_returns_cum.ix[:, j] * 100), label=j+str(indus_rank[j]))
             else:
-                plt.plot((self.port_pa_returns.ix[:, j].cumsum(0) * 100), label='_nolegend_')
+                plt.plot((self.port_pa_returns_cum.ix[:, j] * 100), label='_nolegend_')
         ax3.set_xlabel('Time')
-        ax3.set_ylabel('Cumulative Log Return (%)')
-        ax3.set_title('The Cumulative Log Return of Industrial Factors')
+        ax3.set_ylabel('Cumulative Simple Return (%)')
+        ax3.set_title('The Cumulative Simple Return of Industrial Factors')
         ax3.legend(loc='best', prop=chifont, bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -409,10 +470,10 @@ class performance_attribution(object):
         # 第八张图画用于归因的bb的风格因子的纯因子收益率，即回归得到的因子收益率，仅供参考
         f8 = plt.figure()
         ax8 = f8.add_subplot(1, 1, 1)
-        plt.plot(self.pa_returns.ix[:, 0:self.bb.n_style].cumsum(0)*100)
+        plt.plot(self.pa_returns.ix[:, 0:self.bb.n_style].add(1).cumprod(0).sub(1)*100)
         ax8.set_xlabel('Time')
-        ax8.set_ylabel('Cumulative Log Return (%)')
-        ax8.set_title('The Cumulative Log Return of Pure Style Factors Through Regression')
+        ax8.set_ylabel('Cumulative Simple Return (%)')
+        ax8.set_title('The Cumulative Simple Return of Pure Style Factors Through Regression')
         ax8.legend(self.pa_returns.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -436,11 +497,14 @@ class performance_attribution(object):
         plt.plot(self.country_factor_risks*100, label='country')
         plt.plot(self.residual_risks*100, label='residual')
         # 如果有手续费序列, 则画出手续费序列
-        if not self.trans_cost.empty:
-            plt.plot(self.trans_cost_risk*100, label='trans_cost')
+        if isinstance(self.trans_cost, pd.Series):
+            plt.plot(self.trans_cost_risks*100, label='trans_cost')
+        # 如果对现金做归因，则画出现金序列
+        if self.do_cash_pa:
+            plt.plot(self.cash_risks*100, label='cash')
         ax1.set_xlabel('Time')
-        ax1.set_ylabel('Volatility Log Return (%)')
-        ax1.set_title('The Volatility of Log Return of Factor Groups')
+        ax1.set_ylabel('Volatility Simple Return (%)')
+        ax1.set_title('The Volatility of Simple Return of Factor Groups')
         ax1.legend(loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -454,8 +518,8 @@ class performance_attribution(object):
         ax2 = f2.add_subplot(1, 1, 1)
         plt.plot((self.port_pa_risks.ix[:, 0:self.bb.n_style] * 100))
         ax2.set_xlabel('Time')
-        ax2.set_ylabel('Volatility of Log Return (%)')
-        ax2.set_title('The Volatility of Log Return of Style Factors')
+        ax2.set_ylabel('Volatility of Simple Return (%)')
+        ax2.set_title('The Volatility of Simple Return of Style Factors')
         ax2.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -485,8 +549,8 @@ class performance_attribution(object):
             else:
                 plt.plot((self.port_pa_risks.ix[:, j] * 100), label='_nolegend_')
         ax3.set_xlabel('Time')
-        ax3.set_ylabel('Volatility of Log Return (%)')
-        ax3.set_title('The Volatility of Log Return of Industrial Factors')
+        ax3.set_ylabel('Volatility of Simple Return (%)')
+        ax3.set_title('The Volatility of Simple Return of Industrial Factors')
         ax3.legend(loc='best', prop=chifont, bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -502,8 +566,8 @@ class performance_attribution(object):
         ax4 = f4.add_subplot(1, 1, 1)
         plt.plot(self.pa_sigma.ix[:, 0:self.bb.n_style] * 100)
         ax4.set_xlabel('Time')
-        ax4.set_ylabel('Volatility of Log Return (%)')
-        ax4.set_title('The Standalone Volatility of Style Factors Log Return')
+        ax4.set_ylabel('Volatility of Simple Return (%)')
+        ax4.set_title('The Standalone Volatility of Style Factors Simple Return')
         ax4.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
@@ -518,7 +582,7 @@ class performance_attribution(object):
         plt.plot(self.pa_corr.ix[:, 0:self.bb.n_style])
         ax5.set_xlabel('Time')
         ax5.set_ylabel('Correlation Coefficient')
-        ax5.set_title('The Corr Between Style Factors Log Return and Portfolio Log Return')
+        ax5.set_title('The Corr Between Style Factors Simple Return and Portfolio Simple Return')
         ax5.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()

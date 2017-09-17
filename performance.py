@@ -246,21 +246,21 @@ class performance(object):
         # 即当前周期的那个调仓日, 其不需要加上这个周期结束时的数据, 而是在下一天才开始加入
         holding_node_value_cum = holding_node_value.shift(1).cumsum().fillna(0.0). \
             reindex(intra_holding.index, method='ffill').shift(1).fillna(0.0)
-        self.active_net_account_value = holding_node_value_cum + intra_holding
-        self.active_net_account_value += 1
-        self.active_net_account_value = pd.concat([pd.Series(1.0, index=[self.base_timestamp]),
-                                                   self.active_net_account_value], axis=0)
+        self.active_nav = holding_node_value_cum + intra_holding
+        self.active_nav += 1
+        self.active_nav = pd.concat([pd.Series(1.0, index=[self.base_timestamp]),
+                                                   self.active_nav], axis=0)
         # 计算用超额净值得到的超额收益序列，用这个序列来计算超额收益的统计量，更符合实际
-        self.active_nav_return = np.log(self.active_net_account_value.
-                                        div(self.active_net_account_value.shift(1))).ix[1:]
-        self.cum_active_nav_return = self.active_nav_return.cumsum()
-        self.cum_active_nav_return = pd.concat([pd.Series(0.0, index=[self.base_timestamp]),
-                                                self.cum_active_nav_return], axis=0)
+        self.active_log_return = np.log(self.active_nav.
+                                        div(self.active_nav.shift(1))).ix[1:]
+        self.cum_active_log_return = self.active_log_return.cumsum()
+        self.cum_active_log_return = pd.concat([pd.Series(0.0, index=[self.base_timestamp]),
+                                                self.cum_active_log_return], axis=0)
 
         # 每个调仓周期内的累计超额收益, 这是一个在其他地方可能会用到的数据,
         # 因为这代表着在调仓期内, 因为超额收益带来的多头组合和空头基准的偏离度
         # 因此把这个量提取出来, 不用shift, 因为归因里会自己shift
-        self.intra_holding_diviation = grouped.apply(func_intra_nav, get_deviation=True). \
+        self.intra_holding_deviation = grouped.apply(func_intra_nav, get_deviation=True). \
             reset_index(0, drop=True)
         pass
 
@@ -318,12 +318,12 @@ class performance(object):
     
     # 年化超额收益
     def annual_active_return(self):
-        return self.cum_active_nav_return.ix[-1] * self.tradedays_one_year / \
-               (self.cum_active_nav_return.size - 1)
+        return self.cum_active_log_return.ix[-1] * self.tradedays_one_year / \
+               (self.cum_active_log_return.size - 1)
                
     # 年化超额收益波动率
     def annual_active_std(self):
-        return self.active_nav_return.std() * np.sqrt(self.tradedays_one_year)
+        return self.active_log_return.std() * np.sqrt(self.tradedays_one_year)
         
     # 年化信息比
     def info_ratio(self, annual_active_return, annual_active_std):
@@ -331,8 +331,8 @@ class performance(object):
         
     # 胜率
     def win_ratio(self):
-        return self.active_nav_return.ix[self.active_nav_return>0].size / \
-               self.active_nav_return.size
+        return self.active_log_return.ix[self.active_log_return>0].size / \
+               self.active_log_return.size
         
     # 计算并输出各个指标
     def get_performance(self, *, foldername=''):
@@ -350,7 +350,7 @@ class performance(object):
             annual_ac_r = self.annual_active_return()
             annual_ac_std = self.annual_active_std()
             annual_info_ratio = self.info_ratio(annual_ac_r, annual_ac_std)
-            max_dd_ac, peak_loc_ac, low_loc_ac = performance.max_drawdown(self.active_net_account_value)
+            max_dd_ac, peak_loc_ac, low_loc_ac = performance.max_drawdown(self.active_nav)
             annual_ac_calmar = performance.annual_calmar_ratio(annual_ac_r, max_dd_ac)
             win_ratio = self.win_ratio()
         else:
@@ -449,7 +449,7 @@ class performance(object):
         if isinstance(self.benchmark, pd.Series):
             f2 = plt.figure()
             ax2 = f2.add_subplot(1,1,1)
-            plt.plot(self.active_nav_return*100, 'b-')
+            plt.plot(self.cum_active_log_return*100, 'b-')
             ax2.set_xlabel('Time')
             ax2.set_ylabel('Cumulative Log Return (%)')
             ax2.set_title('The Cumulative Active Log Return of The Strategy')
@@ -483,7 +483,7 @@ class performance(object):
         if isinstance(self.benchmark, pd.Series):
             f4 = plt.figure()
             ax4 = f4.add_subplot(1,1,1)
-            plt.plot(self.active_net_account_value, 'b-')
+            plt.plot(self.active_nav, 'b-')
             ax4.set_xlabel('Time')
             ax4.set_ylabel('Active Net Value')
             ax4.set_title('The Active Net Value of The Strategy')

@@ -533,14 +533,14 @@ class backtest(object):
             elif real_world_type == 1:
                 assert isinstance(benchmark_weight, pd.DataFrame), \
                     'No benchmark weight passed while executing pa on active return!'
-                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_return,
+                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_log_return,
                     benchmark_weight=benchmark_weight)
             elif real_world_type == 2:
                 assert isinstance(benchmark_weight, pd.DataFrame) != str, \
                     'No benchmark weight passed while executing pa on active return!'
-                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_nv_return,
+                self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.active_log_return,
                     benchmark_weight=benchmark_weight, trans_cost=self.info_series['cost_ratio'],
-                    intra_holding_deviation=self.bkt_performance.intra_holding_diviation)
+                    intra_holding_deviation=self.bkt_performance.intra_holding_deviation)
         else:
             # 理想世界的简单回测, 先计算理想世界下的组合收益序列
             ideal_port_return = backtest.ideal_world_backtest(self.tar_pct_position.holding_matrix,

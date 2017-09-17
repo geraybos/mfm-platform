@@ -398,9 +398,10 @@ class single_factor_strategy(strategy):
             holding_days = holding_days[start:]
         if isinstance(end, pd.Timestamp):
             holding_days = holding_days[:end]
-        # 计算股票对数收益以及因子暴露
+        # 计算股票简单收益以及因子暴露
+        # 这里虽然不涉及时间截面上的资产组合加总，但是为了和归因中的纯因子组合对比，最好用简单收益
         holding_day_price = self.strategy_data.stock_price.ix['ClosePrice_adj',holding_days,:]
-        holding_day_return = np.log(holding_day_price.div(holding_day_price.shift(1)))
+        holding_day_return = holding_day_price.div(holding_day_price.shift(1)).sub(1.0)
         holding_day_factor = self.strategy_data.factor.ix[0, holding_days, :]
         holding_day_factor_expo = strategy_data.get_cap_wgt_exposure(holding_day_factor,
                                     self.strategy_data.stock_price.ix['FreeMarketValue', holding_days, :])
@@ -453,7 +454,7 @@ class single_factor_strategy(strategy):
         ax = fx.add_subplot(1,1,1)
         zero_series = pd.Series(np.zeros(self.factor_return_series.shape), index=self.factor_return_series.index)
         if plot_cum:
-            plt.plot(self.factor_return_series.cumsum()*100, 'b-')
+            plt.plot(self.factor_return_series.add(1).cumprod().sub(1)*100, 'b-')
         else:
             plt.plot(self.factor_return_series*100, 'b-')
             plt.plot(zero_series, 'r-')
@@ -498,9 +499,9 @@ class single_factor_strategy(strategy):
         # 初始化ic矩阵
         ic_series = np.empty(holding_days.size)*np.nan
         self.ic_series = pd.Series(ic_series, index = holding_days)
-        # 计算股票对数收益，提取因子值，同样的，因子值要用前一期的因子值
+        # 计算股票简单收益，提取因子值，同样的，因子值要用前一期的因子值
         holding_day_price = self.strategy_data.stock_price.ix['ClosePrice_adj',holding_days,:]
-        holding_day_return = np.log(holding_day_price.div(holding_day_price.shift(1)))
+        holding_day_return = holding_day_price.div(holding_day_price.shift(1)).sub(1.0)
         holding_day_factor = self.strategy_data.factor.ix[0, holding_days, :]
         holding_day_factor = holding_day_factor.shift(1)
         # 对调仓日进行循环
@@ -515,7 +516,7 @@ class single_factor_strategy(strategy):
             else:
                 print('Please enter ''+'' or ''-'' for direction argument')
             
-            # 对因子实现的对数收益率进行排序，升序排列，因此同样，秩类似于得分
+            # 对因子实现的简单收益率进行排序，升序排列，因此同样，秩类似于得分
             return_score = holding_day_return.ix[time, :].rank(ascending = True)
             
             # 计算得分（秩）之间的线性相关系数，就是秩相关系数
