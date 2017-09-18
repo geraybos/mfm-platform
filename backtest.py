@@ -564,7 +564,7 @@ class backtest(object):
     def reset_bkt_data(self):
         # 重置现金序列，账户序列以及benchmark序列
         self.real_vol_position.cash.iloc[0] = self.initial_money * 1
-        self.account_value = []
+        self.account_value = pd.Series(0.0, index=self.tar_pct_position.holding_matrix.index)
         self.benchmark_value = self.bkt_data.benchmark_price.ix['ClosePrice_adj', :, 0]
         # 重置info series信息序列
         self.info_series = pd.DataFrame(0, index=self.real_vol_position.cash.index, columns=[
@@ -579,8 +579,9 @@ class backtest(object):
         self.bkt_position = new_bkt_position
         # 重新将目标持仓，实际持仓等矩阵初始化
         self.tar_pct_position.holding_matrix = self.bkt_position.holding_matrix.reindex(
-                                               index = self.tar_pct_position.holding_matrix.index, 
-                                               method = 'ffill')
+            index=self.tar_pct_position.holding_matrix.index, method = 'ffill')
+        self.tar_pct_position.cash = self.bkt_position.cash.reindex(
+            index=self.tar_pct_position.cash.index, method='ffill')
         self.real_vol_position = position(self.tar_pct_position.holding_matrix)
         self.real_pct_position = position(self.tar_pct_position.holding_matrix)
         self.tar_vol_position = position(self.tar_pct_position.holding_matrix)

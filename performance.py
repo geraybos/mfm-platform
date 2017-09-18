@@ -161,20 +161,20 @@ class performance(object):
         grouped = self.return_data.groupby('mark')
 
         # 定义每个调仓周期内的收益序列计算方法
-        # 每个调仓周期内用周期内股票资产的净值加上现金部分的净值
+        # 每个调仓周期内用周期内股票资产的净值增长加上现金部分的净值增长
         # 每个调仓周期内的资产配置比例起始点, 选为上一个调仓周期的最后一天的比例
         def func_intra_nav(x, *, get_deviation=False, get_node_value=False):
             # 股票资产的收益率序列, 分为调仓期前的部分和调仓后的部分
             stock_return_before = x['log_return_equity1'] + x['log_return_equity2']
             # 最后一天, 即下一个调仓日的
             stock_return_before.iloc[-1] -= x.ix[-1, 'log_return_equity2']
-            # 先计算从第一天, 到最后一天(即调仓日那天)换仓前的那部分净值序列
-            stock_nav_before = np.exp(stock_return_before.cumsum())
-            # benchmark的净值序列
-            bench_nav_before = np.exp(x['log_return_bench'].cumsum())
+            # 先计算从第一天, 到最后一天(即调仓日那天)换仓前的那部分净值增值序列
+            stock_nav_change_before = np.exp(stock_return_before.cumsum()) - 1
+            # benchmark的净值增长序列
+            bench_nav_change_before = np.exp(x['log_return_bench'].cumsum()) - 1
             # 如果需要计算的是intra_holding_deviation(即股票多空头的偏差), 则这个时候的信息已经足够了
             if get_deviation:
-                intra_deviation = stock_nav_before - bench_nav_before
+                intra_deviation = stock_nav_change_before - bench_nav_change_before
                 # 最后一天, 因为是换仓日, 且假设了benchmark在收盘换仓, 因此deviation一定是0
                 # 注意, 在整个回测的最后一个调仓周期, 调仓周期的最后一天不一定是调仓日
                 if intra_deviation.index[-1] in self.holding_days:
@@ -182,28 +182,27 @@ class performance(object):
                     return intra_deviation
             # 如果不是计算intra deviation, 则继续我们的计算
             # 同时计算现金部分, 现金部分的收益全部在这一部分实现
-            cash_nav = np.exp(x['risk_free_rate'].cumsum())
+            cash_nav_change = np.exp(x['risk_free_rate'].cumsum()) - 1
             # 这部分净值序列的起始资产比例为对应的base1, 即上一个调仓日结算时的比例
-            base_cash_ratio1 = x.ix[-1, 'base_cash_value1'] / (x.ix[-1, 'base_cash_value1'] +
-                x.ix[-1, 'base_stock_value1'])
-            # 于是nav的序列
-            active_nav_before = (stock_nav_before - bench_nav_before) * (1 - base_cash_ratio1) + \
-                cash_nav * base_cash_ratio1
+            base_cash_ratio1 = x.ix[0, 'base_cash_value1'] / (x.ix[0, 'base_cash_value1'] +
+                x.ix[0, 'base_stock_value1'])
+            # 于是净值增长的序列
+            active_nav_change_before = (stock_nav_change_before - bench_nav_change_before) * \
+                (1 - base_cash_ratio1) + cash_nav_change * base_cash_ratio1
 
             # 现在来计算调仓后的部分
             stock_return_after = x.ix[-1, 'log_return_equity2']
-            stock_nav_after = np.exp(stock_return_after)
+            stock_nav_change_after = np.exp(stock_return_after) - 1
             # 由于假设, 1. benchmark均在收盘价换仓, 即benchmark的所有收益分配到第一部分
             # 2. 现金的无风险收益算在隔夜上, 同样也全部分配到了第一部分
             # 因此第二部分的收益就只有换仓后的股票资产的收益
             # 而其股票资产的基准比例为对应的base2, 即换仓时价值对应的那个比例
             base_cash_ratio2 = x.ix[-1, 'base_cash_value2'] / (x.ix[-1, 'base_cash_value2'] +
                 x.ix[-1, 'base_stock_value2'])
-            active_nav_after = stock_nav_after * (1 - base_cash_ratio2)
+            active_nav_change_after = stock_nav_change_after * (1 - base_cash_ratio2)
 
             # 最后总的nav序列为前后两个nav之和
-            intra_active_nav = active_nav_before + active_nav_after
-            intra_active_nav_change = intra_active_nav - 1
+            intra_active_nav_change = active_nav_change_before + active_nav_change_after
 
             # 如果只是为了得到周期最后一天的净值, 则只返回最后一个, 否则返回一个序列
             if get_node_value:
@@ -246,8 +245,8 @@ class performance(object):
         # 即当前周期的那个调仓日, 其不需要加上这个周期结束时的数据, 而是在下一天才开始加入
         holding_node_value_cum = holding_node_value.shift(1).cumsum().fillna(0.0). \
             reindex(intra_holding.index, method='ffill').shift(1).fillna(0.0)
-        self.active_nav = holding_node_value_cum + intra_holding
-        self.active_nav += 1
+        active_nav_change = holding_node_value_cum + intra_holding
+        self.active_nav = active_nav_change + 1.0
         self.active_nav = pd.concat([pd.Series(1.0, index=[self.base_timestamp]),
                                                    self.active_nav], axis=0)
         # 计算用超额净值得到的超额收益序列，用这个序列来计算超额收益的统计量，更符合实际

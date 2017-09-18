@@ -164,12 +164,8 @@ class single_factor_strategy(strategy):
         # 选择加权的方式
         self.position.to_percentage()
 
-        # 有个问题, 实际上与adjust benchmark related expo一样, 即基准成分股可能有停牌的股票
-        # 这些股票的权重在filter uninv data中被过滤掉了, 于是导致根据指数的行业权重进行加权时出现问题
-        # 这个问题的更好的解决办法应该是就应该被过滤掉, 然后基准里停牌的部分应该做现金保留,
-        # 但是这个更改需要改很多东西, 这里为了应急, 先直接重新读取权重数据用来加权
-        temp_bench_weight = data.read_data(['Weight_'+self.strategy_data.stock_pool])
-
+        # 使用strategy_data.benchmark_price里的指数权重, 指数权重是从handle_stock_pool里读入的
+        # 在handle_stock_pool中, 做了归一化处理, 并且在之后用filter_uninv过滤了不可交易的成分股
         if weight == 1:
             self.position.weighted_holding(self.strategy_data.stock_price.ix['FreeMarketValue',
                                            self.position.holding_matrix.index, :])
@@ -184,7 +180,12 @@ class single_factor_strategy(strategy):
         elif weight == 3 and self.strategy_data.stock_pool != 'all':
             self.position.weighted_holding_indus(industry, inner_weights=self.strategy_data.stock_price.ix \
                 ['FreeMarketValue', self.position.holding_matrix.index, :], outter_weights= \
-                temp_bench_weight.ix['Weight_'+self.strategy_data.stock_pool, self.position.holding_matrix.index, :])
+                self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.stock_pool,
+                self.position.holding_matrix.index, :])
+
+        # benchmark的权重之和少于1的部分, 就是那些在指数中停牌的股票, 这些股票应当当做现金持有
+        self.position.cash = 1 - self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.stock_pool,
+                self.position.holding_matrix.index, :].sum(1)
         pass
 
     # 用优化的方法构造纯因子组合，纯因子组合保证组合在该因子上有暴露（注意，并不一定是1），在其他因子上无暴露
@@ -349,12 +350,20 @@ class single_factor_strategy(strategy):
 
         # 循环结束后，进行权重归一化
         self.position.to_percentage()
+        # 如果有benchmark, 归一化后, 将benchmark中不可交易的比例当做现金持有, 即benchmark因为停牌的原因
+        # 其在country factor上的暴露并不一定是1, 因此停牌的那部分, 组合要当做现金持有, 更为合理
+        if isinstance(benchmark_weight, pd.DataFrame):
+            self.position.cash = 1 - benchmark_weight.ix[self.holding_days, :].sum(1)
 
         # 因为优化后重新归一的组合, 其对目标因子暴露不一定是1,
         # (详情见barra文档或active portfolio management第一章附录),
         # 因此这里需要计算组合对当前因子的暴露, 总的或者是超额的, 并且输出平均暴露信息
-        port_factor_expo = self.position.holding_matrix.mul(self.strategy_data.factor_expo.iloc[0]). \
-            sum(1).replace(0.0, np.nan)
+        port_factor_expo = self.position.holding_matrix.reindex(index=
+            self.strategy_data.factor_expo.major_axis, method='ffill').mul(
+            self.strategy_data.factor_expo.iloc[0]).sum(1).replace(0.0, np.nan)
+        # 注意, 如果有benchmark, 可能因为现金的存在, 是的纯因子暴露再一次被稀释
+        if isinstance(benchmark_weight, pd.DataFrame):
+            port_factor_expo *= 1 - self.position.cash.reindex(index=port_factor_expo.index, method='ffill')
         self.pure_factor_expo_of_port = port_factor_expo
         # 输出平均数, 给用户参考
         port_factor_expo_mean = port_factor_expo.mean()

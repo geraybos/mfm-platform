@@ -17,6 +17,7 @@ from cvxopt import solvers, matrix
 from pandas.stats.fama_macbeth import fama_macbeth # deprecated in version 0.20.2
 
 from data import data
+from position import position
 
 # 数据类，所有数据均为pd.Panel, major_axis为时间，minor_axis为股票代码，items为数据名称
 
@@ -56,6 +57,10 @@ class strategy_data(data):
                 self.benchmark_price = temp_weights
             else:
                 self.benchmark_price['Weight_'+self.stock_pool] = temp_weights['Weight_'+self.stock_pool]
+            # 由于指数权重数据会跟1有一点点偏离, 因此要将其归一化
+            self.benchmark_price['Weight_'+self.stock_pool] = self.benchmark_price['Weight_'+self.stock_pool]. \
+                apply(position.to_percentage_func, axis=1)
+            # 指数权重大于0的股票, 即为在指数内的股票
             self.if_tradable['if_inpool'] = self.benchmark_price.ix['Weight_'+self.stock_pool]>0
 
         # 若还没有if_tradable，报错
