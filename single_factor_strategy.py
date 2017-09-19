@@ -257,12 +257,13 @@ class single_factor_strategy(strategy):
                                                   minor_axis=self.strategy_data.factor.minor_axis)
         # 如果有benchmark，则计算benchmark的暴露
         if isinstance(benchmark_weight, pd.DataFrame):
-            benchmark_weight = (benchmark_weight.div(benchmark_weight.sum(1), axis=0)).fillna(0)
+            benchmark_weight = benchmark_weight.fillna(0.0)
             benchmark_base_expo = strategy_data.get_port_expo(benchmark_weight, base_expo,
                                                               self.strategy_data.if_tradable)
             benchmark_curr_factor_expo = strategy_data.get_port_expo(benchmark_weight,
                 pd.Panel({'factor_expo': factor_expo}), self.strategy_data.if_tradable)
-
+            # 注意, benchmark_curr_factor_expo是一个只有一列的dataframe, 要把它转成series
+            benchmark_curr_factor_expo = benchmark_curr_factor_expo.iloc[:, 0]
             self.strategy_data.factor_expo.ix['factor_expo'] = factor_expo.sub(benchmark_curr_factor_expo, axis=0)
 
         # 循环调仓日
