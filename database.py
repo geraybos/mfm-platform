@@ -317,7 +317,7 @@ class database(object):
 
     # 计算pb
     def get_pb(self):
-        pb = self.data.stock_price.ix['FreeMarketValue']/self.data.raw_data.ix['TotalEquity']
+        pb = self.data.stock_price.ix['MarketValue']/self.data.raw_data.ix['TotalEquity']
         self.data.raw_data['PB'] = pb
 
     # 取一致预期净利润
@@ -394,7 +394,7 @@ class database(object):
 
     # 计算pe ttm
     def get_pe_ttm(self):
-        pe_ttm = self.data.stock_price.ix['FreeMarketValue']/self.data.raw_data.ix['NetIncome_ttm']
+        pe_ttm = self.data.stock_price.ix['MarketValue']/self.data.raw_data.ix['NetIncome_ttm']
         self.data.raw_data['PE_ttm'] = pe_ttm
 
     # 取ni ttm, revenue ttm, eps_ttm的两年增长率
@@ -556,27 +556,29 @@ class database(object):
         self.initialize_gg()
         self.get_trading_days()
         self.get_labels()
-        # self.get_sq_data()
+        self.get_sq_data()
         # self.get_AdjustFactor(first_date=update_time)
         # self.get_ochl_vwap_adj()
         # print('get sq data has been completed...\n')
         # self.get_list_status(first_date=update_time)
         # print('get list status has been completed...\n')
-        # self.get_asset_liability_equity(first_date=update_time)
-        # print('get balancesheet data has been completed...\n')
-        # self.get_pb()
+        self.get_asset_liability_equity(first_date=update_time)
+        print('get balancesheet data has been completed...\n')
+        self.get_pb()
+        print('get pb has been completed...\n')
         # self.get_ni_fy1_fy2()
         # self.get_eps_fy1_fy2()
         # print('get forecast data has been completed...\n')
         # self.get_cash_related_ttm()
         # print('get cash related ttm has been completed...\n')
-        # self.get_ni_ttm()
-        # print('get netincome ttm has been completed...\n')
-        # self.get_pe_ttm()
+        self.get_ni_ttm()
+        print('get netincome ttm has been completed...\n')
+        self.get_pe_ttm()
+        print('get pe_ttm has been completed...\n')
         # self.get_ni_revenue_eps_growth()
         # print('get growth ttm has been completed...\n')
-        self.get_index_price()
-        self.get_index_weight(first_date=update_time)
+        # self.get_index_price()
+        # self.get_index_weight(first_date=update_time)
         print('get index data has been completed...\n')
 
         # 更新数据的情况先不能储存数据，只有非更新的情况才能储存
@@ -682,19 +684,20 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
     db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-06-21'))
-    # db.get_data_from_db()
+    db.is_update=True
+    db.get_data_from_db()
     # db.update_data_from_db(end_date=pd.Timestamp('2017-06-21'))
-    db.initialize_jydb()
-    db.initialize_sq()
-    db.initialize_gg()
-    db.get_trading_days()
-    db.get_labels()
+    # db.initialize_jydb()
+    # db.initialize_sq()
+    # db.initialize_gg()
+    # db.get_trading_days()
+    # db.get_labels()
     # db.get_AdjustFactor()
     # db.get_existing_factor(5)
     # db.get_ClosePrice_adj()
-    db.get_index_price()
-    db.get_index_weight()
-    data.write_data(db.data.benchmark_price)
+    # db.get_index_price()
+    # db.get_index_weight()
+    data.write_data(db.data.raw_data)
     # data.write_data(db.data.stock_price, file_name=['runner_value_5'])
     print("time: {0} seconds\n".format(time.time()-start_time))
 

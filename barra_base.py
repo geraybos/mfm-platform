@@ -49,6 +49,25 @@ class barra_base(object):
         exponential_weights = exponential_weights/np.sum(exponential_weights)
         return exponential_weights
 
+    # 将指数权重直接乘在原始数据上后, 进行数量级调整的函数, 注意, 作为输入变量的weights, 必须和为1
+    # 调整数量级的核心思想是, 一定要使得有效数据的权重之和是有效数据的数量valid_n
+    @staticmethod
+    def multiply_weights(raw_data, weights):
+        # 先将权重乘在指数上
+        new_data = raw_data.mul(weights)
+        # 提取出那些真正有作用的权重, 即并未对应nan的那些权重
+        valid_weights = np.where(raw_data.notnull(), weights, 0)
+        # 第一个调整的步骤, 必须使得有效的数据的权重之和为1
+        multiplier_1 = 1/np.sum(valid_weights)
+        # 进行这一步调整之后, 有效数据的权重之和已经是1了
+        new_data *= multiplier_1
+        # 第二个调整的步骤, 必须使得有效数据的权重之和是有效数据的数量valid n
+        valid_n = new_data.notnull().sum()
+        # 进行这一步调整之后, 有效数据的权重之和就是valid n了
+        new_data *= valid_n
+
+        return new_data
+
     # 读取在计算风格因子中需要用到的原始数据，注意：行业信息数据不在这里读取
     # 即使可以读取已算好的因子，也在这里处理，因为这样方便统一处理，不至于让代码太乱
     # 这里的标准为，读取前都检查一下是否已经存在数据，这样可以方便手动读取特定数据
@@ -202,7 +221,7 @@ class barra_base(object):
                 # 给weights加上index以索引resid
                 exponential_weights_h = pd.Series(exponential_weights_h, index=y.index)
                 # 因为是直接乘以了指数权重然后算std, 因此要对resid的数量级进行修改
-                resid *= np.sqrt(resid.notnull().sum() - 1)
+                resid *= resid.notnull().sum()
                 hsigma = (resid*exponential_weights_h).std()
                 # ----------------------------------------------------------------------------------------
                 return pd.Series({'beta':results.params[1],'hsigma':hsigma})
@@ -256,7 +275,7 @@ class barra_base(object):
                 # 给weights加上index以索引resid
                 exponential_weights_h = pd.Series(exponential_weights_h, index=y.index)
                 # 因为是直接乘以了指数权重然后算std, 因此要对resid的数量级进行修改
-                resid *= np.sqrt(resid.notnull().sum() - 1)
+                resid *= resid.notnull().sum()
                 hsigma = (resid * exponential_weights_h).std()
                 # ----------------------------------------------------------------------------------------
                 return pd.Series({'beta': results.params[1], 'hsigma': hsigma})
@@ -339,7 +358,7 @@ class barra_base(object):
             def func_dastd(df, *, weights):
                 iweights = pd.Series(weights, index=df.index)
                 # 因为是直接乘以了指数权重然后算std, 因此要对数据的数量级进行修改
-                df = df.mul(np.sqrt(df.notnull().sum(0) - 1), axis=1)
+                df = df.mul(df.notnull().sum(0), axis=1)
                 dastd = df.mul(iweights, axis=0).std(0)
                 return dastd
             dastd = self.bb_data.stock_price.ix['daily_excess_simple_return']*np.nan
@@ -446,7 +465,7 @@ class barra_base(object):
                                                                            self.bb_data.stock_price.ix['FreeMarketValue'])})
             # 将市值因子暴露取3次方, 得到size cube
             y = x['lncap_expo'] ** 3
-            # 讲size cube对市值因子做正交化
+            # 将size cube对市值因子做正交化
             new_nls = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.bb_data.stock_price.ix['FreeMarketValue']))[0]
             self.bb_data.factor['nls'] = new_nls
 
@@ -992,116 +1011,34 @@ class barra_base(object):
         # 初始化储存原始协方差矩阵的panel
         self.initial_cov_mat = pd.Panel(np.nan, items=self.bb_factor_return.index,
             major_axis=self.bb_factor_return.columns, minor_axis=self.bb_factor_return.columns)
+        # 初始化储存日度因子方差预测的dataframe, 用来做volatility regime adjustment
+        self.daily_var_forecast = pd.DataFrame(np.nan, index=self.bb_factor_return.index,
+                                               columns=self.bb_factor_return.columns)
 
         # 开始循环计算原始的cov_mat
         for cursor, time in enumerate(self.bb_factor_return.index):
             # 注意, 根据sample size来决定从第几期开始计算
             # if cursor < sample_size - 1:
-            if time < pd.Timestamp('2013-07-26'):
+            if time < pd.Timestamp('2009-03-03'):
                 continue
 
-            estimated_cov_mat = barra_base.initial_cov_estimator(cursor, self.bb_factor_return,
+            estimated_outcome = barra_base.initial_cov_estimator(cursor, self.bb_factor_return,
                                     sample_size=sample_size, var_half_life=var_half_life,
                                     corr_half_life=corr_half_life, var_nw_lag=var_nw_lag,
                                     corr_nw_lag=corr_nw_lag, forecast_steps=forecast_steps)
 
             # 将估计得到的var和corr结合起来, 形成当期估计的协方差矩阵
             # 用日数据转移到周或月数据, 需要乘以天数差
-            self.initial_cov_mat.ix[time] = estimated_cov_mat
+            self.initial_cov_mat.ix[time] = estimated_outcome[0]
+            # 日度的因子方差预测值, 储存起来做vra的时候会用到
+            self.daily_var_forecast.ix[time] = estimated_outcome[1]
             pass
 
-    # 原始协方差矩阵的估计量函数
-    @staticmethod
-    def initial_cov_estimator(cursor, complete_factor_return_data, *, sample_size=504,
-                              var_half_life=84, corr_half_life=504, var_nw_lag=5, corr_nw_lag=2,
-                              forecast_steps=21):
-        # 首先创建指数权重序列
-        var_weight = barra_base.construct_expo_weights(var_half_life, sample_size)
-        corr_weight = barra_base.construct_expo_weights(corr_half_life, sample_size)
-        # 取当期的数据
-        curr_data = complete_factor_return_data.iloc[cursor + 1 - sample_size:cursor + 1, :]
-
-        # 先计算var
-        curr_var = None
-        # 根据var的nw lag进行循环, 从lag=0开始, lag=0则表示计算自己的方差
-        for curr_var_lag in range(var_nw_lag + 1):
-            # 根据当前的lag数, 取对应的lag data
-            lagged_data = complete_factor_return_data.shift(curr_var_lag). \
-                              iloc[cursor + 1 - sample_size:cursor + 1, :]
-            # 将数据乘以对应的权重
-            weighted_curr_data = curr_data.mul(np.sqrt(var_weight), axis=0)
-            weighted_lagged_data = lagged_data.mul(np.sqrt(var_weight), axis=0)
-            # 将其放入估计方差的函数中, 计算方差
-            var = barra_base.var_func(weighted_curr_data, weighted_lagged_data)
-            # 根据对应的权重, 将估计出的var加到原始的var上去
-            # 当lag是0的时候, 计算的就是自身的方差
-            if curr_var_lag == 0:
-                curr_var = var * 1
-            else:
-                curr_var = curr_var + 2 * (var_nw_lag + 1 - curr_var_lag) / (var_nw_lag + 1) * var
-
-        # 再计算corr
-        curr_corr = None
-        # 根据corr的nw lag进行循环, 从lag=0开始, lag=0则表示计算自己的相关系数矩阵
-        for curr_corr_lag in range(corr_nw_lag + 1):
-            # 根据当前的lag数, 取对应的lag data
-            lagged_data = complete_factor_return_data.shift(curr_corr_lag). \
-                              iloc[cursor + 1 - sample_size:cursor + 1, :]
-            # 将数据乘以对应的权重
-            weighted_curr_data = curr_data.mul(np.sqrt(corr_weight), axis=0)
-            weighted_lagged_data = lagged_data.mul(np.sqrt(corr_weight), axis=0)
-            # 将其放入估计相关系数矩阵的函数中, 计算相关系数矩阵
-            corr = barra_base.corr_func(weighted_curr_data, weighted_lagged_data)
-            # 根据对应的权重, 将估计出的corr加到原始的corr上去
-            # 当lag是0的时候, 计算的就是自身的相关系数矩阵
-            if curr_corr_lag == 0:
-                curr_corr = corr * 1
-            else:
-                curr_corr = curr_corr + (corr_nw_lag + 1 - curr_corr_lag) / (corr_nw_lag + 1) * \
-                                        (corr + corr.T)
-
-        # 将估计得到的var和corr结合起来, 形成当期估计的协方差矩阵
-        # 用日数据转移到周或月数据, 需要乘以天数差
-        estimated_cov_mat = curr_corr.mul(np.sqrt(curr_var), axis=0). \
-            mul(np.sqrt(curr_var), axis=1).mul(forecast_steps)
-        if not np.all(np.linalg.eigvals(estimated_cov_mat) > 0):
-            print(': is not positive definite matrix!\n')
-        pass
-
-        return estimated_cov_mat
-
-    # 计算var的函数
-    @staticmethod
-    def var_func(df, lagged_df):
-        # 因为乘以权重时已经除以了样本个数n, 而在估计corr以及std的时候再次除以了样本个数n-1
-        # 因此, 要在数据上乘以样本个数n-1的根号, 才能使得数量级正确
-        valid_n = np.logical_and(df.notnull(), lagged_df.notnull()).sum(0) - 1
-        df = df.mul(np.sqrt(valid_n), axis=1)
-        lagged_df = lagged_df.mul(np.sqrt(valid_n), axis=1)
-        # 没有直接计算对应列的方差的函数, 因此, 先计算对应列的corr
-        pairwise_corr = df.corrwith(lagged_df)
-        # 再通过计算std, 最终得到对应列之间的var
-        df_std = df.std()
-        lagged_df_std = lagged_df.std()
-        var = pairwise_corr * df_std * lagged_df_std
-
-        return var
-
-    # 计算corr的函数
-    @staticmethod
-    def corr_func(df, lagged_df):
-        # 返回的corr矩阵的格式为, 行是df的因子, 列是lagged_df的因子
-        corr = pd.DataFrame(np.nan, index=df.columns, columns=lagged_df.columns)
-        # 只能循环计算, 注意, 由于计算的是corr, 不受数量级影响, 因此不用进行样本个数n的调整
-        for factor, s in df.iteritems():
-            for l_factor, l_s in lagged_df.iteritems():
-                corr.ix[factor, l_factor] = s.corr(l_s)
-
-        return corr
+        # self.initial_cov_mat.to_hdf('bb_factor_covmat_hs300_nonw', '123')
 
     # 原始协方差矩阵的估计量函数, 采用statsmodels里面的函数改进性能
     @staticmethod
-    def initial_cov_estimator_sm(cursor, complete_factor_return_data, *, sample_size=504,
+    def initial_cov_estimator(cursor, complete_factor_return_data, *, sample_size=504,
                               var_half_life=84, corr_half_life=504, var_nw_lag=5, corr_nw_lag=2,
                               forecast_steps=21):
         # 首先创建指数权重序列
@@ -1151,7 +1088,31 @@ class barra_base(object):
         estimated_cov_mat = curr_corr.mul(np.sqrt(curr_var), axis=0). \
             mul(np.sqrt(curr_var), axis=1).mul(forecast_steps)
 
-        return estimated_cov_mat
+        return [estimated_cov_mat, curr_var]
+
+    # 对估计出的协方差矩阵做volatility regime adjustment
+    def get_vra_cov_mat(self, *, sample_size=504, vra_half_life=42):
+        # 初始化储存vra后的协方差矩阵的panel
+        self.vra_cov_mat = self.initial_cov_mat * np.nan
+        # 计算标准化的因子收益率, 即用每天实现的因子收益, 除以之前预测的当天的因子波动率
+        standardized_fac_ret = self.bb_factor_return.div(np.sqrt(self.daily_var_forecast.shift(1)))
+
+        # 开始循环计算vra后的协方差矩阵
+        for cursor, time in enumerate(self.bb_factor_return.index):
+            # 根据sample size来决定从第几期开始计算
+            # 注意, 因为用来进行调整的factor volatility multiplier(vra multiplier)的计算
+            # 要用到预测的因子方差的时间序列, 所以, 最开始的几期的计算会只有很少的时间序列上的点
+            if cursor < sample_size - 1:
+                continue
+
+            vra_multiplier = barra_base.vra_multiplier_estimator(cursor, standardized_fac_ret,
+                                sample_size=sample_size, vra_half_life=vra_half_life)
+
+    # 进行volatility regime adjustment的函数, 会返回vra后的协方差矩阵
+    @staticmethod
+    def vra_multiplier_estimator(cursor, standardized_fac_ret, *, sample_size=504, vra_half_life=42):
+        # 首先创建指数权重序列
+        vra_weight = barra_base.construct_expo_weights(vra_half_life, sample_size)
 
 
     # 对初步估计出的协方差矩阵, 进行eigenfactor adjustment的函数
@@ -1161,6 +1122,8 @@ class barra_base(object):
 
         # 对日期进行循环
         for cursor, time in enumerate(self.initial_cov_mat.items):
+            if time < pd.Timestamp('2013-07-29'):
+                continue
             curr_cov_mat = self.initial_cov_mat.ix[time]
             # 放入进行eigen adjustment的函数进行计算
             outcome = barra_base.eigen_factor_adjustment(curr_cov_mat, n_of_sims, scaling_factor,
@@ -1169,26 +1132,31 @@ class barra_base(object):
 
     # 进行单次的eigen factor adjustment的函数
     @staticmethod
-    def eigen_factor_adjustment(cov_mat, n_of_sims, scaling_factor, sample_size):
+    def eigen_factor_adjustment(cov_mat, no_of_sims, scaling_factor, sample_size):
         # 首先对估计的协方差矩阵进行eigen decomposition
         eigenvalues, eigenvectors = np.linalg.eig(cov_mat)
 
         # 储存每次模拟结果的矩阵
-        simed_d = np.empty((n_of_sims, eigenvalues.size))
-        simed_d_hat = np.empty((n_of_sims, eigenvalues.size))
+        simed_d = np.empty((no_of_sims, eigenvalues.size))
+        simed_d_hat = np.empty((no_of_sims, eigenvalues.size))
 
         # 对于每一次模拟
-        for i in range(n_of_sims):
+        for i in range(no_of_sims):
             # 生成由k个特征因子*T个时间长度(即sample size)组成的收益矩阵
             # 第k行, 即第k个特征因子的收益的方差应该是对应的第k个特征值
             eigenfactor_returns = np.random.normal(0, np.sqrt(eigenvalues), (sample_size, eigenvalues.size))
             # 用eigenvectors与模拟得到的eigenfactor_return点乘, 得到模拟的因子收益
-            simulated_factor_return = eigenvectors.dot(eigenfactor_returns.T)
+            simulated_factor_return = pd.DataFrame(np.dot(eigenfactor_returns, eigenvectors.T),
+                                                   index=np.arange(sample_size), columns=cov_mat.index)
+
+            # # 将月度的收益变为日度的, 否则数量级不对
+            # simulated_factor_return /= 21
 
             # 将生成的因子收益放入协方差矩阵的估计函数中, 估计模拟的协方差矩阵
             # 注意, 这里的cursor, 要写成sample_size-1, 即要从数据的第一项用到最后一项
             # 另外再算nw lag项的时候, 由于只模拟了sample_size项, 因此lag项会有数据损失, 暂时不管这个问题
-            simulated_cov_mat = barra_base.initial_cov_estimator(sample_size-1, simulated_factor_return)
+            simulated_cov_mat = barra_base.initial_cov_estimator(sample_size-1, simulated_factor_return,
+                                                                 var_nw_lag=0, corr_nw_lag=0, forecast_steps=1)[0]
 
             # 计算模拟出的协方差矩阵的特征向量
             simed_eigenvalues, simed_eigenvectors = np.linalg.eig(simulated_cov_mat)
@@ -1197,8 +1165,8 @@ class barra_base(object):
             d_hat = np.diagonal(np.dot(np.dot(simed_eigenvectors.T, cov_mat), simed_eigenvectors))
 
             # 将得到的结果储存起来
-            simed_d[n_of_sims, :] = simed_eigenvalues
-            simed_d_hat[n_of_sims, :] = d_hat
+            simed_d[i, :] = simed_eigenvalues
+            simed_d_hat[i, :] = d_hat
 
         # 模拟结束后, 计算simulated volatility bias
         # 这里的计算参考USE4, 因为USE4比eigenfactor adjustment更新一些
@@ -1213,11 +1181,175 @@ class barra_base(object):
 
         return [adjusted_cov_mat, bias, scaled_bias]
 
+    # 根据barra的bias statistics来测试风险预测能力的函数
+    def risk_forecast_performance(self, *, no_of_sims, freq='m', test_type='random'):
+        # 测试barra的估计量
+        forecasted_cov_mat = pd.read_hdf('bb_factor_covmat_hs300_nonw', '123')
+        # # 测试最简单的估计量
+        # forecasted_cov_mat = self.bb_factor_return.rolling(504).cov() * 21
 
 
+        # 首先将实现的因子收益求和
+        realized_factor_return = self.bb_factor_return.resample(freq, label='left').apply(
+            lambda x: (1 + x).prod() - 1)
+        # 取距离实现时间段最近的那个预测值
+        vol_forecast = forecasted_cov_mat.resample(freq, label='left').last().shift(1, axis=0)
+        # panel shift过后, 将他们的时间标签对齐
+        realized_factor_return = realized_factor_return.iloc[1:, :]
 
+        # 建立储存bias stats的df
+        bias_stats = pd.DataFrame(np.nan, index=forecasted_cov_mat.resample('m', label='left').
+                                  first().items, columns=np.arange(no_of_sims))
 
+        # 对随机组合做测试
+        if test_type == 'random':
+            for i in range(no_of_sims):
+                # 生成随机数, 来表示随机因子暴露组合, 然后通过考察对随机组合的风险预测情况来考察风险预测能力
+                factor_expo = np.random.uniform(-1, 1, forecasted_cov_mat.shape[1])
+                # country factor的暴露设置为1
+                factor_expo[-1] = 0
 
+                bias_stats.iloc[:, i] = barra_base.get_bias_stats(realized_factor_return, vol_forecast,
+                                                                  factor_expo)
+
+        # 对优化组合做测试
+        if test_type == 'optimized':
+            for i in range(no_of_sims):
+                # 在因子层面生成随机数, 代表每个因子的alpha, 从标准正态分布中抽取
+                factor_alphas = np.random.normal(size=forecasted_cov_mat.shape[1])
+                # 根据这个因子收益建立最优化的因子组合
+                def opt_func(cov_mat, alpha):
+                    if cov_mat.isnull().any().any():
+                        return pd.Series(np.nan, index=cov_mat.index)
+                    else:
+                        inv_mat = np.linalg.pinv(cov_mat)
+                        holding = np.dot(inv_mat, alpha) / np.dot(np.dot(alpha, inv_mat), alpha)
+                        return pd.Series(holding, index=cov_mat.index)
+                factor_holding = vol_forecast.apply(opt_func, axis=(1, 2), alpha=factor_alphas).T
+
+                bias_stats.iloc[:, i] = barra_base.get_bias_stats(realized_factor_return, vol_forecast,
+                                                                  factor_holding)
+
+        pass
+
+    # 根据所给的数据, 计算当前组合的bias statistics, 用来检测风险预测的能力
+    # freq表示风险预测的频率, 即是预测未来一个月的风险, 或是预测未来一周的风险
+    @staticmethod
+    def get_bias_stats(realized_factor_return, vol_forecast, port_weight):
+        # 根据组合的因子暴露, 乘以因子收益, 算出组合的实现因子收益, 并且计算预测的组合风险
+        if isinstance(port_weight, pd.Series):
+            realized_port_return = realized_factor_return.dot(port_weight)
+
+            forecast_port_vol = vol_forecast.apply(lambda x: np.sqrt(np.dot(port_weight.dot(x), port_weight)),
+                                                   axis=(1, 2))
+        elif isinstance(port_weight, pd.DataFrame):
+            realized_port_return = realized_factor_return.mul(port_weight).sum(1)
+            forecast_port_vol = pd.Series(np.nan, index=realized_port_return.index)
+            for time, cov_mat in vol_forecast.iteritems():
+                if cov_mat.isnull().any().any():
+                    forecast_port_vol.ix[time] = np.nan
+                else:
+                    forecast_port_vol.ix[time] = np.sqrt(np.dot(port_weight.ix[time, :].dot(cov_mat),
+                                                                port_weight.ix[time, :]))
+        else:
+            realized_port_return = realized_factor_return * np.nan
+            forecast_port_vol = realized_factor_return * np.nan
+
+        # 组合的standardized return
+        standardized_return = realized_port_return/forecast_port_vol
+        # 计算rolling window bias statistics
+        rolling_bias_stats = standardized_return.rolling(12).std()
+
+        return rolling_bias_stats
+
+    # # 原始协方差矩阵的估计量函数
+    # @staticmethod
+    # def initial_cov_estimator_naive(cursor, complete_factor_return_data, *, sample_size=504,
+    #                           var_half_life=84, corr_half_life=504, var_nw_lag=5, corr_nw_lag=2,
+    #                           forecast_steps=21):
+    #     # 首先创建指数权重序列
+    #     var_weight = barra_base.construct_expo_weights(var_half_life, sample_size)
+    #     corr_weight = barra_base.construct_expo_weights(corr_half_life, sample_size)
+    #     # 取当期的数据
+    #     curr_data = complete_factor_return_data.iloc[cursor + 1 - sample_size:cursor + 1, :]
+    #
+    #     # 先计算var
+    #     curr_var = None
+    #     # 根据var的nw lag进行循环, 从lag=0开始, lag=0则表示计算自己的方差
+    #     for curr_var_lag in range(var_nw_lag + 1):
+    #         # 根据当前的lag数, 取对应的lag data
+    #         lagged_data = complete_factor_return_data.shift(curr_var_lag). \
+    #                           iloc[cursor + 1 - sample_size:cursor + 1, :]
+    #         # 将数据乘以对应的权重
+    #         weighted_curr_data = curr_data.mul(np.sqrt(var_weight), axis=0)
+    #         weighted_lagged_data = lagged_data.mul(np.sqrt(var_weight), axis=0)
+    #         # 将其放入估计方差的函数中, 计算方差
+    #         var = barra_base.var_func(weighted_curr_data, weighted_lagged_data)
+    #         # 根据对应的权重, 将估计出的var加到原始的var上去
+    #         # 当lag是0的时候, 计算的就是自身的方差
+    #         if curr_var_lag == 0:
+    #             curr_var = var * 1
+    #         else:
+    #             curr_var = curr_var + 2 * (var_nw_lag + 1 - curr_var_lag) / (var_nw_lag + 1) * var
+    #
+    #     # 再计算corr
+    #     curr_corr = None
+    #     # 根据corr的nw lag进行循环, 从lag=0开始, lag=0则表示计算自己的相关系数矩阵
+    #     for curr_corr_lag in range(corr_nw_lag + 1):
+    #         # 根据当前的lag数, 取对应的lag data
+    #         lagged_data = complete_factor_return_data.shift(curr_corr_lag). \
+    #                           iloc[cursor + 1 - sample_size:cursor + 1, :]
+    #         # 将数据乘以对应的权重
+    #         weighted_curr_data = curr_data.mul(np.sqrt(corr_weight), axis=0)
+    #         weighted_lagged_data = lagged_data.mul(np.sqrt(corr_weight), axis=0)
+    #         # 将其放入估计相关系数矩阵的函数中, 计算相关系数矩阵
+    #         corr = barra_base.corr_func(weighted_curr_data, weighted_lagged_data)
+    #         # 根据对应的权重, 将估计出的corr加到原始的corr上去
+    #         # 当lag是0的时候, 计算的就是自身的相关系数矩阵
+    #         if curr_corr_lag == 0:
+    #             curr_corr = corr * 1
+    #         else:
+    #             curr_corr = curr_corr + (corr_nw_lag + 1 - curr_corr_lag) / (corr_nw_lag + 1) * \
+    #                                     (corr + corr.T)
+    #
+    #     # 将估计得到的var和corr结合起来, 形成当期估计的协方差矩阵
+    #     # 用日数据转移到周或月数据, 需要乘以天数差
+    #     estimated_cov_mat = curr_corr.mul(np.sqrt(curr_var), axis=0). \
+    #         mul(np.sqrt(curr_var), axis=1).mul(forecast_steps)
+    #     if not np.all(np.linalg.eigvals(estimated_cov_mat) > 0):
+    #         print(': is not positive definite matrix!\n')
+    #     pass
+    #
+    #     return estimated_cov_mat
+    #
+    # # 计算var的函数
+    # @staticmethod
+    # def var_func(df, lagged_df):
+    #     # 因为乘以权重时已经除以了样本个数n, 而在估计corr以及std的时候再次除以了样本个数n-1
+    #     # 因此, 要在数据上乘以样本个数n-1的根号, 才能使得数量级正确
+    #     valid_n = np.logical_and(df.notnull(), lagged_df.notnull()).sum(0) - 1
+    #     df = df.mul(np.sqrt(valid_n), axis=1)
+    #     lagged_df = lagged_df.mul(np.sqrt(valid_n), axis=1)
+    #     # 没有直接计算对应列的方差的函数, 因此, 先计算对应列的corr
+    #     pairwise_corr = df.corrwith(lagged_df)
+    #     # 再通过计算std, 最终得到对应列之间的var
+    #     df_std = df.std()
+    #     lagged_df_std = lagged_df.std()
+    #     var = pairwise_corr * df_std * lagged_df_std
+    #
+    #     return var
+    #
+    # # 计算corr的函数
+    # @staticmethod
+    # def corr_func(df, lagged_df):
+    #     # 返回的corr矩阵的格式为, 行是df的因子, 列是lagged_df的因子
+    #     corr = pd.DataFrame(np.nan, index=df.columns, columns=lagged_df.columns)
+    #     # 只能循环计算, 注意, 由于计算的是corr, 不受数量级影响, 因此不用进行样本个数n的调整
+    #     for factor, s in df.iteritems():
+    #         for l_factor, l_s in lagged_df.iteritems():
+    #             corr.ix[factor, l_factor] = s.corr(l_s)
+    #
+    #     return corr
 
 if __name__ == '__main__':
     import time
@@ -1231,8 +1363,11 @@ if __name__ == '__main__':
     # bb.get_bb_factor_return(if_save=False)
     fr = data.read_data(['bb_factor_return_hs300'])
     bb.bb_factor_return = fr['bb_factor_return_hs300']
+    # bb.initial_cov_mat = pd.read_hdf('bb_factor_covmat_hs300_nonw', '123')
     start_time = time.time()
+    # bb.get_eigen_adjusted_cov_mat(n_of_sims=100, sample_size=10000)
     bb.get_initial_cov_mat()
+    # bb.risk_forecast_performance(test_type='optimized')
     # bb.update_barra_base_factor_data()
     print("time: {0} seconds\n".format(time.time()-start_time))
     pass
