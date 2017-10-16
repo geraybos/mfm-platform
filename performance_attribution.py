@@ -19,6 +19,7 @@ from data import data
 from strategy_data import strategy_data
 from position import position
 from barra_base import barra_base
+from factor_base import factor_base
 
 # 业绩归因类，对策略中的股票收益率（注意：并非策略收益率）进行归因
 
@@ -84,65 +85,65 @@ class performance_attribution(object):
         self.country_factor_returns = pd.Series()
         self.residual_returns = pd.Series()
         # 业绩归因为基于barra因子的业绩归因
-        self.bb = barra_base()
+        self.base = barra_base()
 
         self.discarded_stocks_num = pd.DataFrame()
         self.discarded_stocks_wgt = pd.DataFrame()
         self.show_warning = show_warning
 
     # 建立barra因子库，有些时候可以直接用在其他地方（如策略中）已计算出的barra因子库，就可以不必计算了
-    def construct_bb(self, *, outside_bb=None):
-        if isinstance(outside_bb, barra_base):
-            self.bb = outside_bb
-            # 外部的bb，如果没有factor expo则也需要再次计算
-            if self.bb.bb_data.factor_expo.empty:
-                self.bb.construct_barra_base()
+    def construct_base(self, *, outside_base=None):
+        if isinstance(outside_base, factor_base):
+            self.base = outside_base
+            # 外部的base，如果没有factor expo则也需要再次计算
+            if self.base.base_data.factor_expo.empty:
+                self.base.construct_factor_base()
             pass
         else:
-            self.bb.construct_barra_base()
+            self.base.construct_factor_base()
 
     # 进行业绩归因
     # 用discard_factor可以定制用来归因的因子，将不需要的因子的名字或序号以list写入即可
     # 注意，只能用来删除风格因子，不能用来删除行业因子或country factor
     def get_pa_return(self, *, discard_factor=[], enable_reading_pa_return=True):
         # 如果有储存的因子收益, 且没有被丢弃的因子, 则读取储存在本地的因子
-        if os.path.isfile('bb_factor_return_'+self.bb.bb_data.stock_pool+'.csv') and \
+        if os.path.isfile('bb_factor_return_'+self.base.base_data.stock_pool+'.csv') and \
                         len(discard_factor) == 0 and enable_reading_pa_return:
-            bb_factor_return = data.read_data(['bb_factor_return_'+self.bb.bb_data.stock_pool], ['pa_returns'])
-            self.pa_returns = bb_factor_return['pa_returns']
+            base_factor_return = data.read_data(['bb_factor_return_'+self.base.base_data.stock_pool], ['pa_returns'])
+            self.pa_returns = base_factor_return['pa_returns']
             print('Barra base factor returns successfully read from local files! \n')
         else:
             # 将被删除的风格因子的暴露全部设置为0
-            self.bb.bb_data.factor_expo.ix[discard_factor, :, :] = 0
+            self.base.base_data.factor_expo.ix[discard_factor, :, :] = 0
             # 再次将不能交易的值设置为nan
-            self.bb.bb_data.discard_uninv_data()
+            self.base.base_data.discard_uninv_data()
             # 建立储存因子收益的dataframe
-            self.pa_returns = pd.DataFrame(0, index=self.bb.bb_data.factor_expo.major_axis,
-                                           columns = self.bb.bb_data.factor_expo.items)
+            self.pa_returns = pd.DataFrame(0, index=self.base.base_data.factor_expo.major_axis,
+                                           columns = self.base.base_data.factor_expo.items)
             # 计算barra base因子的因子收益
-            self.bb.get_bb_factor_return()
+            self.base.get_base_factor_return()
             # barra base因子的因子收益即是归因的因子收益
-            self.pa_returns = self.bb.bb_factor_return
+            self.pa_returns = self.base.base_factor_return
 
             # 将回归得到的因子收益储存在本地, 每次更新了新的数据都要重新回归后储存一次
-            self.pa_returns.to_csv('bb_factor_return_'+self.bb.bb_data.stock_pool+'.csv',
+            self.pa_returns.to_csv('bb_factor_return_'+self.base.base_data.stock_pool+'.csv',
                                    index_label='datetime', na_rep='NaN', encoding='GB18030')
 
-        # 将pa_returns的时间轴改为业绩归因的时间轴（而不是bb的时间轴）
+        # 将pa_returns的时间轴改为业绩归因的时间轴（而不是base的时间轴）
         self.pa_returns = self.pa_returns.reindex(self.pa_position.holding_matrix.index)
 
     # 将收益归因的结果进行整理
     def analyze_pa_return_outcome(self):
-        # 首先将传入的要归因的持仓矩阵的代码重索引为bb factor的股票代码
-        # 注意这里之后需要加一个像回测里那样的检查持仓矩阵里的股票代码是否都在bb factor的股票代码中
+        # 首先将传入的要归因的持仓矩阵的代码重索引为base factor的股票代码
+        # 注意这里之后需要加一个像回测里那样的检查持仓矩阵里的股票代码是否都在base factor的股票代码中
         # 因为如果不这样可能会遗失掉某些股票
         self.pa_position.holding_matrix = self.pa_position.holding_matrix.reindex(
-            columns=self.bb.bb_data.factor_expo.minor_axis, fill_value=0.0)
+            columns=self.base.base_data.factor_expo.minor_axis, fill_value=0.0)
 
         # 首先根据持仓比例计算组合在各个因子上的暴露
         # 计算组合暴露需要用专门定制的函数来进行修正计算, 不能简单的用持仓矩阵乘以因子暴露
         self.port_expo = strategy_data.get_port_expo(self.pa_position.holding_matrix,
-            self.bb.bb_data.factor_expo, self.bb.bb_data.if_tradable, show_warning=self.show_warning)
+            self.base.base_data.factor_expo, self.base.base_data.if_tradable, show_warning=self.show_warning)
 
         # 根据因子收益和因子暴露计算组合在因子上的收益，注意因子暴露用的是组合上一期的因子暴露
         self.port_pa_returns = self.pa_returns.mul(self.port_expo.shift(1))
@@ -160,8 +161,8 @@ class performance_attribution(object):
                 mul(self.port_expo['country_factor'].shift(1))
 
         if self.do_cash_pa:
-            # 首先要将在bb中的无风险收益的时间索引重索引为归因时间段
-            self.risk_free_rate_simple = self.bb.bb_data.const_data['risk_free_rate_simple'].\
+            # 首先要将在base中的无风险收益的时间索引重索引为归因时间段
+            self.risk_free_rate_simple = self.base.base_data.const_data['risk_free_rate_simple'].\
                 reindex(index=self.pa_position.holding_matrix.index)
             # 现在来根据现金资产的存在对收益归因进行调整，首先，组合的暴露全部被现金比例等比例缩小
             self.port_expo = self.port_expo.mul(1 - self.pa_position.cash, axis=0)
@@ -176,13 +177,13 @@ class performance_attribution(object):
         # 这一部分收益会被归到residual return中去, 从而提升residual return
         # 而fillna是为了确保这部分收益会到residual中去, 否则residual会变成nan, 从而丢失这部分收益
         # 风格因子收益
-        self.style_factor_returns = self.port_pa_returns.ix[:, 0:self.bb.n_style].sum(1)
+        self.style_factor_returns = self.port_pa_returns.ix[:, 0:self.base.n_style].sum(1)
         # 行业因子收益
         self.industry_factor_returns = self.port_pa_returns.ix[:,
-                                       self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].sum(1)
+                                       self.base.n_style:(self.base.n_style+self.base.n_indus)].sum(1)
         # 国家因子收益
         self.country_factor_returns = self.port_pa_returns.ix[:,
-                                      (self.bb.n_style+self.bb.n_indus)].fillna(0.0)
+                                      (self.base.n_style+self.base.n_indus)].fillna(0.0)
 
         # 残余收益，即alpha收益，为组合收益减去之前那些因子的收益
         # 注意下面会提到，缺失数据会使得残余收益变大
@@ -202,10 +203,10 @@ class performance_attribution(object):
         # 算各个部分的累计收益贡献，这一期的简单收益（或净值增长）乘以上一期的组合净值基数
         # 就可以得到这一期该部分取得的收益，注意，fillna是为了让第一期的各个部分的收益都跑到residual那里去
         self.port_pa_returns_cum = self.port_pa_returns.mul(port_nav.shift(1), axis=0).fillna(0).cumsum()
-        self.style_factor_returns_cum = self.port_pa_returns_cum.ix[:, 0:self.bb.n_style].sum(1)
+        self.style_factor_returns_cum = self.port_pa_returns_cum.ix[:, 0:self.base.n_style].sum(1)
         self.industry_factor_returns_cum = self.port_pa_returns_cum.ix[:,
-                                           self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].sum(1)
-        self.country_factor_returns_cum = self.port_pa_returns_cum.ix[:, (self.bb.n_style+self.bb.n_indus)]
+                                           self.base.n_style:(self.base.n_style+self.base.n_indus)].sum(1)
+        self.country_factor_returns_cum = self.port_pa_returns_cum.ix[:, (self.base.n_style+self.base.n_indus)]
         # 残余收益的部分，第一期要填成自身第一期的收益
         self.residual_returns_cum = self.residual_returns.mul(port_nav.shift(1))
         self.residual_returns_cum.iloc[0] = self.residual_returns.iloc[0]
@@ -234,11 +235,11 @@ class performance_attribution(object):
         # 首先将每个小因子的风险贡献部分计算出来, 注意, 与收益归因一样, 暴露同样是要用上一期的暴露
         self.port_pa_risks = self.port_expo.shift(1) * self.pa_sigma * self.pa_corr
         # 然后根据因子分类, 将风险贡献分配到不同的因子类型上去
-        self.style_factor_risks = self.port_pa_risks.ix[:, 0:self.bb.n_style].sum(1)
+        self.style_factor_risks = self.port_pa_risks.ix[:, 0:self.base.n_style].sum(1)
         self.industry_factor_risks = self.port_pa_risks.ix[:,
-                                     self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].sum(1)
+                                     self.base.n_style:(self.base.n_style+self.base.n_indus)].sum(1)
         self.country_factor_risks = self.port_pa_risks.ix[:,
-                                   (self.bb.n_style+self.bb.n_indus)].fillna(0.0)
+                                   (self.base.n_style+self.base.n_indus)].fillna(0.0)
 
         # 残余收益贡献的风险, 由组合总风险减去已经归因的风险得到
         # 计算组合的风险
@@ -277,7 +278,7 @@ class performance_attribution(object):
         self.discarded_stocks_num = self.pa_returns.mul(0)
         self.discarded_stocks_wgt = self.pa_returns.mul(0)
         # 因子暴露有缺失值，没有参与归因的股票
-        if_discarded = self.bb.bb_data.factor_expo.reindex(major_axis=self.pa_position.holding_matrix.index).isnull()
+        if_discarded = self.base.base_data.factor_expo.reindex(major_axis=self.pa_position.holding_matrix.index).isnull()
         # 没有参与归因，同时还持有了
         discarded_and_held = if_discarded.mul(self.pa_position.holding_matrix.fillna(0), axis='items').astype(bool)
         # 各个因子没有参与归因的股票个数与持仓比例
@@ -349,11 +350,11 @@ class performance_attribution(object):
         # 第二张图分解组合的累计风格收益
         f2 = plt.figure()
         ax2 = f2.add_subplot(1,1,1)
-        plt.plot((self.port_pa_returns_cum.ix[:, 0:self.bb.n_style]*100))
+        plt.plot((self.port_pa_returns_cum.ix[:, 0:self.base.n_style]*100))
         ax2.set_xlabel('Time')
         ax2.set_ylabel('Cumulative Simple Return (%)')
         ax2.set_title('The Cumulative Simple Return of Style Factors')
-        ax2.legend(self.port_pa_returns.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        ax2.legend(self.port_pa_returns.columns[0:self.base.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_CumRetStyle.png', dpi=1200,
@@ -364,7 +365,7 @@ class performance_attribution(object):
         # 第三张图分解组合的累计行业收益
         # 行业图示只给出最大和最小的5个行业
         # 当前的有效行业数
-        valid_indus = self.pa_returns.iloc[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].\
+        valid_indus = self.pa_returns.iloc[:, self.base.n_style:(self.base.n_style+self.base.n_indus)].\
             dropna(axis=1, how='all').shape[1]
         if valid_indus<=10:
             qualified_rank = [i for i in range(1, valid_indus+1)]
@@ -374,10 +375,10 @@ class performance_attribution(object):
             qualified_rank = part1+part2
         f3 = plt.figure()
         ax3 = f3.add_subplot(1, 1, 1)
-        indus_rank = self.port_pa_returns_cum.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+        indus_rank = self.port_pa_returns_cum.ix[:, self.base.n_style:(self.base.n_style+self.base.n_indus)]. \
             iloc[-1].rank(ascending=False)
         for i, j in enumerate(self.port_pa_returns_cum.ix[:,
-                              self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
+                              self.base.n_style:(self.base.n_style+self.base.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
                 plt.plot((self.port_pa_returns_cum.ix[:, j] * 100), label=j+str(indus_rank[j]))
             else:
@@ -396,11 +397,11 @@ class performance_attribution(object):
         # 第四张图画组合的累计风格暴露
         f4 = plt.figure()
         ax4 = f4.add_subplot(1, 1, 1)
-        plt.plot(self.port_expo.ix[:, 0:self.bb.n_style].cumsum(0))
+        plt.plot(self.port_expo.ix[:, 0:self.base.n_style].cumsum(0))
         ax4.set_xlabel('Time')
         ax4.set_ylabel('Cumulative Factor Exposures')
         ax4.set_title('The Cumulative Style Factor Exposures of the Portfolio')
-        ax4.legend(self.port_expo.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        ax4.legend(self.port_expo.columns[0:self.base.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_CumExpoStyle.png', dpi=1200,
@@ -412,9 +413,9 @@ class performance_attribution(object):
         f5 = plt.figure()
         ax5 = f5.add_subplot(1, 1, 1)
         # 累计暴露最大和最小的5个行业
-        indus_rank = self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+        indus_rank = self.port_expo.ix[:, self.base.n_style:(self.base.n_style+self.base.n_indus)]. \
             cumsum(0).ix[-1].rank(ascending=False)
-        for i, j in enumerate(self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
+        for i, j in enumerate(self.port_expo.ix[:, self.base.n_style:(self.base.n_style+self.base.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
                 plt.plot((self.port_expo.ix[:, j].cumsum(0)), label=j+str(indus_rank[j]))
             else:
@@ -433,11 +434,11 @@ class performance_attribution(object):
         # 第六张图画组合的每日风格暴露
         f6 = plt.figure()
         ax6 = f6.add_subplot(1, 1, 1)
-        plt.plot(self.port_expo.ix[:, 0:self.bb.n_style])
+        plt.plot(self.port_expo.ix[:, 0:self.base.n_style])
         ax6.set_xlabel('Time')
         ax6.set_ylabel('Factor Exposures')
         ax6.set_title('The Style Factor Exposures of the Portfolio')
-        ax6.legend(self.port_expo.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        ax6.legend(self.port_expo.columns[0:self.base.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.'))+'/'+foldername+'/PA_ExpoStyle.png', dpi=1200,
@@ -449,9 +450,9 @@ class performance_attribution(object):
         f7 = plt.figure()
         ax7 = f7.add_subplot(1, 1, 1)
         # 平均暴露最大和最小的5个行业
-        indus_rank = self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+        indus_rank = self.port_expo.ix[:, self.base.n_style:(self.base.n_style+self.base.n_indus)]. \
             mean(0).rank(ascending=False)
-        for i, j in enumerate(self.port_expo.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
+        for i, j in enumerate(self.port_expo.ix[:, self.base.n_style:(self.base.n_style+self.base.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
                 plt.plot((self.port_expo.ix[:, j]), label=j+str(indus_rank[j]))
             else:
@@ -467,14 +468,14 @@ class performance_attribution(object):
         if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
-        # 第八张图画用于归因的bb的风格因子的纯因子收益率，即回归得到的因子收益率，仅供参考
+        # 第八张图画用于归因的base的风格因子的纯因子收益率，即回归得到的因子收益率，仅供参考
         f8 = plt.figure()
         ax8 = f8.add_subplot(1, 1, 1)
-        plt.plot(self.pa_returns.ix[:, 0:self.bb.n_style].add(1).cumprod(0).sub(1)*100)
+        plt.plot(self.pa_returns.ix[:, 0:self.base.n_style].add(1).cumprod(0).sub(1)*100)
         ax8.set_xlabel('Time')
         ax8.set_ylabel('Cumulative Simple Return (%)')
         ax8.set_title('The Cumulative Simple Return of Pure Style Factors Through Regression')
-        ax8.legend(self.pa_returns.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        ax8.legend(self.pa_returns.columns[0:self.base.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorRet.png', dpi=1200,
@@ -516,11 +517,11 @@ class performance_attribution(object):
         # 第二张图分解组合的风格风险贡献
         f2 = plt.figure()
         ax2 = f2.add_subplot(1, 1, 1)
-        plt.plot((self.port_pa_risks.ix[:, 0:self.bb.n_style] * 100))
+        plt.plot((self.port_pa_risks.ix[:, 0:self.base.n_style] * 100))
         ax2.set_xlabel('Time')
         ax2.set_ylabel('Volatility of Simple Return (%)')
         ax2.set_title('The Volatility of Simple Return of Style Factors')
-        ax2.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        ax2.legend(self.port_pa_risks.columns[0:self.base.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_RiskStyle.png', dpi=1200,
@@ -531,7 +532,7 @@ class performance_attribution(object):
         # 第三张图分解组合的行业风险贡献
         # 行业图示只给出最大和最小的5个行业
         # 当前的有效行业数
-        valid_indus = self.pa_returns.iloc[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].\
+        valid_indus = self.pa_returns.iloc[:, self.base.n_style:(self.base.n_style+self.base.n_indus)].\
             dropna(axis=1, how='all').shape[1]
         if valid_indus<=10:
             qualified_rank = [i for i in range(1, valid_indus+1)]
@@ -541,9 +542,9 @@ class performance_attribution(object):
             qualified_rank = part1+part2
         f3 = plt.figure()
         ax3 = f3.add_subplot(1, 1, 1)
-        indus_rank = self.port_pa_risks.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)]. \
+        indus_rank = self.port_pa_risks.ix[:, self.base.n_style:(self.base.n_style+self.base.n_indus)]. \
             mean(0).rank(ascending=False)
-        for i, j in enumerate(self.port_pa_risks.ix[:, self.bb.n_style:(self.bb.n_style+self.bb.n_indus)].columns):
+        for i, j in enumerate(self.port_pa_risks.ix[:, self.base.n_style:(self.base.n_style+self.base.n_indus)].columns):
             if indus_rank[j] in qualified_rank:
                 plt.plot((self.port_pa_risks.ix[:, j] * 100), label=j+str(indus_rank[j]))
             else:
@@ -559,16 +560,16 @@ class performance_attribution(object):
         if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
-        # 第四张图画用于归因的bb的风格因子纯因子收益率的波动率，以供参考
+        # 第四张图画用于归因的base的风格因子纯因子收益率的波动率，以供参考
         # 注意, 根据barra的风险归因模型, 因子的收益率的波动率, 以及因子的收益率与组合收益率的相关系数(下图)
         # 是影响风险贡献的因素, 两者相乘再乘以因子暴露, 即可得到因子的风险贡献
         f4 = plt.figure()
         ax4 = f4.add_subplot(1, 1, 1)
-        plt.plot(self.pa_sigma.ix[:, 0:self.bb.n_style] * 100)
+        plt.plot(self.pa_sigma.ix[:, 0:self.base.n_style] * 100)
         ax4.set_xlabel('Time')
         ax4.set_ylabel('Volatility of Simple Return (%)')
         ax4.set_title('The Standalone Volatility of Style Factors Simple Return')
-        ax4.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        ax4.legend(self.port_pa_risks.columns[0:self.base.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorVol.png', dpi=1200,
@@ -576,14 +577,14 @@ class performance_attribution(object):
         if isinstance(pdfs, PdfPages):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
-        # 第五张图画用于归因的bb的风格因子纯因子收益率与组合收益的相关系数，以供参考
+        # 第五张图画用于归因的base的风格因子纯因子收益率与组合收益的相关系数，以供参考
         f5 = plt.figure()
         ax5 = f5.add_subplot(1, 1, 1)
-        plt.plot(self.pa_corr.ix[:, 0:self.bb.n_style])
+        plt.plot(self.pa_corr.ix[:, 0:self.base.n_style])
         ax5.set_xlabel('Time')
         ax5.set_ylabel('Correlation Coefficient')
         ax5.set_title('The Corr Between Style Factors Simple Return and Portfolio Simple Return')
-        ax5.legend(self.port_pa_risks.columns[0:self.bb.n_style], loc='best', bbox_to_anchor=(1, 1))
+        ax5.legend(self.port_pa_risks.columns[0:self.base.n_style], loc='best', bbox_to_anchor=(1, 1))
         plt.xticks(rotation=30)
         plt.grid()
         plt.savefig(str(os.path.abspath('.')) + '/' + foldername + '/PA_PureStyleFactorCorr.png', dpi=1200,
@@ -592,9 +593,9 @@ class performance_attribution(object):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
     # 进行业绩归因
-    def execute_performance_attribution(self, *, outside_bb=None, discard_factor=[], foldername='',
+    def execute_performance_attribution(self, *, outside_base=None, discard_factor=[], foldername='',
                                         enable_reading_pa_return=True):
-        self.construct_bb(outside_bb=outside_bb)
+        self.construct_base(outside_base=outside_base)
         self.get_pa_return(discard_factor=discard_factor, enable_reading_pa_return=enable_reading_pa_return)
         self.analyze_pa_return_outcome()
         self.analyze_pa_risk_outcome()

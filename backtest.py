@@ -523,7 +523,7 @@ class backtest(object):
     # is_real_world为是否对回测出的模拟真实数据进行归因，real_world_type为0，为使用回测的策略对数收益率
     # 为1，为使用策略的超额对数收益率（即对基准进行每日再平衡）， 为2，为使用策略超额净值计算出的超额收益率（即对基准进行调仓日再平衡）
     # 如果不使用模拟的真实数据进行归因，则使用日收益数据直接计算组合收益率，这种情况下，如进行超额归因，则是对基准进行每日再平衡
-    def get_performance_attribution(self, *, benchmark_weight=None, outside_bb=None, discard_factor=[],
+    def get_performance_attribution(self, *, benchmark_weight=None, outside_base=None, discard_factor=[],
                                     show_warning=True, is_real_world=False, real_world_type=0,
                                     foldername='', pdfs=None, enable_reading_pa_return=True):
         if is_real_world:
@@ -555,7 +555,7 @@ class backtest(object):
                                                   benchmark_weight=benchmark_weight)
         # 设置归因警告提示
         self.bkt_pa.show_warning = show_warning
-        self.bkt_pa.execute_performance_attribution(outside_bb=outside_bb, discard_factor=discard_factor,
+        self.bkt_pa.execute_performance_attribution(outside_base=outside_base, discard_factor=discard_factor,
                                                     foldername=foldername,
                                                     enable_reading_pa_return=enable_reading_pa_return)
         self.bkt_pa.plot_performance_attribution(foldername=foldername, pdfs=pdfs)

@@ -8,169 +8,140 @@ Created on Thu Feb 16 09:41:06 2017
 
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('PDF')
 import matplotlib.pyplot as plt
 from pandas import Series, DataFrame, Panel
 from datetime import datetime
 import os
 import statsmodels.api as sm
 import copy
+import pathos.multiprocessing as mp
 
 from data import data
 from strategy_data import strategy_data
 from position import position
+from factor_base import factor_base
 
 # barra base类，计算barra的风格因子以及行业因子，以此作为基础
 # 注意：此类中参照barra计算的因子中，excess return暂时都没有减去risk free rate
 
-class barra_base(object):
+class barra_base(factor_base):
     """This is the class for barra base construction.
     
     foo
     """
     
     def __init__(self, *, stock_pool='all'):
-        self.bb_data = strategy_data()
-        self.bb_factor_return = pd.DataFrame()
-        # 提示barra base的股票池
-        self.bb_data.stock_pool = stock_pool
+        factor_base.__init__(self, stock_pool=stock_pool)
         # 提示是否为数据更新
         self.is_update = False
         # 提示数据计算中是否尝试读取现有文件
         self.try_to_read = True
-        
-    # 建立指数加权序列
-    # 注意, 生成的权重序列若用于权重参数, 则可以直接使用, 若用于直接乘在或除在原始变量上, 且最后要算的量受到数据数量级的影响
-    # 则注意一定要根据原始数据的数量n, 对原始数据进行调整, 因为等权相当于每个数据都乘以了1, 而这里的指数权重则是一列和为1的分数
-    # 如果不做调整直接乘在原始数据上, 则原始数据的数量级会变小
-    @staticmethod
-    def construct_expo_weights(halflife, length):
-        exponential_lambda = 0.5 ** (1 / halflife)
-        exponential_weights = (1 - exponential_lambda) * exponential_lambda ** np.arange(length-1,-1,-1)
-        exponential_weights = exponential_weights/np.sum(exponential_weights)
-        return exponential_weights
-
-    # 将指数权重直接乘在原始数据上后, 进行数量级调整的函数, 注意, 作为输入变量的weights, 必须和为1
-    # 调整数量级的核心思想是, 一定要使得有效数据的权重之和是有效数据的数量valid_n
-    @staticmethod
-    def multiply_weights(raw_data, weights):
-        # 先将权重乘在指数上
-        new_data = raw_data.mul(weights)
-        # 提取出那些真正有作用的权重, 即并未对应nan的那些权重
-        valid_weights = np.where(raw_data.notnull(), weights, 0)
-        # 第一个调整的步骤, 必须使得有效的数据的权重之和为1
-        multiplier_1 = 1/np.sum(valid_weights)
-        # 进行这一步调整之后, 有效数据的权重之和已经是1了
-        new_data *= multiplier_1
-        # 第二个调整的步骤, 必须使得有效数据的权重之和是有效数据的数量valid n
-        valid_n = new_data.notnull().sum()
-        # 进行这一步调整之后, 有效数据的权重之和就是valid n了
-        new_data *= valid_n
-
-        return new_data
 
     # 读取在计算风格因子中需要用到的原始数据，注意：行业信息数据不在这里读取
     # 即使可以读取已算好的因子，也在这里处理，因为这样方便统一处理，不至于让代码太乱
     # 这里的标准为，读取前都检查一下是否已经存在数据，这样可以方便手动读取特定数据
     def read_original_data(self):
         # 先读取市值
-        if self.bb_data.stock_price.empty:
-            self.bb_data.stock_price = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
-        elif 'FreeMarketValue' not in self.bb_data.stock_price.items:
+        if self.base_data.stock_price.empty:
+            self.base_data.stock_price = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
+        elif 'FreeMarketValue' not in self.base_data.stock_price.items:
             mv = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
-            self.bb_data.stock_price['FreeMarketValue'] = mv.ix['FreeMarketValue']
+            self.base_data.stock_price['FreeMarketValue'] = mv.ix['FreeMarketValue']
         # 初始化无风险利率序列
         if os.path.isfile('const_data.csv'):
-            self.bb_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True, encoding='GB18030')
-            if 'risk_free_rate' not in self.bb_data.const_data.columns:
-                self.bb_data.const_data['risk_free_rate'] = 0
+            self.base_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True, encoding='GB18030')
+            if 'risk_free_rate' not in self.base_data.const_data.columns:
+                self.base_data.const_data['risk_free_rate'] = 0
             else:
                 print('risk free rate successfully loaded')
         else:
-            self.bb_data.const_data = pd.DataFrame(0, index=self.bb_data.stock_price.major_axis,
+            self.base_data.const_data = pd.DataFrame(0, index=self.base_data.stock_price.major_axis,
                                                    columns=['risk_free_rate'])
         # 读取价格数据
-        if 'ClosePrice_adj' not in self.bb_data.stock_price.items:
+        if 'ClosePrice_adj' not in self.base_data.stock_price.items:
             temp_closeprice = data.read_data(['ClosePrice_adj'], ['ClosePrice_adj'])
-            self.bb_data.stock_price['ClosePrice_adj'] = temp_closeprice.ix['ClosePrice_adj']
+            self.base_data.stock_price['ClosePrice_adj'] = temp_closeprice.ix['ClosePrice_adj']
         # 计算每只股票的日对数收益率
-        if 'daily_log_return' not in self.bb_data.stock_price.items:
-            self.bb_data.stock_price['daily_log_return'] = np.log(self.bb_data.stock_price.ix['ClosePrice_adj'].div(
-                self.bb_data.stock_price.ix['ClosePrice_adj'].shift(1)))
+        if 'daily_log_return' not in self.base_data.stock_price.items:
+            self.base_data.stock_price['daily_log_return'] = np.log(self.base_data.stock_price.ix['ClosePrice_adj'].div(
+                self.base_data.stock_price.ix['ClosePrice_adj'].shift(1)))
         # 计算每只股票的日超额对数收益
-        if 'daily_excess_log_return' not in self.bb_data.stock_price.items:
-            self.bb_data.stock_price['daily_excess_log_return'] = self.bb_data.stock_price.ix['daily_log_return'].sub(
-                self.bb_data.const_data.ix[:, 'risk_free_rate'], axis=0)
+        if 'daily_excess_log_return' not in self.base_data.stock_price.items:
+            self.base_data.stock_price['daily_excess_log_return'] = self.base_data.stock_price.ix['daily_log_return'].sub(
+                self.base_data.const_data.ix[:, 'risk_free_rate'], axis=0)
         # 计算每只股票的日简单收益，注意是按日复利的日化收益，即代表净值增值
-        if 'daily_simple_return' not in self.bb_data.stock_price.items:
-            self.bb_data.stock_price['daily_simple_return'] = self.bb_data.stock_price.ix['ClosePrice_adj'].div(
-                self.bb_data.stock_price.ix['ClosePrice_adj'].shift(1)).sub(1.0)
+        if 'daily_simple_return' not in self.base_data.stock_price.items:
+            self.base_data.stock_price['daily_simple_return'] = self.base_data.stock_price.ix['ClosePrice_adj'].div(
+                self.base_data.stock_price.ix['ClosePrice_adj'].shift(1)).sub(1.0)
         # 计算每只股票的日超额简单收益，注意是按日复利的日化收益，
         # 另外注意risk_free_rate默认是连续复利，要将其转化成对应的简单收益
-        if 'daily_excess_simple_return' not in self.bb_data.stock_price.items:
-            self.bb_data.const_data['risk_free_rate_simple'] = np.exp(self.bb_data.const_data['risk_free_rate']) - 1
-            self.bb_data.stock_price['daily_excess_simple_return'] = self.bb_data.stock_price. \
-                ix['daily_simple_return'].sub(self.bb_data.const_data['risk_free_rate_simple'], axis=0)
+        if 'daily_excess_simple_return' not in self.base_data.stock_price.items:
+            self.base_data.const_data['risk_free_rate_simple'] = np.exp(self.base_data.const_data['risk_free_rate']) - 1
+            self.base_data.stock_price['daily_excess_simple_return'] = self.base_data.stock_price. \
+                ix['daily_simple_return'].sub(self.base_data.const_data['risk_free_rate_simple'], axis=0)
         # 读取交易量数据
-        if 'Volume' not in self.bb_data.stock_price.items:
+        if 'Volume' not in self.base_data.stock_price.items:
             volume = data.read_data(['Volume'], ['Volume'])
-            self.bb_data.stock_price['Volume'] = volume.ix['Volume']
+            self.base_data.stock_price['Volume'] = volume.ix['Volume']
         # 读取流通股数数据
-        if 'FreeShares' not in self.bb_data.stock_price.items:
+        if 'FreeShares' not in self.base_data.stock_price.items:
             shares = data.read_data(['FreeShares'], ['FreeShares'])
-            self.bb_data.stock_price['FreeShares'] = shares.ix['FreeShares']
+            self.base_data.stock_price['FreeShares'] = shares.ix['FreeShares']
         # 读取pb
-        if self.bb_data.raw_data.empty:
-            self.bb_data.raw_data = data.read_data(['PB'],['PB'])
+        if self.base_data.raw_data.empty:
+            self.base_data.raw_data = data.read_data(['PB'],['PB'])
             # 一切的数据标签都以stock_price为准
-            self.bb_data.raw_data = data.align_index(self.bb_data.stock_price.ix[0], 
-                                                     self.bb_data.raw_data, axis = 'both')
-        elif 'PB' not in self.bb_data.raw_data.items:
+            self.base_data.raw_data = data.align_index(self.base_data.stock_price.ix[0], 
+                                                     self.base_data.raw_data, axis = 'both')
+        elif 'PB' not in self.base_data.raw_data.items:
             pb = data.read_data(['PB'], ['PB'])
-            self.bb_data.raw_data['PB'] = pb.ix['PB']
+            self.base_data.raw_data['PB'] = pb.ix['PB']
         # 读取ni_fy1, ni_fy2
-        if 'NetIncome_fy1' not in self.bb_data.raw_data.items:
+        if 'NetIncome_fy1' not in self.base_data.raw_data.items:
             NetIncome_fy1 = data.read_data(['NetIncome_fy1'], ['NetIncome_fy1'])
-            self.bb_data.raw_data['NetIncome_fy1'] = NetIncome_fy1.ix['NetIncome_fy1']
-        if 'NetIncome_fy2' not in self.bb_data.raw_data.items:
+            self.base_data.raw_data['NetIncome_fy1'] = NetIncome_fy1.ix['NetIncome_fy1']
+        if 'NetIncome_fy2' not in self.base_data.raw_data.items:
             NetIncome_fy2 = data.read_data(['NetIncome_fy2'], ['NetIncome_fy2'])
-            self.bb_data.raw_data['NetIncome_fy2'] = NetIncome_fy2.ix['NetIncome_fy2']
+            self.base_data.raw_data['NetIncome_fy2'] = NetIncome_fy2.ix['NetIncome_fy2']
         # 读取cash_earnings_ttm，现金净流入的ttm
-        if 'CashEarnings_ttm' not in self.bb_data.raw_data.items:
+        if 'CashEarnings_ttm' not in self.base_data.raw_data.items:
             CashEarnings_ttm = data.read_data(['CashEarnings_ttm'], ['CashEarnings_ttm'])
-            self.bb_data.raw_data['CashEarnings_ttm'] = CashEarnings_ttm.ix['CashEarnings_ttm']
+            self.base_data.raw_data['CashEarnings_ttm'] = CashEarnings_ttm.ix['CashEarnings_ttm']
         # 读取pe_ttm
-        if 'PE_ttm' not in self.bb_data.raw_data.items:
+        if 'PE_ttm' not in self.base_data.raw_data.items:
             pe_ttm = data.read_data(['PE_ttm'], ['PE_ttm'])
-            self.bb_data.raw_data['PE_ttm'] = pe_ttm.ix['PE_ttm']
+            self.base_data.raw_data['PE_ttm'] = pe_ttm.ix['PE_ttm']
         # 读取净利润net income ttm
-        if 'NetIncome_ttm' not in self.bb_data.raw_data.items:
+        if 'NetIncome_ttm' not in self.base_data.raw_data.items:
             ni_ttm = data.read_data(['NetIncome_ttm'], ['NetIncome_ttm'])
-            self.bb_data.raw_data['NetIncome_ttm'] = ni_ttm.ix['NetIncome_ttm']
+            self.base_data.raw_data['NetIncome_ttm'] = ni_ttm.ix['NetIncome_ttm']
         # 读取ni ttm的2年增长率，用ni增长率代替eps增长率，因为ni增长率的数据更全
-        if 'NetIncome_ttm_growth_8q' not in self.bb_data.raw_data.items:
+        if 'NetIncome_ttm_growth_8q' not in self.base_data.raw_data.items:
             ni_ttm_growth_8q = data.read_data(['NetIncome_ttm_growth_8q'], ['NetIncome_ttm_growth_8q'])
-            self.bb_data.raw_data['NetIncome_ttm_growth_8q'] = ni_ttm_growth_8q.ix['NetIncome_ttm_growth_8q']
+            self.base_data.raw_data['NetIncome_ttm_growth_8q'] = ni_ttm_growth_8q.ix['NetIncome_ttm_growth_8q']
         # 读取revenue ttm的2年增长率
-        if 'Revenue_ttm_growth_8q' not in self.bb_data.raw_data.items:
+        if 'Revenue_ttm_growth_8q' not in self.base_data.raw_data.items:
             Revenue_ttm_growth_8q = data.read_data(['Revenue_ttm_growth_8q'], ['Revenue_ttm_growth_8q'])
-            self.bb_data.raw_data['Revenue_ttm_growth_8q'] = Revenue_ttm_growth_8q.ix['Revenue_ttm_growth_8q']
+            self.base_data.raw_data['Revenue_ttm_growth_8q'] = Revenue_ttm_growth_8q.ix['Revenue_ttm_growth_8q']
         # 读取总资产和总负债，用资产负债率代替复杂的leverage因子
-        if 'TotalAssets' not in self.bb_data.raw_data.items:
+        if 'TotalAssets' not in self.base_data.raw_data.items:
             TotalAssets = data.read_data(['TotalAssets'], ['TotalAssets'])
-            self.bb_data.raw_data['TotalAssets'] = TotalAssets.ix['TotalAssets']
-        if 'TotalLiability' not in self.bb_data.raw_data.items:
+            self.base_data.raw_data['TotalAssets'] = TotalAssets.ix['TotalAssets']
+        if 'TotalLiability' not in self.base_data.raw_data.items:
             TotalLiability = data.read_data(['TotalLiability'], ['TotalLiability'])
-            self.bb_data.raw_data['TotalLiability'] = TotalLiability.ix['TotalLiability']
+            self.base_data.raw_data['TotalLiability'] = TotalLiability.ix['TotalLiability']
         # 生成可交易及可投资数据
-        self.bb_data.generate_if_tradable()
-        self.bb_data.handle_stock_pool()
+        self.base_data.generate_if_tradable()
+        self.base_data.handle_stock_pool()
         # 需要建立一个储存完整数据的数据类, 因为如果股票池不是全市场, 一旦过滤掉uninv
         # 则会将某时刻不在股票池内的数据都过滤掉, 但是在因子计算过程中, 很多因子需要用到股票过去的数据
         # 如果股票过去不在股票池中, 则会出现没有数据的情况, 这是不合理的, 这时就需要从这里提取完整的数据
         # 即股票在a时刻的因子值要用到在a-t时刻的数据时, 都需要用这里的数据
         # 但是注意, 不可投资数据仍然是需要过滤的
-        self.bb_data.discard_untradable_data()
-        self.complete_bb_data = copy.deepcopy(self.bb_data)
+        self.base_data.discard_untradable_data()
+        self.complete_base_data = copy.deepcopy(self.base_data)
         # 读取完所有数据后，过滤数据
         # 注意：在之后的因子计算中，中间计算出的因子之间相互依赖的，都要再次过滤，如一个需要从另一个中算出
         # 或者回归，正交化，而且凡是由多个因子加权得到的因子，都属于这一类
@@ -178,34 +149,34 @@ class barra_base(object):
         # 需要算暴露的时候，一定要过滤uninv的数据，因为暴露是在股票池中计算的，正交化的时候也需要过滤uninv
         # 因为正交化是希望在股票池内正交化, 同样beta也要股票uninv, 因为这里的beta衡量的是对股票池的beta
         # 但同时注意，一旦过滤uninv，数据就不能再作为一般的因子值储存了
-        self.bb_data.discard_uninv_data()
+        self.base_data.discard_uninv_data()
 
     # 计算市值对数因子，市值需要第一个计算以确保各个panel有index和column
     def get_lncap(self):
         # 如果有文件，则直接读取
         if os.path.isfile('lncap'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
-            self.bb_data.factor = data.read_data(['lncap'+self.filename_appendix], ['lncap'])
+            self.base_data.factor = data.read_data(['lncap'+self.filename_appendix], ['lncap'])
         # 没有就用市值进行计算
         else:
-            self.bb_data.factor = pd.Panel({'lncap':np.log(self.bb_data.stock_price.ix['FreeMarketValue'])},
-                                             major_axis=self.bb_data.stock_price.major_axis,
-                                             minor_axis=self.bb_data.stock_price.minor_axis)
+            self.base_data.factor = pd.Panel({'lncap':np.log(self.base_data.stock_price.ix['FreeMarketValue'])},
+                                             major_axis=self.base_data.stock_price.major_axis,
+                                             minor_axis=self.base_data.stock_price.minor_axis)
 
     # 计算beta因子
     def get_beta(self):
         if os.path.isfile('beta'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             beta = data.read_data(['beta'+self.filename_appendix+'.csv'], ['beta'])
-            self.bb_data.factor['beta'] = beta.ix['beta']
+            self.base_data.factor['beta'] = beta.ix['beta']
         else:
             # 所有股票的日简单收益的市值加权，加权用前一交易日的市值数据进行加权
-            cap_wgt_universe_return = self.bb_data.stock_price.ix['daily_excess_simple_return'].mul(
-                                       self.bb_data.stock_price.ix['FreeMarketValue'].shift(1)).div(
-                                       self.bb_data.stock_price.ix['FreeMarketValue'].shift(1).sum(1), axis=0).sum(1)
+            cap_wgt_universe_return = self.base_data.stock_price.ix['daily_excess_simple_return'].mul(
+                                       self.base_data.stock_price.ix['FreeMarketValue'].shift(1)).div(
+                                       self.base_data.stock_price.ix['FreeMarketValue'].shift(1).sum(1), axis=0).sum(1)
             
             # 指数权重
-            exponential_weights = barra_base.construct_expo_weights(63, 252)
+            exponential_weights = strategy_data.construct_expo_weights(63, 252)
             # 回归函数
             def reg_func(y, *, x, weights):
                 # 如果y全是nan或只有一个不是nan，则直接返回nan，可自由设定阈值
@@ -214,34 +185,34 @@ class barra_base(object):
                 x = sm.add_constant(x)
                 model = sm.WLS(y, x, weights=weights, missing='drop')
                 results = model.fit()
-                resid = results.resid
+                resid = results.resid.reindex(index=y.index)
                 # 在这里提前计算hsigma----------------------------------------------------------------------
                 # 求std，252个交易日，63的半衰期
-                exponential_weights_h = barra_base.construct_expo_weights(63, 252)
+                exponential_weights_h = strategy_data.construct_expo_weights(63, 252)
                 # 给weights加上index以索引resid
                 exponential_weights_h = pd.Series(exponential_weights_h, index=y.index)
-                # 因为是直接乘以了指数权重然后算std, 因此要对resid的数量级进行修改
-                resid *= resid.notnull().sum()
-                hsigma = (resid*exponential_weights_h).std()
+                # 给resid直接乘以权重, 然后按照权重计算加权的std
+                weighted_resid = strategy_data.multiply_weights(resid, exponential_weights_h, multiply_power=0.5)
+                hsigma = weighted_resid.std()
                 # ----------------------------------------------------------------------------------------
                 return pd.Series({'beta':results.params[1],'hsigma':hsigma})
             # 按照Barra的方法进行回归
             # 储存回归结果的dataframe
-            temp_beta = self.bb_data.stock_price.ix['daily_excess_simple_return']*np.nan
-            temp_hsigma = self.bb_data.stock_price.ix['daily_excess_simple_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_simple_return'].index):
+            temp_beta = self.base_data.stock_price.ix['daily_excess_simple_return']*np.nan
+            temp_hsigma = self.base_data.stock_price.ix['daily_excess_simple_return']*np.nan
+            for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_simple_return'].index):
                 # 至少第252期时才回归
                 if cursor<=250:
                     continue
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return',cursor-251:cursor+1,:]
+                curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return',cursor-251:cursor+1,:]
                 curr_x = cap_wgt_universe_return.ix[cursor-251:cursor+1]
                 temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
                 temp_beta.ix[cursor,:] = temp.ix['beta']
                 temp_hsigma.ix[cursor,:] = temp.ix['hsigma']
                 print(cursor)
                 pass
-            self.bb_data.factor['beta'] = temp_beta
+            self.base_data.factor['beta'] = temp_beta
             self.temp_hsigma = temp_hsigma
             pass
 
@@ -250,15 +221,15 @@ class barra_base(object):
         if os.path.isfile('beta'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             beta = data.read_data(['beta'+self.filename_appendix], ['beta'])
-            self.bb_data.factor['beta'] = beta.ix['beta']
+            self.base_data.factor['beta'] = beta.ix['beta']
         else:
             # 所有股票的日简单收益的市值加权，加权用前一交易日的市值数据进行加权
-            cap_wgt_universe_return = self.bb_data.stock_price.ix['daily_excess_simple_return'].mul(
-                self.bb_data.stock_price.ix['FreeMarketValue'].shift(1)).div(
-                self.bb_data.stock_price.ix['FreeMarketValue'].shift(1).sum(1), axis=0).sum(1)
+            cap_wgt_universe_return = self.base_data.stock_price.ix['daily_excess_simple_return'].mul(
+                self.base_data.stock_price.ix['FreeMarketValue'].shift(1)).div(
+                self.base_data.stock_price.ix['FreeMarketValue'].shift(1).sum(1), axis=0).sum(1)
 
             # 指数权重
-            exponential_weights = barra_base.construct_expo_weights(63, 252)
+            exponential_weights = strategy_data.construct_expo_weights(63, 252)
 
             # 回归函数
             def reg_func(y, *, x, weights):
@@ -268,73 +239,70 @@ class barra_base(object):
                 x = sm.add_constant(x)
                 model = sm.WLS(y, x, weights=weights, missing='drop')
                 results = model.fit()
-                resid = results.resid
+                resid = results.resid.reindex(index=y.index)
                 # 在这里提前计算hsigma----------------------------------------------------------------------
                 # 求std，252个交易日，63的半衰期
-                exponential_weights_h = barra_base.construct_expo_weights(63, 252)
+                exponential_weights_h = strategy_data.construct_expo_weights(63, 252)
                 # 给weights加上index以索引resid
                 exponential_weights_h = pd.Series(exponential_weights_h, index=y.index)
-                # 因为是直接乘以了指数权重然后算std, 因此要对resid的数量级进行修改
-                resid *= resid.notnull().sum()
-                hsigma = (resid * exponential_weights_h).std()
+                # 给resid直接乘以权重, 然后按照权重计算加权的std
+                weighted_resid = strategy_data.multiply_weights(resid, exponential_weights_h, multiply_power=0.5)
+                hsigma = weighted_resid.std()
                 # ----------------------------------------------------------------------------------------
                 return pd.Series({'beta': results.params[1], 'hsigma': hsigma})
             # 按照Barra的方法进行回归
             # 股票收益的数据
-            complete_return_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return']
+            complete_return_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return']
             # 计算每期beta的函数
             def one_time_beta(cursor):
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-                # curr_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return', cursor - 251:cursor+1, :]
+                # curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return', cursor - 251:cursor+1, :]
                 curr_data = complete_return_data.ix[cursor - 251:cursor+1, :]
                 curr_x = cap_wgt_universe_return.ix[cursor - 251:cursor+1]
                 temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
                 print(cursor)
                 return temp
-            import pathos.multiprocessing as mp
             if __name__ == '__main__':
                 ncpus = 20
                 p = mp.ProcessPool(ncpus)
                 # 从252期开始
-                data_size = np.arange(251, self.bb_data.stock_price.ix['daily_excess_simple_return'].shape[0])
+                data_size = np.arange(251, self.base_data.stock_price.ix['daily_excess_simple_return'].shape[0])
                 chunksize = int(len(data_size)/ncpus)
                 results = p.map(one_time_beta, data_size, chunksize=chunksize)
                 # 储存结果
                 beta = pd.concat([i.ix['beta'] for i in results], axis=1).T
                 hsigma = pd.concat([i.ix['hsigma'] for i in results], axis=1).T
                 # 两个数据对应的日期，为原始数据的日期减去251，因为前251期的数据并没有计算
-                data_index = self.bb_data.stock_price.iloc[:, 251-self.bb_data.stock_price.shape[1]:, :].major_axis
+                data_index = self.base_data.stock_price.iloc[:, 251-self.base_data.stock_price.shape[1]:, :].major_axis
                 beta = beta.set_index(data_index)
                 hsigma = hsigma.set_index(data_index)
-                self.bb_data.factor['beta'] = beta
-                self.temp_hsigma = hsigma.reindex(self.bb_data.stock_price.major_axis)
-
-
+                self.base_data.factor['beta'] = beta
+                self.temp_hsigma = hsigma.reindex(self.base_data.stock_price.major_axis)
 
     # 计算momentum因子 
     def get_momentum(self):
         if os.path.isfile('momentum'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             momentum = data.read_data(['momentum'+self.filename_appendix], ['momentum'])
-            self.bb_data.factor['momentum'] = momentum.ix['momentum']
+            self.base_data.factor['momentum'] = momentum.ix['momentum']
         else:
             # 计算momentum因子
             # 首先数据有一个21天的lag， 注意收益要用对数收益
             # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-            lag_return = self.complete_bb_data.stock_price.ix['daily_excess_log_return'].shift(21)
+            lag_return = self.complete_base_data.stock_price.ix['daily_excess_log_return'].shift(21)
             # rolling后求sum，504个交易日，126的半衰期
-            exponential_weights = barra_base.construct_expo_weights(126, 504)
+            exponential_weights = strategy_data.construct_expo_weights(126, 504)
             # 定义momentum的函数
             def func_mom(df, *, weights):
                 iweights = pd.Series(weights, index=df.index)
-                mom = df.mul(iweights, axis=0).sum(0)
-                # 因为直接把指数权重乘在了数据上, 因此算sum的时候数量级改变了, 要进行调整
-                mom *= df.notnull().sum(0)
+                # 将权重乘在原始数据上, 然后加和计算momentum
+                weighted_return = strategy_data.multiply_weights(df, iweights, multiply_power=1.0)
+                mom = weighted_return.sum(0)
                 # 设定阈值, 表示至少过去两年中有多少数据才能有momentum因子
                 threshold_condition = df.notnull().sum(0) >= 63
                 mom = mom.where(threshold_condition, np.nan)
                 return mom
-            momentum = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
+            momentum = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
             for cursor, date in enumerate(lag_return.index):
                 # 至少504+21期才开始计算
                 if cursor<=(502+21):
@@ -342,7 +310,7 @@ class barra_base(object):
                 curr_data = lag_return.ix[cursor-503:cursor+1, :]
                 temp = func_mom(curr_data, weights=exponential_weights)
                 momentum.ix[cursor, :] = temp
-            self.bb_data.factor['momentum'] = momentum
+            self.base_data.factor['momentum'] = momentum
             pass
         
      # 计算residual volatility中的dastd
@@ -353,25 +321,25 @@ class barra_base(object):
             dastd = dastd.ix['dastd']
         else:
             # rolling后求std，252个交易日，42的半衰期
-            exponential_weights = barra_base.construct_expo_weights(42, 252)
+            exponential_weights = strategy_data.construct_expo_weights(42, 252)
             # 定义dastd的函数
             def func_dastd(df, *, weights):
                 iweights = pd.Series(weights, index=df.index)
-                # 因为是直接乘以了指数权重然后算std, 因此要对数据的数量级进行修改
-                df = df.mul(df.notnull().sum(0), axis=1)
-                dastd = df.mul(iweights, axis=0).std(0)
+                # 将权重乘在原始数据上, 然后计算std
+                weighted_return = strategy_data.multiply_weights(df, iweights, multiply_power=0.5)
+                dastd = weighted_return.std(0)
                 return dastd
-            dastd = self.bb_data.stock_price.ix['daily_excess_simple_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_simple_return'].index):
+            dastd = self.base_data.stock_price.ix['daily_excess_simple_return']*np.nan
+            for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_simple_return'].index):
                 # 至少252期才开始计算
                 if cursor<=250:
                     continue
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据，且要用简单收益
-                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_simple_return', cursor-251:cursor+1,:]
+                curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return', cursor-251:cursor+1,:]
                 temp = func_dastd(curr_data, weights=exponential_weights)
                 dastd.ix[cursor,:] = temp
   
-        self.bb_data.raw_data['dastd'] = dastd
+        self.base_data.raw_data['dastd'] = dastd
     
     # 计算residual volatility中的cmra
     def get_rv_cmra(self):
@@ -395,16 +363,16 @@ class barra_base(object):
                 # 为避免出现z_min<=-1调整后的极端值，cmra改为z_max-z_min
                 # 注意：改变后并未改变因子排序，而是将因子原本的scale变成了exp(scale)
                 return z_max - z_min
-            cmra = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_log_return'].index):
+            cmra = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
+            for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少252期才开始计算
                 if cursor <= 250:
                     continue
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据，且要用对数收益
-                curr_data = self.complete_bb_data.stock_price.ix['daily_excess_log_return', cursor-251:cursor+1, :]
+                curr_data = self.complete_base_data.stock_price.ix['daily_excess_log_return', cursor-251:cursor+1, :]
                 temp = func_cmra(curr_data)
                 cmra.ix[cursor,:] = temp
-        self.bb_data.raw_data['cmra'] = cmra
+        self.base_data.raw_data['cmra'] = cmra
     
     # 计算residual volatility中的hsigma
     def get_rv_hsigma(self):
@@ -416,67 +384,67 @@ class barra_base(object):
         else:
             print('hsigma has not been accquired, if you have rv file stored instead, ingored this message.\n')
             hsigma = np.nan
-        self.bb_data.raw_data['hsigma'] = hsigma
+        self.base_data.raw_data['hsigma'] = hsigma
     
     # 计算residual volatility
     def get_residual_volatility(self):
         if os.path.isfile('rv'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             rv = data.read_data(['rv'+self.filename_appendix], ['rv'])
-            self.bb_data.factor['rv'] = rv.ix['rv']
+            self.base_data.factor['rv'] = rv.ix['rv']
         else:
             self.get_rv_dastd()
             self.get_rv_cmra()
             self.get_rv_hsigma()
             # 过滤数据，因为1.此前的3个部分的因子均使用了过去时间点的数据, 且使用了完整版数据,
             # 2.因子数据之后要正交化
-            self.bb_data.discard_uninv_data()
+            self.base_data.discard_uninv_data()
             # 计算三个成分因子的暴露
-            self.bb_data.raw_data['dastd_expo'] = strategy_data.get_cap_wgt_exposure( 
-                    self.bb_data.raw_data.ix['dastd'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['cmra_expo'] = strategy_data.get_cap_wgt_exposure( 
-                    self.bb_data.raw_data.ix['cmra'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['hsigma_expo'] = strategy_data.get_cap_wgt_exposure( 
-                    self.bb_data.raw_data.ix['hsigma'], self.bb_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['dastd_expo'] = strategy_data.get_cap_wgt_exposure( 
+                    self.base_data.raw_data.ix['dastd'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['cmra_expo'] = strategy_data.get_cap_wgt_exposure( 
+                    self.base_data.raw_data.ix['cmra'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['hsigma_expo'] = strategy_data.get_cap_wgt_exposure( 
+                    self.base_data.raw_data.ix['hsigma'], self.base_data.stock_price.ix['FreeMarketValue'])
             
-            rv = 0.74*self.bb_data.raw_data.ix['dastd_expo']+0.16*self.bb_data.raw_data.ix['cmra_expo']+ \
-                                                        0.1*self.bb_data.raw_data.ix['hsigma_expo']
+            rv = 0.74*self.base_data.raw_data.ix['dastd_expo']+0.16*self.base_data.raw_data.ix['cmra_expo']+ \
+                                                        0.1*self.base_data.raw_data.ix['hsigma_expo']
             # 计算rv的因子暴露，不再去极值
-            y = strategy_data.get_cap_wgt_exposure(rv, self.bb_data.stock_price.ix['FreeMarketValue'], percentile=0)
+            y = strategy_data.get_cap_wgt_exposure(rv, self.base_data.stock_price.ix['FreeMarketValue'], percentile=0)
             # 计算市值因子与beta因子的暴露
-            x = pd.Panel({'lncap_expo':strategy_data.get_cap_wgt_exposure(self.bb_data.factor.ix['lncap'],
-                                                                          self.bb_data.stock_price.ix['FreeMarketValue']),
-                          'beta_expo':strategy_data.get_cap_wgt_exposure(self.bb_data.factor.ix['beta'],
-                                                                         self.bb_data.stock_price.ix['FreeMarketValue'])})
+            x = pd.Panel({'lncap_expo':strategy_data.get_cap_wgt_exposure(self.base_data.factor.ix['lncap'],
+                                                                          self.base_data.stock_price.ix['FreeMarketValue']),
+                          'beta_expo':strategy_data.get_cap_wgt_exposure(self.base_data.factor.ix['beta'],
+                                                                         self.base_data.stock_price.ix['FreeMarketValue'])})
             # 正交化
-            new_rv = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.bb_data.stock_price.ix['FreeMarketValue']))[0]
+            new_rv = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.base_data.stock_price.ix['FreeMarketValue']))[0]
             # 之后会再次的计算暴露，注意再次计算暴露后，new_rv依然保有对x的正交性
-            self.bb_data.factor['rv'] = new_rv
+            self.base_data.factor['rv'] = new_rv
                            
     # 计算nonlinear size
     def get_nonlinear_size(self):
         if os.path.isfile('nls'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             nls = data.read_data(['nls'+self.filename_appendix], ['nls'])
-            self.bb_data.factor['nls'] = nls.ix['nls']
+            self.base_data.factor['nls'] = nls.ix['nls']
         else:
             # 计算市值因子的暴露，注意解释变量需要为一个panel
-            x = pd.Panel({'lncap_expo': strategy_data.get_cap_wgt_exposure(self.bb_data.factor.ix['lncap'],
-                                                                           self.bb_data.stock_price.ix['FreeMarketValue'])})
+            x = pd.Panel({'lncap_expo': strategy_data.get_cap_wgt_exposure(self.base_data.factor.ix['lncap'],
+                                                                           self.base_data.stock_price.ix['FreeMarketValue'])})
             # 将市值因子暴露取3次方, 得到size cube
             y = x['lncap_expo'] ** 3
             # 将size cube对市值因子做正交化
-            new_nls = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.bb_data.stock_price.ix['FreeMarketValue']))[0]
-            self.bb_data.factor['nls'] = new_nls
+            new_nls = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.base_data.stock_price.ix['FreeMarketValue']))[0]
+            self.base_data.factor['nls'] = new_nls
 
     # 计算pb
     def get_pb(self):
         if os.path.isfile('bp'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             pb = data.read_data(['bp'+self.filename_appendix], ['bp'])
-            self.bb_data.factor['bp'] = pb.ix['bp']
+            self.base_data.factor['bp'] = pb.ix['bp']
         else:
-            self.bb_data.factor['bp'] = 1/self.bb_data.raw_data.ix['PB']
+            self.base_data.factor['bp'] = 1/self.base_data.raw_data.ix['PB']
 
     
     # 计算liquidity中的stom
@@ -487,10 +455,10 @@ class barra_base(object):
             stom = stom.ix['stom']
         else:
             # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-            v2s = self.complete_bb_data.stock_price.ix['Volume'].div(
-                self.complete_bb_data.stock_price.ix['FreeShares'])
+            v2s = self.complete_base_data.stock_price.ix['Volume'].div(
+                self.complete_base_data.stock_price.ix['FreeShares'])
             stom = v2s.rolling(21, min_periods=5).apply(lambda x:np.log(np.sum(x)))
-        self.bb_data.raw_data['stom'] = stom
+        self.base_data.raw_data['stom'] = stom
         
     # 计算liquidity中的stoq
     def get_liq_stoq(self):
@@ -505,15 +473,15 @@ class barra_base(object):
                 months = np.arange(20,63,21)
                 months_stom = df.ix[months]
                 return np.log(np.exp(months_stom).mean(axis=0))
-            stoq = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_log_return'].index):
+            stoq = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
+            for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少63期才开始计算
                 if cursor<=61:
                     continue
-                curr_data = self.bb_data.raw_data.ix['stom', cursor-62:cursor+1,:]
+                curr_data = self.base_data.raw_data.ix['stom', cursor-62:cursor+1,:]
                 temp = func_stoq(curr_data)
                 stoq.ix[cursor,:] = temp
-        self.bb_data.raw_data['stoq'] = stoq
+        self.base_data.raw_data['stoq'] = stoq
 
     # 计算liquidity中的stoa
     def get_liq_stoa(self):
@@ -528,46 +496,46 @@ class barra_base(object):
                 months = np.arange(20,252,21)
                 months_stom = df.ix[months]
                 return np.log(np.exp(months_stom).mean(axis=0))
-            stoa = self.bb_data.stock_price.ix['daily_excess_log_return']*np.nan
-            for cursor, date in enumerate(self.bb_data.stock_price.ix['daily_excess_log_return'].index):
+            stoa = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
+            for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少252期才开始计算
                 if cursor<=250:
                     continue
-                curr_data = self.bb_data.raw_data.ix['stom', cursor-251:cursor+1,:]
+                curr_data = self.base_data.raw_data.ix['stom', cursor-251:cursor+1,:]
                 temp = func_stoa(curr_data)
                 stoa.ix[cursor,:] = temp
-        self.bb_data.raw_data['stoa'] = stoa
+        self.base_data.raw_data['stoa'] = stoa
 
     # 计算liquidity
     def get_liquidity(self):
         if os.path.isfile('liquidity'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             liquidity = data.read_data(['liquidity'+self.filename_appendix], ['liquidity'])
-            self.bb_data.factor['liquidity'] = liquidity.ix['liquidity']
+            self.base_data.factor['liquidity'] = liquidity.ix['liquidity']
         else:
             self.get_liq_stom()
             self.get_liq_stoq()
             self.get_liq_stoa()
             # 过滤数据, 理由同rv中一样
-            self.bb_data.discard_uninv_data()
+            self.base_data.discard_uninv_data()
             # 计算三个成分因子的暴露
-            self.bb_data.raw_data['stom_expo'] = strategy_data.get_cap_wgt_exposure( 
-                    self.bb_data.raw_data.ix['stom'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['stoq_expo'] = strategy_data.get_cap_wgt_exposure( 
-                    self.bb_data.raw_data.ix['stoq'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['stoa_expo'] = strategy_data.get_cap_wgt_exposure( 
-                    self.bb_data.raw_data.ix['stoa'], self.bb_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['stom_expo'] = strategy_data.get_cap_wgt_exposure( 
+                    self.base_data.raw_data.ix['stom'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['stoq_expo'] = strategy_data.get_cap_wgt_exposure( 
+                    self.base_data.raw_data.ix['stoq'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['stoa_expo'] = strategy_data.get_cap_wgt_exposure( 
+                    self.base_data.raw_data.ix['stoa'], self.base_data.stock_price.ix['FreeMarketValue'])
             
-            liquidity = 0.35*self.bb_data.raw_data.ix['stom_expo']+0.35*self.bb_data.raw_data.ix['stoq_expo']+ \
-                                                              0.3*self.bb_data.raw_data.ix['stoa_expo']
+            liquidity = 0.35*self.base_data.raw_data.ix['stom_expo']+0.35*self.base_data.raw_data.ix['stoq_expo']+ \
+                                                              0.3*self.base_data.raw_data.ix['stoa_expo']
             # 计算liquidity的因子暴露，不再去极值
-            y = strategy_data.get_cap_wgt_exposure(liquidity, self.bb_data.stock_price.ix['FreeMarketValue'], percentile=0)
+            y = strategy_data.get_cap_wgt_exposure(liquidity, self.base_data.stock_price.ix['FreeMarketValue'], percentile=0)
             # 计算市值因子的暴露
-            x = pd.Panel({'lncap_expo': strategy_data.get_cap_wgt_exposure(self.bb_data.factor.ix['lncap'],
-                                                                           self.bb_data.stock_price.ix['FreeMarketValue'])})
+            x = pd.Panel({'lncap_expo': strategy_data.get_cap_wgt_exposure(self.base_data.factor.ix['lncap'],
+                                                                           self.base_data.stock_price.ix['FreeMarketValue'])})
             # 正交化
-            new_liq = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.bb_data.stock_price.ix['FreeMarketValue']))[0]
-            self.bb_data.factor['liquidity'] = new_liq
+            new_liq = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.base_data.stock_price.ix['FreeMarketValue']))[0]
+            self.base_data.factor['liquidity'] = new_liq
 
     # 计算earnings yield中的epfwd
     def get_ey_epfwd(self):
@@ -592,10 +560,10 @@ class barra_base(object):
                 fy2_weight = 1-fy1_weight
                 return (fy1_data.mul(fy1_weight, axis=0) + fy2_data.mul(fy2_weight, axis=0))
             # 用预测的净利润数据除以市值数据得到预测的ep
-            ep_fy1 = self.bb_data.raw_data.ix['NetIncome_fy1']/self.bb_data.stock_price.ix['FreeMarketValue']
-            ep_fy2 = self.bb_data.raw_data.ix['NetIncome_fy2']/self.bb_data.stock_price.ix['FreeMarketValue']
+            ep_fy1 = self.base_data.raw_data.ix['NetIncome_fy1']/self.base_data.stock_price.ix['FreeMarketValue']
+            ep_fy2 = self.base_data.raw_data.ix['NetIncome_fy2']/self.base_data.stock_price.ix['FreeMarketValue']
             epfwd = epfwd_func(ep_fy1, ep_fy2)
-        self.bb_data.raw_data['epfwd'] = epfwd
+        self.base_data.raw_data['epfwd'] = epfwd
             
     # 计算earnings yield中的cetop
     def get_ey_cetop(self):
@@ -605,8 +573,8 @@ class barra_base(object):
             cetop = cetop.ix['cetop']
         else:
             # 用cash earnings ttm 除以市值
-            cetop = self.bb_data.raw_data.ix['CashEarnings_ttm']/self.bb_data.stock_price.ix['FreeMarketValue']
-        self.bb_data.raw_data['cetop'] = cetop
+            cetop = self.base_data.raw_data.ix['CashEarnings_ttm']/self.base_data.stock_price.ix['FreeMarketValue']
+        self.base_data.raw_data['cetop'] = cetop
         
     # 计算earnings yield中的etop
     def get_ey_etop(self):
@@ -616,32 +584,32 @@ class barra_base(object):
             etop = etop.ix['etop']
         else:
             # 用pe_ttm的倒数来计算etop
-            etop = 1/self.bb_data.raw_data.ix['PE_ttm']
-        self.bb_data.raw_data['etop'] = etop
+            etop = 1/self.base_data.raw_data.ix['PE_ttm']
+        self.base_data.raw_data['etop'] = etop
 
     # 计算earnings yield
     def get_earnings_yeild(self):
         if os.path.isfile('ey'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             EarningsYield = data.read_data(['ey'+self.filename_appendix], ['ey'])
-            self.bb_data.factor['ey'] = EarningsYield.ix['ey']
+            self.base_data.factor['ey'] = EarningsYield.ix['ey']
         else:
             self.get_ey_epfwd()
             self.get_ey_cetop()
             self.get_ey_etop()
             # 过滤数据
-            self.bb_data.discard_uninv_data()
+            self.base_data.discard_uninv_data()
             # 计算三个成分因子的暴露
-            self.bb_data.raw_data['epfwd_expo'] = strategy_data.get_cap_wgt_exposure(
-                self.bb_data.raw_data.ix['epfwd'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['cetop_expo'] = strategy_data.get_cap_wgt_exposure(
-                self.bb_data.raw_data.ix['cetop'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['etop_expo'] = strategy_data.get_cap_wgt_exposure(
-                self.bb_data.raw_data.ix['etop'], self.bb_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['epfwd_expo'] = strategy_data.get_cap_wgt_exposure(
+                self.base_data.raw_data.ix['epfwd'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['cetop_expo'] = strategy_data.get_cap_wgt_exposure(
+                self.base_data.raw_data.ix['cetop'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['etop_expo'] = strategy_data.get_cap_wgt_exposure(
+                self.base_data.raw_data.ix['etop'], self.base_data.stock_price.ix['FreeMarketValue'])
 
-            EarningsYield = 0.68*self.bb_data.raw_data.ix['epfwd_expo']+0.21*self.bb_data.raw_data.ix['cetop_expo']+ \
-                                0.11*self.bb_data.raw_data.ix['etop_expo']
-            self.bb_data.factor['ey'] = EarningsYield
+            EarningsYield = 0.68*self.base_data.raw_data.ix['epfwd_expo']+0.21*self.base_data.raw_data.ix['cetop_expo']+ \
+                                0.11*self.base_data.raw_data.ix['etop_expo']
+            self.base_data.factor['ey'] = EarningsYield
 
     # 计算growth中的egrlf
     def get_g_egrlf(self):
@@ -651,8 +619,8 @@ class barra_base(object):
             egrlf = egrlf.ix['egrlf']
         else:
             # 用ni_fy2来代替长期预测的净利润
-            egrlf = (self.bb_data.raw_data.ix['NetIncome_fy2']/self.bb_data.raw_data.ix['NetIncome_ttm'])**(1/2) - 1
-        self.bb_data.raw_data['egrlf'] = egrlf
+            egrlf = (self.base_data.raw_data.ix['NetIncome_fy2']/self.base_data.raw_data.ix['NetIncome_ttm'])**(1/2) - 1
+        self.base_data.raw_data['egrlf'] = egrlf
 
     # 计算growth中的egrsf
     def get_g_egrsf(self):
@@ -662,8 +630,8 @@ class barra_base(object):
             egrsf = egrsf.ix['egrsf']
         else:
             # 用ni_fy1来代替短期预测净利润
-            egrsf = self.bb_data.raw_data.ix['NetIncome_fy1'] / self.bb_data.raw_data.ix['NetIncome_ttm'] - 1
-        self.bb_data.raw_data['egrsf'] = egrsf
+            egrsf = self.base_data.raw_data.ix['NetIncome_fy1'] / self.base_data.raw_data.ix['NetIncome_ttm'] - 1
+        self.base_data.raw_data['egrsf'] = egrsf
 
     # 计算growth中的egro
     def get_g_egro(self):
@@ -673,8 +641,8 @@ class barra_base(object):
             egro = egro.ix['egro']
         else:
             # 用ni ttm的两年增长率代替ni ttm的5年增长率
-            egro = self.bb_data.raw_data.ix['NetIncome_ttm_growth_8q']
-        self.bb_data.raw_data['egro'] = egro
+            egro = self.base_data.raw_data.ix['NetIncome_ttm_growth_8q']
+        self.base_data.raw_data['egro'] = egro
 
     # 计算growth中的sgro
     def get_g_sgro(self):
@@ -684,61 +652,61 @@ class barra_base(object):
             sgro = sgro.ix['sgro']
         else:
             # 用历史营业收入代替历史sales per share
-            sgro = self.bb_data.raw_data.ix['Revenue_ttm_growth_8q']
-        self.bb_data.raw_data['sgro'] = sgro
+            sgro = self.base_data.raw_data.ix['Revenue_ttm_growth_8q']
+        self.base_data.raw_data['sgro'] = sgro
 
     # 计算growth
     def get_growth(self):
         if os.path.isfile('growth'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             growth = data.read_data(['growth'+self.filename_appendix], ['growth'])
-            self.bb_data.factor['growth'] = growth.ix['growth']
+            self.base_data.factor['growth'] = growth.ix['growth']
         else:
             self.get_g_egrlf()
             self.get_g_egrsf()
             self.get_g_egro()
             self.get_g_sgro()
             # 过滤数据
-            self.bb_data.discard_uninv_data()
+            self.base_data.discard_uninv_data()
             # 计算四个成分因子的暴露
-            self.bb_data.raw_data['egrlf_expo'] = strategy_data.get_cap_wgt_exposure(
-                self.bb_data.raw_data.ix['egrlf'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['egrsf_expo'] = strategy_data.get_cap_wgt_exposure(
-                self.bb_data.raw_data.ix['egrsf'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['egro_expo'] = strategy_data.get_cap_wgt_exposure(
-                self.bb_data.raw_data.ix['egro'], self.bb_data.stock_price.ix['FreeMarketValue'])
-            self.bb_data.raw_data['sgro_expo'] = strategy_data.get_cap_wgt_exposure(
-                self.bb_data.raw_data.ix['sgro'], self.bb_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['egrlf_expo'] = strategy_data.get_cap_wgt_exposure(
+                self.base_data.raw_data.ix['egrlf'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['egrsf_expo'] = strategy_data.get_cap_wgt_exposure(
+                self.base_data.raw_data.ix['egrsf'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['egro_expo'] = strategy_data.get_cap_wgt_exposure(
+                self.base_data.raw_data.ix['egro'], self.base_data.stock_price.ix['FreeMarketValue'])
+            self.base_data.raw_data['sgro_expo'] = strategy_data.get_cap_wgt_exposure(
+                self.base_data.raw_data.ix['sgro'], self.base_data.stock_price.ix['FreeMarketValue'])
 
-            growth = 0.18*self.bb_data.raw_data.ix['egrlf_expo']+0.11*self.bb_data.raw_data.ix['egrsf_expo']+ \
-                             0.24*self.bb_data.raw_data.ix['egro_expo']+0.47*self.bb_data.raw_data.ix['sgro_expo']
-            self.bb_data.factor['growth'] = growth
+            growth = 0.18*self.base_data.raw_data.ix['egrlf_expo']+0.11*self.base_data.raw_data.ix['egrsf_expo']+ \
+                             0.24*self.base_data.raw_data.ix['egro_expo']+0.47*self.base_data.raw_data.ix['sgro_expo']
+            self.base_data.factor['growth'] = growth
 
     # 计算leverage
     def get_leverage(self):
         if os.path.isfile('leverage'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
             leverage = data.read_data(['leverage'+self.filename_appendix], ['leverage'])
-            self.bb_data.factor['leverage'] = leverage.ix['leverage']
+            self.base_data.factor['leverage'] = leverage.ix['leverage']
         else:
             # 用简单的资产负债率计算leverage
-            leverage = self.bb_data.raw_data.ix['TotalLiability']/self.bb_data.raw_data.ix['TotalAssets']
-            self.bb_data.factor['leverage'] = leverage
+            leverage = self.base_data.raw_data.ix['TotalLiability']/self.base_data.raw_data.ix['TotalAssets']
+            self.base_data.factor['leverage'] = leverage
 
     # 计算风格因子的因子暴露
     def get_style_factor_exposure(self):
         # 给因子暴露panel加上索引
-        self.bb_data.factor_expo = pd.Panel(data=None, major_axis=self.bb_data.factor.major_axis,
-                                            minor_axis=self.bb_data.factor.minor_axis)
+        self.base_data.factor_expo = pd.Panel(data=None, major_axis=self.base_data.factor.major_axis,
+                                            minor_axis=self.base_data.factor.minor_axis)
         # 循环计算暴露
-        for item, df in self.bb_data.factor.iteritems():
+        for item, df in self.base_data.factor.iteritems():
             # 通过内部因子加总得到的因子，或已经计算过一次暴露的因子（如正交化过），不再需要去极值
             if item in ['rv', 'nls', 'liquidity', 'ey', 'growth']:
-                self.bb_data.factor_expo[item] = strategy_data.get_cap_wgt_exposure(df,
-                                        self.bb_data.stock_price.ix['FreeMarketValue'], percentile=0)
+                self.base_data.factor_expo[item] = strategy_data.get_cap_wgt_exposure(df,
+                                        self.base_data.stock_price.ix['FreeMarketValue'], percentile=0)
             else:
-                self.bb_data.factor_expo[item] = strategy_data.get_cap_wgt_exposure(df,
-                                        self.bb_data.stock_price.ix['FreeMarketValue'])
+                self.base_data.factor_expo[item] = strategy_data.get_cap_wgt_exposure(df,
+                                        self.base_data.stock_price.ix['FreeMarketValue'])
 
     # 得到行业因子的虚拟变量
     def get_industry_factor(self):
@@ -757,27 +725,27 @@ class barra_base(object):
         # 转置
         industry_dummies = industry_dummies.transpose(2,0,1)
         # 将行业因子暴露与风格因子暴露的索引对其
-        industry_dummies = data.align_index(self.bb_data.factor_expo.ix[0], industry_dummies)
+        industry_dummies = data.align_index(self.base_data.factor_expo.ix[0], industry_dummies)
         # 将nan填成0，主要是有些行业在某一时间点，没有一只股票属于它，这会造成在这个行业上的暴露是nan
         # 因此需要把这个行业的暴露填成0，而uninv的nan同样会被填上，但会在之后的filter中再次变成nan
         industry_dummies = industry_dummies.fillna(0)
         # 将行业因子暴露与风格因子暴露衔接在一起
-        self.bb_data.factor_expo = pd.concat([self.bb_data.factor_expo, industry_dummies])
+        self.base_data.factor_expo = pd.concat([self.base_data.factor_expo, industry_dummies])
         
     # 加入国家因子，也即回归中用到的截距项
     def add_country_factor(self):
         # 给items中的最后加上截距项，即barra里的country factor
-        constant = pd.DataFrame(1, index=self.bb_data.factor_expo.major_axis,
-                                columns=self.bb_data.factor_expo.minor_axis)
+        constant = pd.DataFrame(1, index=self.base_data.factor_expo.major_axis,
+                                columns=self.base_data.factor_expo.minor_axis)
         constant = constant.astype(float)
         constant.name = 'country_factor'
-        self.bb_data.factor_expo = pd.concat([self.bb_data.factor_expo, constant])
+        self.base_data.factor_expo = pd.concat([self.base_data.factor_expo, constant])
 
     # 在完成全部因子暴露的计算或读取后, 得出该base中风格因子和行业因子的数量
     def get_factor_group_count(self):
         # 注意, 默认的排序是, 先排所有风格因子, 然后是行业因子, 最后是一个国家因子
         # 先判断行业因子, 行业因子一定是以industry开头的
-        items = self.bb_data.factor_expo.items
+        items = self.base_data.factor_expo.items
         industry = items.str.startswith('Industry')
         self.n_indus = industry[industry].size
         # 于是风格因子的数量为总数量减去行业因子数量, 再减去1(country factor)
@@ -791,10 +759,10 @@ class barra_base(object):
     def construct_reading_file_appendix(self, *, filename_appendix='default'):
         # 默认就是用到当前的股票池
         if filename_appendix == 'default':
-            if self.bb_data.stock_pool == 'all':
+            if self.base_data.stock_pool == 'all':
                 self.filename_appendix = ''
             else:
-                self.filename_appendix = '_' + self.bb_data.stock_pool
+                self.filename_appendix = '_' + self.base_data.stock_pool
         # 有可能会使用到与当前股票池不同的股票池下计算出的因子值
         else:
             # 如果给的文件后缀是all, 则不加任何后缀
@@ -811,7 +779,7 @@ class barra_base(object):
 
 
     # 构建barra base的所有风格因子和行业因子
-    def construct_barra_base(self, *, if_save=False):
+    def construct_factor_base(self, *, if_save=False):
         # 读取数据，更新数据则不用读取，因为已经存在
         if not self.is_update:
             self.read_original_data()
@@ -839,7 +807,7 @@ class barra_base(object):
         self.get_leverage()
         print('get leverage completed...\n')
         # 计算风格因子暴露之前再过滤一次
-        self.bb_data.discard_uninv_data()
+        self.base_data.discard_uninv_data()
         # 计算风格因子暴露
         self.get_style_factor_exposure()
         print('get style factor expo completed...\n')
@@ -849,7 +817,7 @@ class barra_base(object):
         # 添加国家因子
         self.add_country_factor()
         # 计算的最后，过滤数据
-        self.bb_data.discard_uninv_data()
+        self.base_data.discard_uninv_data()
 
         # 判定风格因子和行业因子的数量
         self.get_factor_group_count()
@@ -858,19 +826,19 @@ class barra_base(object):
         # 注意，即便显示指定了储存数据，但股票池不是所有股票，仍不会进行储存
         if not self.is_update and if_save:
             # 如果要储存因子数据, 必须保证当前股票池和文件后缀是完全一致的, 否则报错
-            if self.bb_data.stock_pool == 'all':
+            if self.base_data.stock_pool == 'all':
                 assert self.filename_appendix == '', 'Error: The stock pool of base is different ' \
                     'from filename appendix, in order to avoid possible data loss, the saving ' \
                     'procedure has been terminated! \n'
             else:
-                assert self.filename_appendix[1:] == self.bb_data.stock_pool, 'Error: The stock ' \
+                assert self.filename_appendix[1:] == self.base_data.stock_pool, 'Error: The stock ' \
                     'pool of base is different from filename appendix, in order to avoid possible ' \
                     'data loss, the saving procedure has been terminated! \n'
             # 根据股票池, 生成要储存的文件名
             written_filename = []
-            for i in self.bb_data.factor.items:
+            for i in self.base_data.factor.items:
                 written_filename.append(i+self.filename_appendix)
-            data.write_data(self.bb_data.factor, file_name=written_filename)
+            data.write_data(self.base_data.factor, file_name=written_filename)
             print('Style factor data have been saved!\n')
 
     # # 仅计算barra base的因子值，主要用于对于不同股票池，可以率先建立一个只有因子值而没有暴露的bb对象
@@ -897,61 +865,61 @@ class barra_base(object):
     #     self.get_leverage()
     #     print('get leverage completed...\n')
     #     # 计算风格因子暴露之前再过滤一次
-    #     self.bb_data.discard_uninv_data()
+    #     self.base_data.discard_uninv_data()
     #
     # # 仅计算barra base的因子暴露，主要用于对与不同股票池，可以在不重新建立新对象的情况下，根据已有因子值算不同的因子暴露
     # def just_get_factor_expo(self):
-    #     self.bb_data.discard_uninv_data()
+    #     self.base_data.discard_uninv_data()
     #     self.get_style_factor_exposure()
     #     self.get_industry_factor()
     #     self.add_country_factor()
-    #     self.bb_data.discard_uninv_data()
+    #     self.base_data.discard_uninv_data()
     #
     #     # 判定风格因子和行业因子的数量
     #     self.get_factor_group_count()
 
     # 回归计算各个基本因子的因子收益
-    def get_bb_factor_return(self, *, if_save=False):
+    def get_base_factor_return(self, *, if_save=False):
         # 初始化储存因子收益的dataframe
-        self.bb_factor_return = pd.DataFrame(np.nan, index=self.bb_data.factor_expo.major_axis,
-                                             columns=self.bb_data.factor_expo.items)
+        self.base_factor_return = pd.DataFrame(np.nan, index=self.base_data.factor_expo.major_axis,
+                                             columns=self.base_data.factor_expo.items)
         # 因子暴露要用上一期的因子暴露，用来加权的市值要用上一期的市值
-        lag_factor_expo = self.bb_data.factor_expo.shift(1).reindex(
-                          major_axis=self.bb_data.factor_expo.major_axis)
-        lag_mv = self.bb_data.stock_price.ix['FreeMarketValue'].shift(1)
+        lag_factor_expo = self.base_data.factor_expo.shift(1).reindex(
+                          major_axis=self.base_data.factor_expo.major_axis)
+        lag_mv = self.base_data.stock_price.ix['FreeMarketValue'].shift(1)
         # 循环回归，计算因子收益
-        for time, temp_data in self.bb_factor_return.iterrows():
+        for time, temp_data in self.base_factor_return.iterrows():
             if time == pd.Timestamp('2015-07-07'):
                 print('a')
                 pass
             outcome = strategy_data.constrained_gls_barra_base(
-                       self.bb_data.stock_price.ix['daily_simple_return', time, :],
+                       self.base_data.stock_price.ix['daily_simple_return', time, :],
                        lag_factor_expo.ix[:, time, :],
                        weights = np.sqrt(lag_mv.ix[time, :]),
                        indus_ret_weights = lag_mv.ix[time, :],
                        n_style=self.n_style, n_indus=self.n_indus)
-            self.bb_factor_return.ix[time, :] = outcome[0]
+            self.base_factor_return.ix[time, :] = outcome[0]
         print('get bb factor return completed...\n')
 
         # 如果需要储存, 则储存因子收益数据
         # 如果要储存因子数据, 必须保证当前股票池和文件后缀是完全一致的, 否则报错
         if if_save:
-            if self.bb_data.stock_pool == 'all':
+            if self.base_data.stock_pool == 'all':
                 assert self.filename_appendix == '', 'Error: The stock pool of base is different ' \
                 'from filename appendix, in order to avoid possible data loss, the saving ' \
                 'procedure has been terminated! \n'
             else:
-                assert self.filename_appendix[1:] == self.bb_data.stock_pool, 'Error: The stock ' \
+                assert self.filename_appendix[1:] == self.base_data.stock_pool, 'Error: The stock ' \
                 'pool of base is different from filename appendix, in order to avoid possible ' \
                 'data loss, the saving procedure has been terminated! \n'
 
-            self.bb_factor_return.to_csv('bb_factor_return_'+self.bb_data.stock_pool+'.csv',
+            self.base_factor_return.to_csv('bb_factor_return_'+self.base_data.stock_pool+'.csv',
                                          index_label='datetime', na_rep='NaN', encoding='GB18030')
             print('The bb factor return has been saved! \n')
 
 
     # 更新数据
-    def update_barra_base_factor_data(self):
+    def update_factor_base_data(self):
         self.is_update = True
         # 更新的时候不允许读取数据
         self.try_to_read = False
@@ -960,416 +928,68 @@ class barra_base(object):
         # 根据此次更新的股票池, 设置读取文件的文件名, 注意, 更新数据的时候, 文件名强制要求为当前股票池
         self.construct_reading_file_appendix(filename_appendix='default')
         # 读取旧的因子数据
-        original_old_bb_factor_names = ['lncap', 'beta', 'momentum', 'rv', 'nls', 'bp', 'liquidity',
+        original_old_base_factor_names = ['lncap', 'beta', 'momentum', 'rv', 'nls', 'bp', 'liquidity',
                                         'ey', 'growth', 'leverage']
         # 加上文件后缀
-        old_bb_factor_names = []
-        for i in original_old_bb_factor_names:
-            old_bb_factor_names.append(i+self.filename_appendix)
-        old_bb_factors = data.read_data(old_bb_factor_names, original_old_bb_factor_names)
+        old_base_factor_names = []
+        for i in original_old_base_factor_names:
+            old_base_factor_names.append(i+self.filename_appendix)
+        old_base_factors = data.read_data(old_base_factor_names, original_old_base_factor_names)
         # 更新与否取决于原始数据和因子数据，若因子数据的时间轴早于原始数据，则进行更新
         # 这里对比的数据实际是free mv和lncap，因为barra base的计算是以这两个为基准的
-        last_day = old_bb_factors.major_axis[-1]
-        if last_day == self.bb_data.stock_price.major_axis[-1]:
+        last_day = old_base_factors.major_axis[-1]
+        if last_day == self.base_data.stock_price.major_axis[-1]:
             print('The barra base factor data have been up-to-date.\n')
             return
         # 找因子数据的最后一天在原始数据中的对应位置
-        last_loc = self.bb_data.stock_price.major_axis.get_loc(last_day)
+        last_loc = self.base_data.stock_price.major_axis.get_loc(last_day)
         # 将原始数据截取，截取范围从更新的第一天的（即因子数据的最后一天的下一天）前525天到最后一天
         # 更新前525天的选取是因为t时刻的bb因子值最远需要取到525天前的原始数据，在momentum因子中用到
         new_start_loc = last_loc + 1 - 525
-        self.bb_data.stock_price = self.bb_data.stock_price.iloc[:, new_start_loc:, :]
-        self.bb_data.raw_data = self.bb_data.raw_data.iloc[:, new_start_loc:, :]
-        self.bb_data.if_tradable = self.bb_data.if_tradable.iloc[:, new_start_loc:, :]
+        self.base_data.stock_price = self.base_data.stock_price.iloc[:, new_start_loc:, :]
+        self.base_data.raw_data = self.base_data.raw_data.iloc[:, new_start_loc:, :]
+        self.base_data.if_tradable = self.base_data.if_tradable.iloc[:, new_start_loc:, :]
 
         # 开始计算新的因子值
-        self.construct_barra_base()
+        self.construct_factor_base()
 
         # 将旧因子值的股票索引换成新的因子值的股票索引
-        old_bb_factors = old_bb_factors.reindex(minor_axis=self.bb_data.factor.minor_axis)
+        old_base_factors = old_base_factors.reindex(minor_axis=self.base_data.factor.minor_axis)
         # 衔接新旧因子值, 注意, 衔接的时候一定要把last_day的老数据丢弃掉, 只用新的数据
         # 就像database的更新一样, 最后一天的老数据, 会因更新的当时可能数据不全, 有各种问题
         # 因此一定不能用.
-        new_factor_data = pd.concat([old_bb_factors.drop(last_day, axis=1), self.bb_data.factor], axis=1)
+        new_factor_data = pd.concat([old_base_factors.drop(last_day, axis=1), self.base_data.factor], axis=1)
         # 因为更新数据需要用到以前的数据的原因, 会导致更新的时候更新数据的起头不会是last_day
         # 且这些数据都是nan, 因此只能要第一个数据, 即当时的老数据, 而丢弃掉那些因更新原因产生的nan的数据
-        self.bb_data.factor = new_factor_data.groupby(new_factor_data.major_axis).first()
+        self.base_data.factor = new_factor_data.groupby(new_factor_data.major_axis).first()
         # 储存因子值数据
-        data.write_data(self.bb_data.factor, file_name=old_bb_factor_names)
+        data.write_data(self.base_data.factor, file_name=old_base_factor_names)
 
         self.is_update = False
         self.try_to_read = True
 
-
-    ################################################################################################################
-    # 下面的部分是模型的风险预测部分, 包括协方差矩阵预测, 和股票特征风险的预测
-
-    # 对原始的协方差矩阵进行估计
-    def get_initial_cov_mat(self, *, sample_size=504, var_half_life=84, corr_half_life=504,
-                            var_nw_lag=5, corr_nw_lag=2, forecast_steps=21):
-
-        # 初始化储存原始协方差矩阵的panel
-        self.initial_cov_mat = pd.Panel(np.nan, items=self.bb_factor_return.index,
-            major_axis=self.bb_factor_return.columns, minor_axis=self.bb_factor_return.columns)
-        # 初始化储存日度因子方差预测的dataframe, 用来做volatility regime adjustment
-        self.daily_var_forecast = pd.DataFrame(np.nan, index=self.bb_factor_return.index,
-                                               columns=self.bb_factor_return.columns)
-
-        # 开始循环计算原始的cov_mat
-        for cursor, time in enumerate(self.bb_factor_return.index):
-            # 注意, 根据sample size来决定从第几期开始计算
-            # if cursor < sample_size - 1:
-            if time < pd.Timestamp('2009-03-03'):
-                continue
-
-            estimated_outcome = barra_base.initial_cov_estimator(cursor, self.bb_factor_return,
-                                    sample_size=sample_size, var_half_life=var_half_life,
-                                    corr_half_life=corr_half_life, var_nw_lag=var_nw_lag,
-                                    corr_nw_lag=corr_nw_lag, forecast_steps=forecast_steps)
-
-            # 将估计得到的var和corr结合起来, 形成当期估计的协方差矩阵
-            # 用日数据转移到周或月数据, 需要乘以天数差
-            self.initial_cov_mat.ix[time] = estimated_outcome[0]
-            # 日度的因子方差预测值, 储存起来做vra的时候会用到
-            self.daily_var_forecast.ix[time] = estimated_outcome[1]
-            pass
-
-        # self.initial_cov_mat.to_hdf('bb_factor_covmat_hs300_nonw', '123')
-
-    # 原始协方差矩阵的估计量函数, 采用statsmodels里面的函数改进性能
-    @staticmethod
-    def initial_cov_estimator(cursor, complete_factor_return_data, *, sample_size=504,
-                              var_half_life=84, corr_half_life=504, var_nw_lag=5, corr_nw_lag=2,
-                              forecast_steps=21):
-        # 首先创建指数权重序列
-        var_weight = barra_base.construct_expo_weights(var_half_life, sample_size)
-        corr_weight = barra_base.construct_expo_weights(corr_half_life, sample_size)
-        # 取当期的数据
-        curr_data = complete_factor_return_data.iloc[cursor + 1 - sample_size:cursor + 1, :]
-
-        # 首先估计var
-        # 将数据乘以对应的权重
-        var_weighted_curr_data = curr_data.mul(np.sqrt(var_weight), axis=0)
-        # 因为乘以权重时已经除以了样本个数n, 而在估计std的时候再次除以了样本个数n-1
-        # 因此, 要在数据上乘以样本个数n-1的根号, 才能使得数量级正确
-        valid_n = var_weighted_curr_data.notnull().sum(0) - 1
-        var_weighted_curr_data = var_weighted_curr_data.mul(np.sqrt(valid_n), axis=1)
-        # 使用算auto covariance的函数, 进行acov的计算
-        # 注意, 这样计算时, 那些lag的项会损失一些数据
-        curr_acov = var_weighted_curr_data.apply(sm.tsa.acovf, axis=0)
-        # 取lag=0到lag=var_nw_lag这些项, 即第1行到第var_nw_lag+1行
-        curr_acov = curr_acov.iloc[0:var_nw_lag+1, :]
-        # 生成对各个lag项的对应权重
-        nw_lag_weight_var = 2 * (var_nw_lag + 1 - np.arange(0, var_nw_lag + 1)) / (var_nw_lag + 1)
-        nw_lag_weight_var[0] = 1
-        curr_var = curr_acov.mul(nw_lag_weight_var, axis=0).sum()
-
-        # 估计corr
-        # 将数据乘以对应权重
-        corr_weighted_curr_data = curr_data.mul(np.sqrt(corr_weight), axis=0)
-        # corr的计算与数量级无关, 因此不需要做常数的调整, 接下来通过算cross-correlation的函数, 计算cc
-        # 暂时只想到通过循环来计算, 先建立储存数据的panel
-        curr_cc = pd.Panel(np.nan, items=np.arange(corr_nw_lag+1), major_axis=curr_data.columns,
-                           minor_axis=curr_data.columns)
-        # 根据因子进行循环, 每次循环计算一个因子与其余因子的cross-correlation
-        for name, factor in corr_weighted_curr_data.iteritems():
-            full_ccf = corr_weighted_curr_data.apply(sm.tsa.stattools.ccf, axis=0, y=factor)
-            # 取lag=0到lag=corr_nw_lag这一部分, 注意将循环的因子存在列中, 循环的因子factor是lag的那一项
-            # 因此, 为了保证curr_cc中, major_axis是当前量, minor_axis是lag后的量, 要将循环的因子按列储存
-            curr_cc.ix[:, :, name] = full_ccf.iloc[0:corr_nw_lag+1, :].values
-        # 循环结束后, 生成对各个lag项的对应权重, 注意, 因为要加转置后的矩阵, 因此第一项权重是0.5
-        nw_lag_weight_corr = (corr_nw_lag + 1 - np.arange(0, corr_nw_lag + 1)) / (corr_nw_lag + 1)
-        nw_lag_weight_corr[0] = 0.5
-        # curr_cc = curr_cc.apply(lambda x: x.mul(nw_lag_weight_corr, axis=1), axis=(0, 2))
-        for item, df in curr_cc.iteritems():
-            curr_cc.ix[item] = df * nw_lag_weight_corr[item]
-        curr_corr = curr_cc.sum(0) + curr_cc.transpose(0, 2, 1).sum(0)
-
-        estimated_cov_mat = curr_corr.mul(np.sqrt(curr_var), axis=0). \
-            mul(np.sqrt(curr_var), axis=1).mul(forecast_steps)
-
-        return [estimated_cov_mat, curr_var]
-
-    # 对估计出的协方差矩阵做volatility regime adjustment
-    def get_vra_cov_mat(self, *, sample_size=504, vra_half_life=42):
-        # 初始化储存vra后的协方差矩阵的panel
-        self.vra_cov_mat = self.initial_cov_mat * np.nan
-        # 计算标准化的因子收益率, 即用每天实现的因子收益, 除以之前预测的当天的因子波动率
-        standardized_fac_ret = self.bb_factor_return.div(np.sqrt(self.daily_var_forecast.shift(1)))
-
-        # 开始循环计算vra后的协方差矩阵
-        for cursor, time in enumerate(self.bb_factor_return.index):
-            # 根据sample size来决定从第几期开始计算
-            # 注意, 因为用来进行调整的factor volatility multiplier(vra multiplier)的计算
-            # 要用到预测的因子方差的时间序列, 所以, 最开始的几期的计算会只有很少的时间序列上的点
-            if cursor < sample_size - 1:
-                continue
-
-            vra_multiplier = barra_base.vra_multiplier_estimator(cursor, standardized_fac_ret,
-                                sample_size=sample_size, vra_half_life=vra_half_life)
-
-    # 进行volatility regime adjustment的函数, 会返回vra后的协方差矩阵
-    @staticmethod
-    def vra_multiplier_estimator(cursor, standardized_fac_ret, *, sample_size=504, vra_half_life=42):
-        # 首先创建指数权重序列
-        vra_weight = barra_base.construct_expo_weights(vra_half_life, sample_size)
-
-
-    # 对初步估计出的协方差矩阵, 进行eigenfactor adjustment的函数
-    def get_eigen_adjusted_cov_mat(self, *, n_of_sims=1000, scaling_factor=1.4, sample_size=504):
-        # 储存特征值调整后的协方差矩阵
-        self.eigen_adjusted_cov_mat = self.initial_cov_mat * np.nan
-
-        # 对日期进行循环
-        for cursor, time in enumerate(self.initial_cov_mat.items):
-            if time < pd.Timestamp('2013-07-29'):
-                continue
-            curr_cov_mat = self.initial_cov_mat.ix[time]
-            # 放入进行eigen adjustment的函数进行计算
-            outcome = barra_base.eigen_factor_adjustment(curr_cov_mat, n_of_sims, scaling_factor,
-                                                         sample_size)
-            self.eigen_adjusted_cov_mat.ix[time] = outcome[0]
-
-    # 进行单次的eigen factor adjustment的函数
-    @staticmethod
-    def eigen_factor_adjustment(cov_mat, no_of_sims, scaling_factor, sample_size):
-        # 首先对估计的协方差矩阵进行eigen decomposition
-        eigenvalues, eigenvectors = np.linalg.eig(cov_mat)
-
-        # 储存每次模拟结果的矩阵
-        simed_d = np.empty((no_of_sims, eigenvalues.size))
-        simed_d_hat = np.empty((no_of_sims, eigenvalues.size))
-
-        # 对于每一次模拟
-        for i in range(no_of_sims):
-            # 生成由k个特征因子*T个时间长度(即sample size)组成的收益矩阵
-            # 第k行, 即第k个特征因子的收益的方差应该是对应的第k个特征值
-            eigenfactor_returns = np.random.normal(0, np.sqrt(eigenvalues), (sample_size, eigenvalues.size))
-            # 用eigenvectors与模拟得到的eigenfactor_return点乘, 得到模拟的因子收益
-            simulated_factor_return = pd.DataFrame(np.dot(eigenfactor_returns, eigenvectors.T),
-                                                   index=np.arange(sample_size), columns=cov_mat.index)
-
-            # # 将月度的收益变为日度的, 否则数量级不对
-            # simulated_factor_return /= 21
-
-            # 将生成的因子收益放入协方差矩阵的估计函数中, 估计模拟的协方差矩阵
-            # 注意, 这里的cursor, 要写成sample_size-1, 即要从数据的第一项用到最后一项
-            # 另外再算nw lag项的时候, 由于只模拟了sample_size项, 因此lag项会有数据损失, 暂时不管这个问题
-            simulated_cov_mat = barra_base.initial_cov_estimator(sample_size-1, simulated_factor_return,
-                                                                 var_nw_lag=0, corr_nw_lag=0, forecast_steps=1)[0]
-
-            # 计算模拟出的协方差矩阵的特征向量
-            simed_eigenvalues, simed_eigenvectors = np.linalg.eig(simulated_cov_mat)
-            # 用特征向量和真实的协方差矩阵计算出一个对角线表示特征值的矩阵, 即D-hat
-            # 只取它的对角线上的元素
-            d_hat = np.diagonal(np.dot(np.dot(simed_eigenvectors.T, cov_mat), simed_eigenvectors))
-
-            # 将得到的结果储存起来
-            simed_d[i, :] = simed_eigenvalues
-            simed_d_hat[i, :] = d_hat
-
-        # 模拟结束后, 计算simulated volatility bias
-        # 这里的计算参考USE4, 因为USE4比eigenfactor adjustment更新一些
-        bias = np.sqrt(np.mean(simed_d_hat/simed_d, axis=0))
-        # 通过scaling factor来进行修正
-        scaled_bias = scaling_factor * (bias - 1) + 1
-
-        # 通过bias来对原始估计的协方差矩阵的特征值进行修正
-        adjusted_eigenvalues = (scaled_bias ** 2) * eigenvalues
-        # 通过修正后的eigenvalues来计算修正后的协方差矩阵
-        adjusted_cov_mat = np.dot(np.dot(eigenvectors, np.diag(adjusted_eigenvalues)), eigenvectors.T)
-
-        return [adjusted_cov_mat, bias, scaled_bias]
-
-    # 根据barra的bias statistics来测试风险预测能力的函数
-    def risk_forecast_performance(self, *, no_of_sims, freq='m', test_type='random'):
-        # 测试barra的估计量
-        forecasted_cov_mat = pd.read_hdf('bb_factor_covmat_hs300_nonw', '123')
-        # # 测试最简单的估计量
-        # forecasted_cov_mat = self.bb_factor_return.rolling(504).cov() * 21
-
-
-        # 首先将实现的因子收益求和
-        realized_factor_return = self.bb_factor_return.resample(freq, label='left').apply(
-            lambda x: (1 + x).prod() - 1)
-        # 取距离实现时间段最近的那个预测值
-        vol_forecast = forecasted_cov_mat.resample(freq, label='left').last().shift(1, axis=0)
-        # panel shift过后, 将他们的时间标签对齐
-        realized_factor_return = realized_factor_return.iloc[1:, :]
-
-        # 建立储存bias stats的df
-        bias_stats = pd.DataFrame(np.nan, index=forecasted_cov_mat.resample('m', label='left').
-                                  first().items, columns=np.arange(no_of_sims))
-
-        # 对随机组合做测试
-        if test_type == 'random':
-            for i in range(no_of_sims):
-                # 生成随机数, 来表示随机因子暴露组合, 然后通过考察对随机组合的风险预测情况来考察风险预测能力
-                factor_expo = np.random.uniform(-1, 1, forecasted_cov_mat.shape[1])
-                # country factor的暴露设置为1
-                factor_expo[-1] = 0
-
-                bias_stats.iloc[:, i] = barra_base.get_bias_stats(realized_factor_return, vol_forecast,
-                                                                  factor_expo)
-
-        # 对优化组合做测试
-        if test_type == 'optimized':
-            for i in range(no_of_sims):
-                # 在因子层面生成随机数, 代表每个因子的alpha, 从标准正态分布中抽取
-                factor_alphas = np.random.normal(size=forecasted_cov_mat.shape[1])
-                # 根据这个因子收益建立最优化的因子组合
-                def opt_func(cov_mat, alpha):
-                    if cov_mat.isnull().any().any():
-                        return pd.Series(np.nan, index=cov_mat.index)
-                    else:
-                        inv_mat = np.linalg.pinv(cov_mat)
-                        holding = np.dot(inv_mat, alpha) / np.dot(np.dot(alpha, inv_mat), alpha)
-                        return pd.Series(holding, index=cov_mat.index)
-                factor_holding = vol_forecast.apply(opt_func, axis=(1, 2), alpha=factor_alphas).T
-
-                bias_stats.iloc[:, i] = barra_base.get_bias_stats(realized_factor_return, vol_forecast,
-                                                                  factor_holding)
-
-        pass
-
-    # 根据所给的数据, 计算当前组合的bias statistics, 用来检测风险预测的能力
-    # freq表示风险预测的频率, 即是预测未来一个月的风险, 或是预测未来一周的风险
-    @staticmethod
-    def get_bias_stats(realized_factor_return, vol_forecast, port_weight):
-        # 根据组合的因子暴露, 乘以因子收益, 算出组合的实现因子收益, 并且计算预测的组合风险
-        if isinstance(port_weight, pd.Series):
-            realized_port_return = realized_factor_return.dot(port_weight)
-
-            forecast_port_vol = vol_forecast.apply(lambda x: np.sqrt(np.dot(port_weight.dot(x), port_weight)),
-                                                   axis=(1, 2))
-        elif isinstance(port_weight, pd.DataFrame):
-            realized_port_return = realized_factor_return.mul(port_weight).sum(1)
-            forecast_port_vol = pd.Series(np.nan, index=realized_port_return.index)
-            for time, cov_mat in vol_forecast.iteritems():
-                if cov_mat.isnull().any().any():
-                    forecast_port_vol.ix[time] = np.nan
-                else:
-                    forecast_port_vol.ix[time] = np.sqrt(np.dot(port_weight.ix[time, :].dot(cov_mat),
-                                                                port_weight.ix[time, :]))
-        else:
-            realized_port_return = realized_factor_return * np.nan
-            forecast_port_vol = realized_factor_return * np.nan
-
-        # 组合的standardized return
-        standardized_return = realized_port_return/forecast_port_vol
-        # 计算rolling window bias statistics
-        rolling_bias_stats = standardized_return.rolling(12).std()
-
-        return rolling_bias_stats
-
-    # # 原始协方差矩阵的估计量函数
-    # @staticmethod
-    # def initial_cov_estimator_naive(cursor, complete_factor_return_data, *, sample_size=504,
-    #                           var_half_life=84, corr_half_life=504, var_nw_lag=5, corr_nw_lag=2,
-    #                           forecast_steps=21):
-    #     # 首先创建指数权重序列
-    #     var_weight = barra_base.construct_expo_weights(var_half_life, sample_size)
-    #     corr_weight = barra_base.construct_expo_weights(corr_half_life, sample_size)
-    #     # 取当期的数据
-    #     curr_data = complete_factor_return_data.iloc[cursor + 1 - sample_size:cursor + 1, :]
-    #
-    #     # 先计算var
-    #     curr_var = None
-    #     # 根据var的nw lag进行循环, 从lag=0开始, lag=0则表示计算自己的方差
-    #     for curr_var_lag in range(var_nw_lag + 1):
-    #         # 根据当前的lag数, 取对应的lag data
-    #         lagged_data = complete_factor_return_data.shift(curr_var_lag). \
-    #                           iloc[cursor + 1 - sample_size:cursor + 1, :]
-    #         # 将数据乘以对应的权重
-    #         weighted_curr_data = curr_data.mul(np.sqrt(var_weight), axis=0)
-    #         weighted_lagged_data = lagged_data.mul(np.sqrt(var_weight), axis=0)
-    #         # 将其放入估计方差的函数中, 计算方差
-    #         var = barra_base.var_func(weighted_curr_data, weighted_lagged_data)
-    #         # 根据对应的权重, 将估计出的var加到原始的var上去
-    #         # 当lag是0的时候, 计算的就是自身的方差
-    #         if curr_var_lag == 0:
-    #             curr_var = var * 1
-    #         else:
-    #             curr_var = curr_var + 2 * (var_nw_lag + 1 - curr_var_lag) / (var_nw_lag + 1) * var
-    #
-    #     # 再计算corr
-    #     curr_corr = None
-    #     # 根据corr的nw lag进行循环, 从lag=0开始, lag=0则表示计算自己的相关系数矩阵
-    #     for curr_corr_lag in range(corr_nw_lag + 1):
-    #         # 根据当前的lag数, 取对应的lag data
-    #         lagged_data = complete_factor_return_data.shift(curr_corr_lag). \
-    #                           iloc[cursor + 1 - sample_size:cursor + 1, :]
-    #         # 将数据乘以对应的权重
-    #         weighted_curr_data = curr_data.mul(np.sqrt(corr_weight), axis=0)
-    #         weighted_lagged_data = lagged_data.mul(np.sqrt(corr_weight), axis=0)
-    #         # 将其放入估计相关系数矩阵的函数中, 计算相关系数矩阵
-    #         corr = barra_base.corr_func(weighted_curr_data, weighted_lagged_data)
-    #         # 根据对应的权重, 将估计出的corr加到原始的corr上去
-    #         # 当lag是0的时候, 计算的就是自身的相关系数矩阵
-    #         if curr_corr_lag == 0:
-    #             curr_corr = corr * 1
-    #         else:
-    #             curr_corr = curr_corr + (corr_nw_lag + 1 - curr_corr_lag) / (corr_nw_lag + 1) * \
-    #                                     (corr + corr.T)
-    #
-    #     # 将估计得到的var和corr结合起来, 形成当期估计的协方差矩阵
-    #     # 用日数据转移到周或月数据, 需要乘以天数差
-    #     estimated_cov_mat = curr_corr.mul(np.sqrt(curr_var), axis=0). \
-    #         mul(np.sqrt(curr_var), axis=1).mul(forecast_steps)
-    #     if not np.all(np.linalg.eigvals(estimated_cov_mat) > 0):
-    #         print(': is not positive definite matrix!\n')
-    #     pass
-    #
-    #     return estimated_cov_mat
-    #
-    # # 计算var的函数
-    # @staticmethod
-    # def var_func(df, lagged_df):
-    #     # 因为乘以权重时已经除以了样本个数n, 而在估计corr以及std的时候再次除以了样本个数n-1
-    #     # 因此, 要在数据上乘以样本个数n-1的根号, 才能使得数量级正确
-    #     valid_n = np.logical_and(df.notnull(), lagged_df.notnull()).sum(0) - 1
-    #     df = df.mul(np.sqrt(valid_n), axis=1)
-    #     lagged_df = lagged_df.mul(np.sqrt(valid_n), axis=1)
-    #     # 没有直接计算对应列的方差的函数, 因此, 先计算对应列的corr
-    #     pairwise_corr = df.corrwith(lagged_df)
-    #     # 再通过计算std, 最终得到对应列之间的var
-    #     df_std = df.std()
-    #     lagged_df_std = lagged_df.std()
-    #     var = pairwise_corr * df_std * lagged_df_std
-    #
-    #     return var
-    #
-    # # 计算corr的函数
-    # @staticmethod
-    # def corr_func(df, lagged_df):
-    #     # 返回的corr矩阵的格式为, 行是df的因子, 列是lagged_df的因子
-    #     corr = pd.DataFrame(np.nan, index=df.columns, columns=lagged_df.columns)
-    #     # 只能循环计算, 注意, 由于计算的是corr, 不受数量级影响, 因此不用进行样本个数n的调整
-    #     for factor, s in df.iteritems():
-    #         for l_factor, l_s in lagged_df.iteritems():
-    #             corr.ix[factor, l_factor] = s.corr(l_s)
-    #
-    #     return corr
 
 if __name__ == '__main__':
     import time
     # pools = ['all', 'hs300', 'zz500', 'zz800', 'sz50', 'zxb', 'cyb']
     # for i in pools:
     bb = barra_base()
-    bb.bb_data.stock_pool = 'hs300'
-    # bb.bb_data.stock_pool = i
+    bb.base_data.stock_pool = 'hs300'
+    # bb.base_data.stock_pool = i
     bb.try_to_read = True
-    bb.construct_barra_base(if_save=False)
-    # bb.get_bb_factor_return(if_save=False)
+    # bb.construct_factor_base(if_save=False)
+    # bb.get_base_factor_return(if_save=False)
     fr = data.read_data(['bb_factor_return_hs300'])
-    bb.bb_factor_return = fr['bb_factor_return_hs300']
-    # bb.initial_cov_mat = pd.read_hdf('bb_factor_covmat_hs300_nonw', '123')
-    start_time = time.time()
-    # bb.get_eigen_adjusted_cov_mat(n_of_sims=100, sample_size=10000)
-    bb.get_initial_cov_mat()
-    # bb.risk_forecast_performance(test_type='optimized')
-    # bb.update_barra_base_factor_data()
-    print("time: {0} seconds\n".format(time.time()-start_time))
+    bb.base_factor_return = fr['bb_factor_return_hs300']
+    bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_hs300', '123')
+    # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_hs300', '123')
+    # start_time = time.time()
+    # bb.get_eigen_adjusted_cov_mat_parallel(n_of_sims=100, simed_sample_size=504, scaling_factor=3)
+    # bb.get_initial_cov_mat()
+    # bb.get_vra_cov_mat()
+    bb.risk_forecast_performance_parallel(test_type='optimized', bias_type=2)
+    # bb.update_factor_base_data()
+    # print("time: {0} seconds\n".format(time.time()-start_time))
     pass
 
 

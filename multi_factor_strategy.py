@@ -90,9 +90,9 @@ class multi_factor_strategy(single_factor_strategy):
 
 if __name__ == '__main__':
     bb = barra_base()
-    bb.construct_barra_base()
+    bb.construct_factor_base()
     mf = multi_factor_strategy()
-    mf.strategy_data.factor_expo = bb.bb_data.factor_expo.iloc[0:10]
+    mf.strategy_data.factor_expo = bb.base_data.factor_expo.iloc[0:10]
     mf.strategy_data.benchmark_price = data.read_data(['Weight_zz500'], shift=True)
     factor_return = data.read_data(['bb_factor_return_all'], shift=True)
     mf.factor_return = factor_return.ix['bb_factor_return_all', :, 0:10]

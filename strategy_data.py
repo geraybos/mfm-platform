@@ -543,6 +543,47 @@ class strategy_data(data):
 
         return port_expo
 
+    # 建立指数加权序列
+    # 注意, 生成的权重序列若用于权重参数, 则可以直接使用, 若用于直接乘在或除在原始变量上, 且最后要算的量受到数据数量级的影响
+    # 则注意一定要根据原始数据的数量n, 对原始数据进行调整, 因为等权相当于每个数据都乘以了1, 而这里的指数权重则是一列和为1的分数
+    # 如果不做调整直接乘在原始数据上, 则原始数据的数量级会变小
+    @staticmethod
+    def construct_expo_weights(halflife, length):
+        exponential_lambda = 0.5 ** (1 / halflife)
+        exponential_weights = (1 - exponential_lambda) * exponential_lambda ** np.arange(length-1,-1,-1)
+        exponential_weights = exponential_weights/np.sum(exponential_weights)
+        return exponential_weights
+
+    # 将指数权重直接乘在原始数据上后, 进行数量级调整的函数, 注意, 作为输入变量的weights, 必须和为1
+    # 调整数量级的核心思想是, 一定要使得有效数据的权重之和是有效数据的数量valid_n
+    # multiply power代表的意思是, 在将权重对有效数据归一化后, 用权重的几次方去乘以原始数据
+    # 如算mean的时候需要乘以权重的1次方, 算std的时候需要乘以权重的0.5次方(即根号权重), 默认为1
+    # 此函数针对raw_data的类型有不同版本以增加速度
+    @staticmethod
+    def multiply_weights(raw_data, weights, *, multiply_power=1.0):
+        if isinstance(raw_data, pd.Series):
+            # 提取出那些真正有作用的权重, 即并未对应nan的那些权重
+            valid_weights = np.where(raw_data.notnull(), weights, 0)
+            # 第一个调整的步骤, 必须使得有效的数据的权重之和为1
+            # 进行这一步调整之后, 有效数据的权重之和就会是1了
+            adjusted_weights = np.divide(valid_weights, np.sum(valid_weights))
+            # 第二个调整的步骤, 必须使得有效数据的权重之和是有效数据的数量valid n
+            valid_n = raw_data.notnull().sum()
+            # 因为之前有效数据的权重之和已经是1了, 这时只需要乘以valid n即可
+            # 进行这一步调整之后, 有效数据的权重之和就是valid n了
+            adjusted_weights *= valid_n
+        elif isinstance(raw_data, pd.DataFrame):
+            # 当原始数据是dataframe时, 使用向量化的方法来计算, 而不是循环, 这样可以提高速度
+            valid_weights = np.where(raw_data.notnull(), np.expand_dims(weights, 1), 0)
+            adjusted_weights = np.divide(valid_weights, np.sum(valid_weights, 0))
+            valid_n = raw_data.notnull().sum(0)
+            adjusted_weights = np.multiply(adjusted_weights, np.expand_dims(valid_n, 0))
+        else:
+            adjusted_weights = weights * 1
+        # 将调整后的有效权重按照指定的幂乘在原始数据上, 形成新的数据
+        new_data = raw_data.mul(adjusted_weights ** (multiply_power))
+
+        return new_data
 
         
         
