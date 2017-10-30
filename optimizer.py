@@ -28,10 +28,10 @@ class optimizer(object):
             trans_cost_func = lambda x: 0
         # 另外可以加入预测的每支股票的specific risk或者residual return, 如果没有, 则默认为0
         # 这时只考虑common factor对股票的风险收益的影响
-        if 'specific_vol' in add_params:
-            specific_vol = add_params['specific_vol']
+        if 'specific_var' in add_params:
+            specific_var = add_params['specific_var']
         else:
-            specific_vol = np.zeros(w.shape)
+            specific_var = np.zeros(w.shape)
         if 'residual_return' in add_params:
             residual_return = add_params['residual_return']
         else:
@@ -52,7 +52,7 @@ class optimizer(object):
         # 首先是common factor部分的风险
         active_var = factor_expo.dot(active_w).T.dot(factor_cov).dot(factor_expo.dot(active_w))
         # 如果有预测的specific risk, 需要加上这个部分
-        active_var += active_w.dot(np.multiply(specific_vol, active_w))
+        active_var += active_w.dot(np.multiply(specific_var, active_w))
 
         # 计算IR
         # 默认的手续费函数是0, 因此如果有手续费函数, 还需要将收益减去手续费函数这一部分
@@ -162,21 +162,21 @@ class optimizer(object):
     # 建立最大化IR问题的函数, 这个函数可以作为和外界的接口来使用
     # 注意, 这里输入的变量是pd.DataFrame或者pd.Series, 但是要将其做成np.ndarray的类型
     def solve_ir_optimization(self, bench_weight, factor_expo, factor_ret, factor_cov, *,
-                              specific_vol=None, residual_return=None, old_w=None, enable_trans_cost=True,
+                              specific_var=None, residual_return=None, old_w=None, enable_trans_cost=True,
                               buy_cost=1.5/1000, sell_cost=1.5/1000, enable_turnover_cons=True,
                               turnover_cap=1.0, enable_full_inv_cons=True, cash_ratio=0, long_only=True,
                               asset_cap=None, enable_factor_expo_cons=False):
 
         if enable_turnover_cons:
             optimized_weight = self.solve_ir_opt_with_turnover_cons(bench_weight, factor_expo, factor_ret, factor_cov,
-                specific_vol=specific_vol, residual_return=residual_return, old_w=old_w,
+                specific_var=specific_var, residual_return=residual_return, old_w=old_w,
                 enable_trans_cost=enable_trans_cost, buy_cost=buy_cost, sell_cost=sell_cost,
                 turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
                 cash_ratio=cash_ratio, long_only=long_only, asset_cap=asset_cap,
                 enable_factor_expo_cons=enable_factor_expo_cons)
         else:
             optimized_weight = self.solve_ordinary_ir_opt(bench_weight, factor_expo, factor_ret, factor_cov,
-                specific_vol=specific_vol, residual_return=residual_return, old_w=old_w,
+                specific_var=specific_var, residual_return=residual_return, old_w=old_w,
                 enable_trans_cost=enable_trans_cost, buy_cost=buy_cost, sell_cost=sell_cost,
                 turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
                 cash_ratio=cash_ratio, long_only=long_only, asset_cap=asset_cap,
@@ -186,7 +186,7 @@ class optimizer(object):
 
     # 在没有换手率限制条件下的问题, 按照常规方法来解
     def solve_ordinary_ir_opt(self, bench_weight, factor_expo, factor_ret, factor_cov, *,
-                              specific_vol=None, residual_return=None, old_w=None, enable_trans_cost=True,
+                              specific_var=None, residual_return=None, old_w=None, enable_trans_cost=True,
                               buy_cost=1.5/1000, sell_cost=1.5/1000, turnover_cap=1.0,
                               enable_full_inv_cons=True, cash_ratio=0, long_only=True,
                               asset_cap=None, enable_factor_expo_cons=False):
@@ -201,8 +201,8 @@ class optimizer(object):
         obj_func_params['bench_weight'] = bench_weight.fillna(0.0).values
         obj_func_params['factor_ret'] = factor_ret.values
         obj_func_params['factor_cov'] = factor_cov.values
-        if isinstance(specific_vol, pd.Series):
-            obj_func_params['specific_vol'] = specific_vol.fillna(0.0).values
+        if isinstance(specific_var, pd.Series):
+            obj_func_params['specific_var'] = specific_var.fillna(0.0).values
         if isinstance(residual_return, pd.Series):
             obj_func_params['residual_return'] = residual_return.fillna(0.0).values
 
@@ -262,7 +262,7 @@ class optimizer(object):
     # 在有换手率限制条件下, 解优化问题, 此时涉及到要将换手率的绝对值限制条件进行改写,
     # 因此要用一个新的函数来建立优化问题
     def solve_ir_opt_with_turnover_cons(self, bench_weight, factor_expo, factor_ret, factor_cov, *,
-                              specific_vol=None, residual_return=None, old_w=None, enable_trans_cost=True,
+                              specific_var=None, residual_return=None, old_w=None, enable_trans_cost=True,
                               buy_cost=1.5/1000, sell_cost=1.5/1000, turnover_cap=1.0,
                               enable_full_inv_cons=True, cash_ratio=0, long_only=True,
                               asset_cap=None, enable_factor_expo_cons=False):
@@ -286,8 +286,8 @@ class optimizer(object):
         obj_func_params['factor_ret'] = np.concatenate((factor_ret.fillna(0.0).values,
                                                         np.zeros(n_split)), axis=0)
         obj_func_params['factor_cov'] = factor_cov.values
-        if isinstance(specific_vol, pd.Series):
-            obj_func_params['specific_vol'] = np.concatenate((specific_vol.fillna(0.0).values,
+        if isinstance(specific_var, pd.Series):
+            obj_func_params['specific_var'] = np.concatenate((specific_var.fillna(0.0).values,
                                                               np.zeros(n_split)), axis=0)
         if isinstance(residual_return, pd.Series):
             obj_func_params['residual_return'] = np.concatenate((residual_return.fillna(0.0).values,
@@ -380,7 +380,7 @@ if __name__ == '__main__':
     # stock_return = stock_return[0:50]
     # 取残余收益
     spec_risk = AssetData.pivot_table(index='!Barrid', values='SpecRisk%').reindex(stock_return.index)
-    spec_vol = (spec_risk/100)**2
+    spec_var = (spec_risk/100)**2
     # 取因子暴露
     factor_expo = AssetExpo.pivot_table(index='!Barrid', columns='Factor', values='Exposure').\
         reindex(stock_return.index).fillna(0.0).T
@@ -395,7 +395,7 @@ if __name__ == '__main__':
     old_w = pd.Series(1/stock_return.shape[0], index=stock_return.index)
 
     optimized_weight = opt.solve_ir_optimization(bench_weight, factor_expo, stock_return, factor_cov,
-                                                 specific_vol=spec_vol, enable_turnover_cons=True,
+                                                 specific_var=spec_var, enable_turnover_cons=True,
                                                  enable_trans_cost=False, long_only=True, old_w=old_w,
                                                  turnover_cap=0.3, enable_factor_expo_cons=False)
     pass

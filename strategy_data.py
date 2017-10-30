@@ -78,7 +78,7 @@ class strategy_data(data):
         raw_data (pd.DataFrame): data you'd like to winsorize
         percentile: percentile on which data will be winsorized.
         """
-        temp = raw_data
+        temp = raw_data * 1
         lower_q = raw_data.quantile(percentile, 1)[:, np.newaxis]
         upper_q = raw_data.quantile(1-percentile, 1)[:, np.newaxis]
         raw_data = np.where(np.greater(raw_data, lower_q), raw_data, lower_q)
@@ -283,12 +283,12 @@ class strategy_data(data):
     # 用二次规划问题求解此线性回归问题
     # 目前，基于barra的业绩归因、barra基础因子内部回归都可以用这个线性回归模型，暂不支持新增因子
     @staticmethod
-    def constrained_gls_barra_base(asset_return, bb, *, weights=None, indus_ret_weights=None,
+    def constrained_gls_barra_base(asset_return, base_expo, *, weights=None, indus_ret_weights=None,
                                    n_style=10, n_indus=28):
         """Solving constrained gls problem using quadratic programming.
         
         asset_return: return of asset universe.
-        bb: barra base factor exposures, including style factors and industrial factors
+        base_expo: barra base factor exposures, including style factors and industrial factors
         weights: weights of gls, usually the sqrt of mv, default means equal weight
         indus_ret_weights: weights that put on the constraints of industry factors returns, usually as the \
                            market value, default means equal weight
@@ -302,15 +302,15 @@ class strategy_data(data):
         # 回归的权重需要开根号
         sqrt_w = np.sqrt(weights)
         y = asset_return.mul(sqrt_w)
-        # bb中股票为index，因子名字为columns
-        x = bb.mul(sqrt_w, axis=0)
+        # base_expo中股票为index，因子名字为columns
+        x = base_expo.mul(sqrt_w, axis=0)
         
         # 只要有na，就drop掉这只股票
         yx = pd.concat([y,x], axis=1)
         yx = yx.dropna()
         # 如果只有小于等于1个有效数据，返回nan序列
         if yx.shape[0] <= 1:
-            return np.empty(x.shape[1])*np.nan
+            return [np.full(n_style + n_indus + 1, np.nan), pd.Series(np.nan, index=x.index)]
         y = yx.ix[:, 0]
         x = yx.ix[:, 1:]
 
@@ -364,10 +364,15 @@ class strategy_data(data):
         # 不存在的因子收益，可以认为它的收益是0
         results_s = results_s.fillna(0)
 
-        # 计算残差
-        residuals = y - x.dot(results_np)
+        # 计算残余收益, 注意: 这里的残余收益是指没有被base模型解释的收益率部分, 并不是回归的残差,
+        # 因此不用考虑回归权重的问题, 这个区别非常重要, 因为一般我们会用到的都是没有被解释的残余收益, 而不是回归残差
+        # 如果需要得到回归残差, 则将根号权重乘在这个残余收益上即可
+        residual_return = asset_return.reindex(index=y.index) - base_expo.reindex(index=x.index,
+                            columns=x.columns).dot(results_np)
+        # 将残余收益的index改为asset return的index(所有传入的股票), 而不是残余回归的有效股票index
+        residual_return = residual_return.reindex(index=asset_return.index)
         
-        return [results_s, residuals]
+        return [results_s, residual_return]
 
 
 

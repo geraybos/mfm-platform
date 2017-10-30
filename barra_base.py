@@ -880,9 +880,11 @@ class barra_base(factor_base):
 
     # 回归计算各个基本因子的因子收益
     def get_base_factor_return(self, *, if_save=False):
-        # 初始化储存因子收益的dataframe
+        # 初始化储存因子收益的dataframe, 以及股票specific return的dataframe
         self.base_factor_return = pd.DataFrame(np.nan, index=self.base_data.factor_expo.major_axis,
                                              columns=self.base_data.factor_expo.items)
+        self.specific_return = pd.DataFrame(np.nan, index=self.base_data.factor_expo.major_axis,
+                                            columns=self.base_data.factor_expo.minor_axis)
         # 因子暴露要用上一期的因子暴露，用来加权的市值要用上一期的市值
         lag_factor_expo = self.base_data.factor_expo.shift(1).reindex(
                           major_axis=self.base_data.factor_expo.major_axis)
@@ -899,6 +901,7 @@ class barra_base(factor_base):
                        indus_ret_weights = lag_mv.ix[time, :],
                        n_style=self.n_style, n_indus=self.n_indus)
             self.base_factor_return.ix[time, :] = outcome[0]
+            self.specific_return.ix[time, :] = outcome[1]
         print('get bb factor return completed...\n')
 
         # 如果需要储存, 则储存因子收益数据
@@ -915,6 +918,8 @@ class barra_base(factor_base):
 
             self.base_factor_return.to_csv('bb_factor_return_'+self.base_data.stock_pool+'.csv',
                                          index_label='datetime', na_rep='NaN', encoding='GB18030')
+            self.specific_return.to_csv('bb_specific_return_'+self.base_data.stock_pool+'.csv',
+                                        index_label='datetime', na_rep='NaN', encoding='GB18030')
             print('The bb factor return has been saved! \n')
 
 
@@ -976,18 +981,28 @@ if __name__ == '__main__':
     bb = barra_base()
     bb.base_data.stock_pool = 'hs300'
     # bb.base_data.stock_pool = i
-    bb.try_to_read = True
+    # bb.try_to_read = True
+    # bb.read_original_data()
     # bb.construct_factor_base(if_save=False)
-    # bb.get_base_factor_return(if_save=False)
-    fr = data.read_data(['bb_factor_return_hs300'])
-    bb.base_factor_return = fr['bb_factor_return_hs300']
-    bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_hs300', '123')
-    # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_hs300', '123')
+    # bb.get_base_factor_return(if_save=True)
+    # fr = data.read_data(['bb_factor_return_all'])
+    # bb.base_factor_return = fr['bb_factor_return_all']
+    # bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_all', '123')
+    # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_all', '123')
+    sr = data.read_data(['bb_specific_return_hs300'])
+    bb.specific_return = sr['bb_specific_return_hs300']
     # start_time = time.time()
-    # bb.get_eigen_adjusted_cov_mat_parallel(n_of_sims=100, simed_sample_size=504, scaling_factor=3)
     # bb.get_initial_cov_mat()
     # bb.get_vra_cov_mat()
-    bb.risk_forecast_performance_parallel(test_type='optimized', bias_type=2)
+    # bb.get_eigen_adjusted_cov_mat_parallel(n_of_sims=100, simed_sample_size=504, scaling_factor=3)
+    bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
+    # bb.get_initial_spec_vol()
+    # bb.get_initial_spec_vol_parallel()
+    # bb.get_vra_spec_vol()
+    # bb.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=0.25)
+    # bb.handle_barra_data()
+    # bb.risk_forecast_performance_parallel(test_type='optimized', bias_type=2)
+    bb.risk_forecast_performance_parallel_spec(test_type='bayesian', bias_type=2, cap_weighted_bias=False)
     # bb.update_factor_base_data()
     # print("time: {0} seconds\n".format(time.time()-start_time))
     pass
