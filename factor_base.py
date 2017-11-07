@@ -416,13 +416,13 @@ class factor_base(object):
     # 等于2, 为实现波动率用根号scaling然后除以预测波动率, 即最简单的那种算法
     def risk_forecast_performance_parallel(self, *, no_of_sims=10000, freq='m', test_type='random',
                                            bias_type=1):
-        # # 测试barra的估计量
-        # forecasted_cov_mat = pd.read_hdf('bb_factor_eigencovmat_all_sf3', '123')
-        # 测试barra的预测数据
-        self.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
-        forecasted_cov_mat = pd.read_hdf('barra_fore_cov_mat', '123')
-        self.base_factor_return = self.base_factor_return.ix['2011-05-03':'2017-02-28', :]
-        forecasted_cov_mat = forecasted_cov_mat.ix['2011-05-03':'2017-02-28', :, :]
+        # 测试估计量
+        forecasted_cov_mat = pd.read_hdf('bb_factor_eigencovmat_all_sf3', '123')
+        # # 测试barra的预测数据
+        # self.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
+        # forecasted_cov_mat = pd.read_hdf('barra_fore_cov_mat', '123')
+        # self.base_factor_return = self.base_factor_return.ix['2011-05-03':'2017-02-28', :]
+        # forecasted_cov_mat = forecasted_cov_mat.ix['2011-05-03':'2017-02-28', :, :]
         # # 测试最简单的估计量
         # forecasted_cov_mat = self.base_factor_return.rolling(504).cov() * 21
 
@@ -444,9 +444,28 @@ class factor_base(object):
         if test_type == 'random':
             def test_random_func(i):
                 # 生成随机数, 来表示随机因子暴露组合, 然后通过考察对随机组合的风险预测情况来考察风险预测能力
-                factor_expo = np.random.uniform(-1, 1, forecasted_cov_mat.shape[1])
+                # factor_expo = np.random.uniform(-1, 1, forecasted_cov_mat.shape[1])
+                factor_expo = np.zeros(39)
                 # country factor的暴露设置为1
-                factor_expo[-1] = 0
+                # factor_expo[:-1] = np.random.uniform(-1, 1, 38)
+                # factor_expo[-1] = 0
+                # country = 1, 行业加和等于1, 相当于预测整个组合
+                factor_expo[0:10] = np.random.uniform(-1, 1, 10)
+                factor_expo[-1] = 1
+                factor_expo[10:-1] = np.random.uniform(0, 1, 28)
+                factor_expo[10:-1] = factor_expo[10:-1]/np.sum(factor_expo[10:-1])
+                # # country = 0, 行业加和等于0, 相当于预测组合的超额部分
+                # factor_expo[0:-1] = np.random.uniform(-1, 1, 38)
+                # factor_expo[-1] = 0
+                # indus = factor_expo[10:-1]
+                # indus_plus = (indus>0)
+                # indus_minus = (indus<0)
+                # indus_plus_w = indus[indus_plus]/np.sum(indus[indus_plus])
+                # indus_minus_w = - (indus[indus_minus]/np.sum(indus[indus_minus]))
+                # indus[indus_plus] = indus_plus_w
+                # indus[indus_minus] = indus_minus_w
+                # factor_expo[10:-1] = indus
+
                 # # 测试barra的数据的时候, country factor的loc=13
                 # factor_expo[13] = 0
                 factor_expo = pd.Series(factor_expo, index=forecasted_cov_mat.major_axis)
@@ -465,6 +484,8 @@ class factor_base(object):
             def test_opt_func(i):
                 # 在因子层面生成随机数, 代表每个因子的alpha, 从标准正态分布中抽取
                 factor_alphas = np.random.normal(size=forecasted_cov_mat.shape[1])
+                # 把country factor的alpha设为0
+                factor_alphas[-1] = 0
 
                 # 根据这个因子收益建立最优化的因子组合
                 def opt_func(cov_mat, alpha):
@@ -537,35 +558,73 @@ class factor_base(object):
     # bias_type == 1为计算barra版本的bias stats, 计算实现的标准收益率的波动率来进行计算
     # == 2 为计算最普通版本的bias stats, 计算周期内实现收益的波动率, 直接用根号进行scaling
     @staticmethod
-    def get_bias_stats(realized_factor_return, risk_forecast, port_weight, *, bias_type=1, freq='m'):
+    def get_bias_stats(realized_return, risk_forecast, port_weight, *, bias_type=1, freq='m',
+                       factor_expo=None):
         # 根据组合的因子暴露, 乘以因子收益, 算出组合的实现因子收益, 并且计算预测的组合风险
         if isinstance(port_weight, pd.Series):
-            realized_port_return = realized_factor_return.mul(port_weight, axis=1).sum(1)
             # 判断放入的是协方差矩阵还是specific risk, 针对不同的风险有不同的算法
+            # 如果是panel, 则是计算协方差矩阵的bias stats
             if isinstance(risk_forecast, pd.Panel):
+                realized_port_return = realized_return.mul(port_weight, axis=1).sum(1)
                 forecast_port_vol = risk_forecast.apply(lambda x: np.sqrt(np.dot(port_weight.dot(x), port_weight)),
                                                         axis=(1, 2))
+            # 如果是dataframe, 则是计算spec risk的bias stats
             else:
-                forecast_port_vol = np.sqrt(risk_forecast.mul(port_weight, axis=1).sum(1))
+                realized_port_return = realized_return.mul(port_weight, axis=1).sum(1)
+                forecast_port_vol = np.sqrt(risk_forecast.mul(port_weight.pow(2), axis=1).sum(1))
+
         elif isinstance(port_weight, pd.DataFrame):
             # 先计算预测的组合风险, 否则如果bias_type=2, port_weight将会被reindex
-            forecast_port_vol = pd.Series(np.nan, index=risk_forecast.items)
+            # 如果是panel, 则是计算协方差矩阵的bias stats
             if isinstance(risk_forecast, pd.Panel):
+                forecast_port_vol = pd.Series(np.nan, index=risk_forecast.items)
                 for time, cov_mat in risk_forecast.iteritems():
                     if cov_mat.isnull().any().any():
                         forecast_port_vol.ix[time] = np.nan
                     else:
                         forecast_port_vol.ix[time] = np.sqrt(np.dot(port_weight.ix[time, :].dot(cov_mat),
                                                                     port_weight.ix[time, :]))
+            # 如果是dataframe, 则是计算spec risk的bias stats
+            elif isinstance(risk_forecast, pd.DataFrame):
+                forecast_port_vol = np.sqrt(risk_forecast.mul(port_weight.pow(2)).sum(1))
+            # 如果是一个tuple, 则是计算整体组合的估计情况, 协方差矩阵是第一个, spec risk是第二个
+            # 注意, 在计算整体组合的风险预测的bias stats时, port_weight一定是每天都有一个值, 因此一定是DataFrame
             else:
-                forecast_port_vol = np.sqrt(risk_forecast.mul(port_weight).sum(1))
-            # 如果是算普通版本的bias stats, 需要将port_weight变成每天的版本
-            if bias_type == 2:
-                port_weight = port_weight.reindex(index=realized_factor_return.index, method='ffill')
-            realized_port_return = realized_factor_return.mul(port_weight).sum(1)
+                cov_mat = risk_forecast[0]
+                spec_var = risk_forecast[1]
+                # 首先根据股票权重, 股票的因子暴露, 计算组合的因子权重
+                # 这里采取粗糙的算法, 即并不调用strategy data中的get_port_expo函数
+                port_factor_expo = np.einsum('ijk,jk->ji', factor_expo.fillna(0.0), port_weight.fillna(0.0))
+                port_factor_expo = pd.DataFrame(port_factor_expo, index=cov_mat.items, columns=cov_mat.major_axis)
+                # 同样的需要先计算组合的预测风险
+                forecast_port_vol = pd.Series(np.nan, index=cov_mat.items)
+                for time, curr_cov_mat in cov_mat.iteritems():
+                    if curr_cov_mat.isnull().any().any():
+                        forecast_port_vol.ix[time] = np.nan
+                    else:
+                        forecast_port_vol.ix[time] = np.dot(port_factor_expo.ix[time, :].dot(curr_cov_mat),
+                                                                    port_factor_expo.ix[time, :])
+                forecast_port_vol += spec_var.mul(port_weight.pow(2)).sum(1)
+                forecast_port_vol = np.sqrt(forecast_port_vol)
+                # 计算组合的realized return, 此时realized_return参数中包含因子收益与残余收益
+
+            if isinstance(realized_return, tuple):
+                factor_ret = realized_return[0]
+                spec_ret = realized_return[1]
+                # 如果是算普通版本的bias stats, 需要将port_weight变成每天的版本
+                if bias_type == 2:
+                    port_weight = port_weight.reindex(index=factor_ret.index, method='ffill')
+                    # 组合的暴露, 也直接采取ffill的方式, 这样的方式使得计算再一次变粗糙
+                    port_factor_expo = port_factor_expo.reindex(index=factor_ret.index, method='ffill')
+                realized_port_return = factor_ret.mul(port_factor_expo).sum(1)
+                realized_port_return += spec_ret.mul(port_weight).sum(1)
+            else:
+                if bias_type == 2:
+                    port_weight = port_weight.reindex(index=realized_return.index, method='ffill')
+                realized_port_return = realized_return.mul(port_weight).sum(1)
         else:
-            realized_port_return = realized_factor_return * np.nan
-            forecast_port_vol = realized_factor_return * np.nan
+            realized_port_return = realized_return * np.nan
+            forecast_port_vol = realized_return * np.nan
 
         # 计算barra版本的bias stats
         if bias_type == 1:
@@ -895,7 +954,7 @@ class factor_base(object):
     def risk_forecast_performance_parallel_spec(self, *, no_of_sims=10000, freq='m', test_type='stock',
                                                 bias_type=1, cap_weighted_bias=False):
         # 测试的spec var估计量
-        forecasted_spec_vol = pd.read_hdf('bb_factor_vraspecvol_hs300', '123')
+        forecasted_spec_vol = pd.read_hdf('bb_factor_vraspecvol_all', '123')
         forecasted_spec_var = forecasted_spec_vol ** 2
         # forecasted_spec_var = pd.read_hdf('barra_fore_spec_var', '123')
         # self.specific_return = pd.read_hdf('barra_real_spec_ret', '123')
@@ -956,6 +1015,7 @@ class factor_base(object):
                 # grouped_bias_mean.ix[time, :] = curr_bias_stats.groupby(grouped_stocks).apply(
                 #     lambda x: np.average(x.dropna(), weights=monthly_mv.ix[time, x.dropna().index]))
 
+        bias_stats = bias_stats.ix['20120430':'20170228', :]
         # 计算关于bias stats的统计量
         if cap_weighted_bias:
             bias_simed_mean = pd.Series(np.nan, index=bias_stats.index)
@@ -976,6 +1036,119 @@ class factor_base(object):
 
         pass
 
+    # 测试整个组合的风险预测能力的函数
+    def risk_forecast_performance_total_parallel(self, *, no_of_sims=10000, freq='m', test_type='random',
+                                                 bias_type=1):
+        self.base_data.generate_if_tradable()
+        self.base_data.handle_stock_pool()
+        # 测试自己的
+        forecasted_cov_mat = pd.read_hdf('bb_factor_eigencovmat_hs300_sf5', '123')
+        forecasted_spec_vol = pd.read_hdf('bb_factor_vraspecvol_hs300', '123')
+        forecasted_spec_var = forecasted_spec_vol ** 2
+        # # 测试barra的
+        # self.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
+        # forecasted_cov_mat = pd.read_hdf('barra_fore_cov_mat', '123')
+        # forecasted_spec_var = pd.read_hdf('barra_fore_spec_var', '123')
+        # self.specific_return = pd.read_hdf('barra_real_spec_ret', '123')
+        # self.base_data.factor_expo = pd.read_hdf('barra_factor_expo', '123')
+        # # 测试barra的数据的时候, 如果一直股票没有country factor的暴露, 则认为这只股票是不可投资的
+        # barra_if_inv = pd.DataFrame(True, index=self.base_data.factor_expo.major_axis,
+        #                             columns=self.base_data.factor_expo.minor_axis)
+        # barra_if_inv = barra_if_inv.where(self.base_data.factor_expo.ix['CNE5S_COUNTRY'].notnull(), False)
+        # self.base_data.if_tradable = pd.Panel({'if_inv': barra_if_inv})
+
+        # 如果是使用barra版本的bias stats, 则将实现的因子收益在周期内求和
+        if bias_type == 1:
+            realized_factor_return = self.base_factor_return.resample(freq, label='left').apply(
+                lambda x: (1 + x).prod() - 1)
+            # panel shift过后, 将实现收益和风险预测的时间标签对齐
+            realized_factor_return = realized_factor_return.iloc[1:, :]
+            realized_spec_return = self.specific_return.resample(freq, label='left').sum()
+            # panel shift过后, 将实现收益和风险预测的时间标签对齐
+            realized_spec_return = realized_spec_return.iloc[1:, :]
+        else:
+            realized_factor_return = self.base_factor_return
+            realized_spec_return = self.specific_return
+        realized_return = (realized_factor_return, realized_spec_return)
+
+        # 取距离实现时间段最近的那个预测值
+        risk_forecast_factor = forecasted_cov_mat.resample(freq, label='left').last().shift(1, axis=0)
+        risk_forecast_spec = forecasted_spec_var.resample(freq, label='left').last().shift(1, axis=0).iloc[1:, :]
+        risk_forecast = (risk_forecast_factor, risk_forecast_spec)
+        # 指示股票是否可投资的if_inv矩阵, 也取距离实现时间段最近的那个可交易信息,
+        # 即在做出下一个周期的投资决策时, 能得到的最新的可投资数据, 即这个周期的最后一天
+        if_inv = self.base_data.if_tradable.ix['if_inv'].resample(freq, label='left').last().shift(1).iloc[1:, :]
+        # 因子暴露数据也是使用上个周期最后一天的数据, 注意, 在计算bias stats=2的时候, 由于周期内暴露始终保持
+        # 上周期最后一天的暴露的数据, 因此这里的计算是粗糙版的计算
+        factor_expo = self.base_data.factor_expo.resample(freq, label='left', axis=1).last().shift(1, axis=1)
+
+        # 对随机组合做测试
+        if test_type == 'random':
+            def test_random_func(i):
+                # 生成随机数, 代表每支股票的权重
+                stock_weight = pd.DataFrame(np.random.uniform(0, 1, risk_forecast_spec.shape),
+                    index=risk_forecast_spec.index, columns=risk_forecast_spec.columns)
+                # 只取可投资的股票, 归一权重
+                stock_weight = stock_weight.where(if_inv, np.nan)
+                stock_weight = stock_weight.div(stock_weight.sum(1), axis=0)
+
+                return factor_base.get_bias_stats(realized_return, risk_forecast, stock_weight,
+                                                  bias_type=bias_type, freq=freq, factor_expo=factor_expo)
+            ncpus = 20
+            p = mp.ProcessPool(ncpus)
+            data_size = np.arange(no_of_sims)
+            chunksize = int(len(data_size)/ncpus)
+            results = p.map(test_random_func, data_size, chunksize=chunksize)
+            bias_stats = pd.concat([i for i in results], axis=1)
+            pass
+
+        # 对优化组合做测试
+        if test_type == 'optimized':
+            # 股票层面的协方差矩阵的逆矩阵, 由因子暴露和因子的协方差矩阵得到
+            global inv_mat
+            inv_mat = pd.Panel(np.nan, items=risk_forecast_spec.index,
+                major_axis=risk_forecast_spec.columns, minor_axis=risk_forecast_spec.columns)
+            # for time, curr_cov_mat in risk_forecast_factor.iteritems():
+            #     # if curr_cov_mat.isnull().all().all():
+            #     if time < pd.Timestamp('2011-04-30'):
+            #         continue
+            #     curr_factor_expo = factor_expo.ix[:, time, :]
+            #     print(time)
+            #     inv_mat.ix[time] = np.linalg.pinv(np.dot(curr_factor_expo.fillna(0.0).dot(curr_cov_mat.fillna(0.0)),
+            #                                       curr_factor_expo.fillna(0.0).T))
+            # inv_mat.to_hdf('inv_mat_hs300', '123')
+            inv_mat = pd.read_hdf('inv_mat_hs300', '123')
+            def test_opt_func(i):
+                # 个股层面生成alpha
+                stock_alphas = np.random.normal(size=risk_forecast_spec.shape[1])
+                # 循环解优化组合
+                stock_weight = pd.DataFrame(np.nan, index=risk_forecast_spec.index,
+                                            columns=risk_forecast_spec.columns)
+                for time, curr_inv_mat in inv_mat.iteritems():
+                    if curr_inv_mat.isnull().any().any():
+                        continue
+                    holding = np.dot(curr_inv_mat, stock_alphas) / np.dot(np.dot(stock_alphas, curr_inv_mat), stock_alphas)
+                    stock_weight.ix[time] = holding
+                print(i)
+                return  factor_base.get_bias_stats(realized_return, risk_forecast, stock_weight,
+                                                   bias_type=bias_type, freq=freq, factor_expo=factor_expo)
+            ncpus = 25
+            p = mp.ProcessPool(ncpus)
+            data_size = np.arange(no_of_sims)
+            chunksize = int(len(data_size)/ncpus)
+            results = p.map(test_opt_func, data_size, chunksize=chunksize)
+            bias_stats = pd.concat([i for i in results], axis=1)
+
+        # bias_stats.to_hdf('bias_stats_barra_opt', '123')
+        bias_simed_mean = bias_stats.ix['20120430':'20170228', :].mean(1)
+        bias_mean = bias_simed_mean.mean()
+        bias_std = bias_simed_mean.std()
+        bias_quantile = (bias_simed_mean.quantile(0.05), bias_simed_mean.quantile(0.95))
+        output_str = 'bias mean is: {0}\nbias std is: {1}\nbias 5% and 95% quantile is: {2}, {3}\n'.\
+            format(bias_mean, bias_std, bias_quantile[0], bias_quantile[1])
+        print(output_str)
+
+
     # 这个函数为处理barra方面的原始数据, 把它做成自己的数据格式, 处理barra方面的数据是因为想测试barra的预测效果
     # 对比自己的预测效果, 可以有一个参考
     def handle_barra_data(self):
@@ -988,6 +1161,7 @@ class factor_base(object):
                     major_axis=realized_factor_ret.columns, minor_axis=realized_factor_ret.columns)
         forecasted_spec_var = pd.DataFrame()
         realized_spec_ret = pd.DataFrame()
+        factor_expo = pd.Panel()
 
         # 根据交易日进行循环
         for cursor, time in enumerate(self.base_factor_return.index):
@@ -1009,18 +1183,24 @@ class factor_base(object):
             asset_return = pd.read_csv('barra_data/CNE5_100_Asset_DlySpecRet.'+datestr, sep='|', header=2)[:-1]
             spec_return = asset_return.pivot_table(index='!Barrid', values='SpecificReturn')
             spec_return /= 100
+            # 读取股票的因子暴露
+            asset_expo = pd.read_csv('barra_data/CNE5S_100_Asset_Exposure.'+datestr, sep='|', header=2)[:-1]
+            curr_factor_expo = asset_expo.pivot_table(index='!Barrid', columns='Factor', values='Exposure')
 
             forecasted_cov_mat.ix[time] = factor_cov
             spec_var.name = time
             spec_return.name = time
             forecasted_spec_var = forecasted_spec_var.join(spec_var, how='outer')
             realized_spec_ret = realized_spec_ret.join(spec_return, how='outer')
+            curr_factor_expo = pd.Panel({time: curr_factor_expo})
+            factor_expo = factor_expo.join(curr_factor_expo, how='outer')
 
             print(time)
             pass
 
         forecasted_spec_var = forecasted_spec_var.T.reindex(index=self.base_factor_return.index)
         realized_spec_ret = realized_spec_ret.T.reindex(index=self.base_factor_return.index)
+        factor_expo = factor_expo.reindex(items=self.base_factor_return.index)
         # 将年化的单位转为日度(收益), 月度(风险)
         forecasted_cov_mat /= 12
         forecasted_spec_var /= 12
@@ -1030,6 +1210,7 @@ class factor_base(object):
         forecasted_cov_mat.to_hdf('barra_fore_cov_mat', '123')
         realized_spec_ret.to_hdf('barra_real_spec_ret', '123')
         forecasted_spec_var.to_hdf('barra_fore_spec_var', '123')
+        factor_expo.transpose(2, 0, 1).to_hdf('barra_factor_expo', '123')
         pass
 
 

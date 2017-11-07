@@ -981,12 +981,12 @@ if __name__ == '__main__':
     bb = barra_base()
     bb.base_data.stock_pool = 'hs300'
     # bb.base_data.stock_pool = i
-    # bb.try_to_read = True
-    # bb.read_original_data()
-    # bb.construct_factor_base(if_save=False)
+    bb.try_to_read = True
+    bb.read_original_data()
+    bb.construct_factor_base(if_save=False)
     # bb.get_base_factor_return(if_save=True)
-    # fr = data.read_data(['bb_factor_return_all'])
-    # bb.base_factor_return = fr['bb_factor_return_all']
+    fr = data.read_data(['bb_factor_return_hs300'])
+    bb.base_factor_return = fr['bb_factor_return_hs300']
     # bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_all', '123')
     # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_all', '123')
     sr = data.read_data(['bb_specific_return_hs300'])
@@ -995,14 +995,15 @@ if __name__ == '__main__':
     # bb.get_initial_cov_mat()
     # bb.get_vra_cov_mat()
     # bb.get_eigen_adjusted_cov_mat_parallel(n_of_sims=100, simed_sample_size=504, scaling_factor=3)
-    bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
+    # bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
     # bb.get_initial_spec_vol()
     # bb.get_initial_spec_vol_parallel()
     # bb.get_vra_spec_vol()
     # bb.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=0.25)
     # bb.handle_barra_data()
     # bb.risk_forecast_performance_parallel(test_type='optimized', bias_type=2)
-    bb.risk_forecast_performance_parallel_spec(test_type='bayesian', bias_type=2, cap_weighted_bias=False)
+    # bb.risk_forecast_performance_parallel_spec(test_type='stock', bias_type=1, cap_weighted_bias=False)
+    bb.risk_forecast_performance_total_parallel(test_type='optimized', bias_type=1, no_of_sims=1000)
     # bb.update_factor_base_data()
     # print("time: {0} seconds\n".format(time.time()-start_time))
     pass

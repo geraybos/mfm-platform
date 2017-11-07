@@ -527,18 +527,18 @@ class database(object):
             pass
 
     # 从现在的因子库里取因子数据
-    def get_existing_factor(self, factor_id):
+    def get_runner_value(self, runner_id):
         sql_query = "select runnerdate as TradingDay, stockticker as SecuCode, value as factor_value " \
                     "from RunnerValue where runnerdate>='" + str(self.trading_days.iloc[0]) + "' and " \
-                    "runnerdate<='" + str(self.trading_days.iloc[-1]) + "' and runnerid=" + str(factor_id) + " " \
+                    "runnerdate<='" + str(self.trading_days.iloc[-1]) + "' and runnerid=" + str(runner_id) + " " \
                     "order by TradingDay, SecuCode"
-        existing_factor_data = self.sq_engine.get_original_data(sql_query)
-        existing_factor = existing_factor_data.pivot_table(index='TradingDay', columns='SecuCode', values='factor_value')
+        runner_value_data = self.sq_engine.get_original_data(sql_query)
+        runner_value = runner_value_data.pivot_table(index='TradingDay', columns='SecuCode', values='factor_value')
         # 处理TradingDay数据类型不对的问题, 将其变为datetime
-        existing_factor = existing_factor.set_index(pd.to_datetime(existing_factor.index))
+        runner_value = runner_value.set_index(pd.to_datetime(runner_value.index))
 
         # 储存数据
-        self.data.stock_price['existing_factor'] = existing_factor
+        self.data.stock_price['runner_value_'+str(runner_id)] = runner_value
 
     # 储存数据文件
     def save_data(self):
@@ -684,20 +684,22 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
     db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-06-21'))
-    db.is_update=True
-    db.get_data_from_db()
+    # db.is_update=False
+    # db.get_data_from_db()
     # db.update_data_from_db(end_date=pd.Timestamp('2017-06-21'))
-    # db.initialize_jydb()
-    # db.initialize_sq()
-    # db.initialize_gg()
-    # db.get_trading_days()
-    # db.get_labels()
+    db.initialize_jydb()
+    db.initialize_sq()
+    db.initialize_gg()
+    db.get_trading_days()
+    db.get_labels()
     # db.get_AdjustFactor()
-    # db.get_existing_factor(5)
-    # db.get_ClosePrice_adj()
+    db.get_sq_data()
     # db.get_index_price()
     # db.get_index_weight()
-    data.write_data(db.data.raw_data)
+    # data.write_data(db.data.raw_data)
+    # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
+    #     db.get_runner_value(runner_id)
+    # db.data.stock_price.to_hdf('runner_value', '123')
     # data.write_data(db.data.stock_price, file_name=['runner_value_5'])
     print("time: {0} seconds\n".format(time.time()-start_time))
 

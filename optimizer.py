@@ -75,6 +75,8 @@ class optimizer(object):
         else:
             n_assets = n_varaibles
             w = np.full(n_assets, 1/n_assets)
+            # w = np.random.uniform(0, 1, n_assets)
+            # w = w/np.sum(w)
 
         # 设置限制条件
         # 股票的边界限制条件, 如股票不能做空时, 必须大于0, 或者设置每支股票权重不能超过多少的限制
@@ -199,8 +201,8 @@ class optimizer(object):
         # 第一步, 设置传入目标函数作为参数的字典
         obj_func_params['factor_expo'] = factor_expo.fillna(0.0).values
         obj_func_params['bench_weight'] = bench_weight.fillna(0.0).values
-        obj_func_params['factor_ret'] = factor_ret.values
-        obj_func_params['factor_cov'] = factor_cov.values
+        obj_func_params['factor_ret'] = factor_ret.fillna(0.0).values
+        obj_func_params['factor_cov'] = factor_cov.fillna(0.0).values
         if isinstance(specific_var, pd.Series):
             obj_func_params['specific_var'] = specific_var.fillna(0.0).values
         if isinstance(residual_return, pd.Series):
@@ -239,7 +241,7 @@ class optimizer(object):
         eq_cons_funcs = {}
         # 持仓之和的限制条件
         if enable_full_inv_cons:
-            eq_cons_funcs['full_inv_cons'] = functools.partial(optimizer.full_inv_cons,
+            eq_cons_funcs['full_inv_cons'] = functools.partial(optimizer.full_inv_cons, n_assets=n_assets,
                                                                cash_ratio=cash_ratio)
 
         # 第三步, 设置变量的边界条件
@@ -279,13 +281,14 @@ class optimizer(object):
         obj_func_params = {}
         # 第一步, 设置传入目标函数作为参数的字典
         # 注意, 有split varaible的存在, 且把这些variable的暴露都设置为0, 让它们不会影响目标函数
-        obj_func_params['factor_expo']=np.concatenate((factor_expo.fillna(0.0).values,
+        obj_func_params['factor_expo'] = np.concatenate((factor_expo.fillna(0.0).values,
                                                        np.zeros((n_factors, n_split))), axis=1)
         obj_func_params['bench_weight'] = np.concatenate((bench_weight.fillna(0.0).values,
                                                           np.zeros(n_split)), axis=0)
+        # 这里暂时需要加上split variable, 因为现在给的是股票收益, 而不是因子收益
         obj_func_params['factor_ret'] = np.concatenate((factor_ret.fillna(0.0).values,
                                                         np.zeros(n_split)), axis=0)
-        obj_func_params['factor_cov'] = factor_cov.values
+        obj_func_params['factor_cov'] = factor_cov.fillna(0.0).values
         if isinstance(specific_var, pd.Series):
             obj_func_params['specific_var'] = np.concatenate((specific_var.fillna(0.0).values,
                                                               np.zeros(n_split)), axis=0)
@@ -351,53 +354,71 @@ class optimizer(object):
 if __name__ == '__main__':
     from barra_base import barra_base
     from data import data
-    # bb = barra_base()
-    # bb.construct_barra_base()
-    # factor_expo = bb.bb_data.factor_expo.iloc[0:10]
-    # benchmark_price = data.read_data(['Weight_zz500'], shift=True)
-    # factor_return = data.read_data(['bb_factor_return_all'], shift=True)
-    # factor_return = factor_return.ix['bb_factor_return_all', :, 0:10]
-    # factor_cov = factor_return.expanding().corr()
-
-    # opt = optimizer()
-    # curr_time = pd.Timestamp('2017-06-20')
-    # curr_bench_weight = benchmark_price.ix['Weight_zz500', curr_time, :]
-    # curr_factor_expo = factor_expo.ix[:, curr_time, :].T
-    # curr_factor_return = factor_return.ix[curr_time, :]
-    # curr_factor_cov = factor_cov.ix[curr_time, :]
-    #
-    # optimized_weight = opt.solve_ir_optimization(curr_bench_weight, curr_factor_expo, curr_factor_return,
-    #                                              curr_factor_cov, enable_turnover_cons=False)
 
     opt = optimizer()
-    universe = pd.read_csv('universe.csv')
-    AssetData = pd.read_csv('CNE5S_100_Asset_Data.20170309')
-    AssetExpo = pd.read_csv('CNE5S_100_Asset_Exposure.20170309')
-    Covariance = pd.read_csv('CNE5S_100_Covariance.20170309')
 
-    # 取股票的收益
-    stock_return = universe.pivot_table(index='Barrid', values='Signal').div(100)
-    # stock_return = stock_return[0:50]
-    # 取残余收益
-    spec_risk = AssetData.pivot_table(index='!Barrid', values='SpecRisk%').reindex(stock_return.index)
-    spec_var = (spec_risk/100)**2
-    # 取因子暴露
-    factor_expo = AssetExpo.pivot_table(index='!Barrid', columns='Factor', values='Exposure').\
-        reindex(stock_return.index).fillna(0.0).T
-    # 取因子协方差矩阵
-    factor_cov1 = Covariance.pivot_table(index='!Factor1', columns='Factor2', values='VarCovar')
-    factor_cov2 = Covariance.pivot_table(index='Factor2', columns='!Factor1', values='VarCovar')
-    factor_cov = factor_cov1.where(factor_cov1.notnull(), factor_cov2).div(10000)
+    # universe = pd.read_csv('universe.csv')
+    # AssetData = pd.read_csv('CNE5S_100_Asset_Data.20170309')
+    # AssetExpo = pd.read_csv('CNE5S_100_Asset_Exposure.20170309')
+    # Covariance = pd.read_csv('CNE5S_100_Covariance.20170309')
+    #
+    # # 取股票的收益
+    # stock_return = universe.pivot_table(index='Barrid', values='Signal').div(100)
+    # # stock_return = stock_return[0:50]
+    # # 取残余收益
+    # spec_risk = AssetData.pivot_table(index='!Barrid', values='SpecRisk%').reindex(stock_return.index)
+    # spec_var = (spec_risk/100)**2
+    # # 取因子暴露
+    # factor_expo = AssetExpo.pivot_table(index='!Barrid', columns='Factor', values='Exposure').\
+    #     reindex(stock_return.index).fillna(0.0).T
+    # # 取因子协方差矩阵
+    # factor_cov1 = Covariance.pivot_table(index='!Factor1', columns='Factor2', values='VarCovar')
+    # factor_cov2 = Covariance.pivot_table(index='Factor2', columns='!Factor1', values='VarCovar')
+    # factor_cov = factor_cov1.where(factor_cov1.notnull(), factor_cov2).div(10000)
+
+    bb = barra_base()
+    # bb.base_data.stock_pool = 'hs300'
+    # bb.construct_factor_base()
+    # bb.base_data.factor_expo.to_hdf('bb_factorexpo_hs300', '123')
+
+    # factor_cov = pd.read_hdf('bb_factor_eigencovmat_hs300_sf3', '123')
+    # bb.base_data.factor_expo = pd.read_hdf('bb_factorexpo_hs300', '123')
+    # spec_vol = pd.read_hdf('bb_factor_vraspecvol_hs300', '123')
+    # spec_var = spec_vol ** 2
+    # stock_return = pd.read_hdf('stock_alpha_hs300', '123')
+
+    bench = data.read_data(['Weight_hs300'])
+    bench = bench['Weight_hs300']
+
+    factor_cov = pd.read_hdf('barra_fore_cov_mat', '123')
+    bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+    spec_var = pd.read_hdf('barra_fore_spec_var_new', '123') * 0
+    stock_return = pd.read_hdf('barra_real_spec_ret_new', '123')
+
+    spec_var = spec_var.where(bench>0, np.nan)
+    stock_return = stock_return.where(bench>0, np.nan)
+    bb.base_data.factor_expo = bb.base_data.factor_expo.apply(lambda x: x.where(bench>0, np.nan), axis=(1,2))
+
+    curr_time = '20170224'
+    stock_return = stock_return.ix[curr_time, :].dropna()
+    # stock_return = stock_return.iloc[0:300]
+    factor_expo = bb.base_data.factor_expo.ix[:, curr_time, stock_return.index].T
+    factor_cov = factor_cov.ix[curr_time]
+    spec_var = spec_var.ix[curr_time, stock_return.index]
+
     # benchmark先假设没有
-    bench_weight = pd.Series(np.zeros(stock_return.shape), index=stock_return.index)
+    # bench_weight = pd.Series(np.zeros(stock_return.shape), index=stock_return.index)
+    bench_weight = bench.ix[curr_time, stock_return.index]
 
     # 测试transaction cost与turnover constraints时用到的上一期的持仓, 设置为等权
-    old_w = pd.Series(1/stock_return.shape[0], index=stock_return.index)
+    # old_w = pd.Series(1/stock_return.shape[0], index=stock_return.index)
+    old_w = pd.Series(0.0, index=stock_return.index)
 
     optimized_weight = opt.solve_ir_optimization(bench_weight, factor_expo, stock_return, factor_cov,
-                                                 specific_var=spec_var, enable_turnover_cons=True,
+                                                 specific_var=spec_var, enable_turnover_cons=False,
                                                  enable_trans_cost=False, long_only=True, old_w=old_w,
-                                                 turnover_cap=0.3, enable_factor_expo_cons=False)
+                                                 turnover_cap=0.3, enable_factor_expo_cons=False,
+                                                 asset_cap=None)
     pass
 
 
