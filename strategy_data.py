@@ -272,11 +272,17 @@ class strategy_data(data):
                     pvalues.ix[cursor] = curr_results.pvalues
                     rsquared.ix[cursor, 'rsquared'] = curr_results.rsquared
                     rsquared.ix[cursor, 'rsquared_adj'] = curr_results.rsquared_adj
-            # 如果提纯为加权的回归，则默认提纯是为了之后这个残差和base进行加权回归时相互正交
-            # 即：实际为残差和加权（加根号权重）后的base因子正交，那么在之后进行加权回归的时候，会再一次的进行加权
-            # 为了避免残差因子在那个时候连加两次权，这里必须进行调整，即：除以根号权重
-            # 注意除以根号权重是因为最小二乘回归的权重实际为在因子上乘以根号权重
-            new_obj = new_obj.div(np.sqrt(weights))
+            # --------------------------------------------------------------------------------------------
+            # 实际上不需要做这一步的调整, 因为results.resid并不是进行了回归权重加权的那个residual,
+            # 而是直接通过y - (x*b + a)算出来的residual, 因此直接满足在回归权重加权的情况下, 和x正交的性质
+            # 因此,其实不需要做出任何的调整, 即计算残差的时候不需要考虑回归权重的问题.
+
+            # # 如果提纯为加权的回归，则默认提纯是为了之后这个残差和base进行加权回归时相互正交
+            # # 即：实际为残差和加权（加根号权重）后的base因子正交，那么在之后进行加权回归的时候，会再一次的进行加权
+            # # 为了避免残差因子在那个时候连加两次权，这里必须进行调整，即：除以根号权重
+            # # 注意除以根号权重是因为最小二乘回归的权重实际为在因子上乘以根号权重
+            # new_obj = new_obj.div(np.sqrt(weights))
+            # --------------------------------------------------------------------------------------------
         return [new_obj, pvalues, rsquared]
             
     # 用因子暴露数据，回归权重，进行barra模型的回归
@@ -364,9 +370,9 @@ class strategy_data(data):
         # 不存在的因子收益，可以认为它的收益是0
         results_s = results_s.fillna(0)
 
-        # 计算残余收益, 注意: 这里的残余收益是指没有被base模型解释的收益率部分, 并不是回归的残差,
-        # 因此不用考虑回归权重的问题, 这个区别非常重要, 因为一般我们会用到的都是没有被解释的残余收益, 而不是回归残差
-        # 如果需要得到回归残差, 则将根号权重乘在这个残余收益上即可
+        # 计算残余收益, 注意: 这里的残余收益是指没有被base模型解释的收益率部分,
+        # 即, 用y - (x*b + a) 直接算出的残差, 这个残差与回归权重没有关系, 就代表的是没有被回归模型解释的部分
+        # statsmodels里的results.resid返回的也是这个残差, 特别注意这样一点, 计算残差的时候与回归权重无关.
         residual_return = asset_return.reindex(index=y.index) - base_expo.reindex(index=x.index,
                             columns=x.columns).dot(results_np)
         # 将残余收益的index改为asset return的index(所有传入的股票), 而不是残余回归的有效股票index

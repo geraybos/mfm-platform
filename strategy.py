@@ -53,7 +53,7 @@ class strategy(object):
         pass
     
     # 生成调仓日，这里的默认生成函数为直接从目录中读取
-    def generate_holding_days(self, *, holding_freq='w', start_date='default', end_date='default', loc=0):
+    def generate_holding_days(self, *, holding_freq='w', start_date='default', end_date='default', loc=-1):
         self.holding_days = pd.read_csv(str(os.path.abspath('.'))+'/holding_days.csv', 
                                         parse_dates = [0], squeeze = True)
         print('Please note that, as the default method, '
@@ -74,7 +74,7 @@ class strategy(object):
     # 根据一个传入的时间序列数据，根据频率生成调仓周期的函数
     # 传入的时间序列可以是series，也可以是dataframe
     @staticmethod
-    def resample_tradingdays(time_series, *, freq='m', loc=0):
+    def resample_tradingdays(time_series, *, freq='m', loc=-1):
         # 所取调仓日为每个调仓周期的第一天,注意调仓时间是调仓日的早上,即调仓日当天早上调仓时,拥有上一个周期的所有数据
         # 首先定义要apply的函数, 函数在每个调仓周期之间进行处理, 返回需要的调仓日
         def holdingday_func(ts, *, loc):

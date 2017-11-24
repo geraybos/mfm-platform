@@ -43,12 +43,12 @@ class barra_base(factor_base):
     # 即使可以读取已算好的因子，也在这里处理，因为这样方便统一处理，不至于让代码太乱
     # 这里的标准为，读取前都检查一下是否已经存在数据，这样可以方便手动读取特定数据
     def read_original_data(self):
-        # 先读取市值
+        # 先读取流通市值
         if self.base_data.stock_price.empty:
             self.base_data.stock_price = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
         elif 'FreeMarketValue' not in self.base_data.stock_price.items:
-            mv = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
-            self.base_data.stock_price['FreeMarketValue'] = mv.ix['FreeMarketValue']
+            fmv = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
+            self.base_data.stock_price['FreeMarketValue'] = fmv.ix['FreeMarketValue']
         # 初始化无风险利率序列
         if os.path.isfile('const_data.csv'):
             self.base_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True, encoding='GB18030')
@@ -59,6 +59,10 @@ class barra_base(factor_base):
         else:
             self.base_data.const_data = pd.DataFrame(0, index=self.base_data.stock_price.major_axis,
                                                    columns=['risk_free_rate'])
+        # 读取市值
+        if 'MarketValue' not in self.base_data.stock_price.items:
+            temp_mv =data.read_data(['MarketValue'], ['MarketValue'])
+            self.base_data.stock_price['MarketValue'] = temp_mv.ix['MarketValue']
         # 读取价格数据
         if 'ClosePrice_adj' not in self.base_data.stock_price.items:
             temp_closeprice = data.read_data(['ClosePrice_adj'], ['ClosePrice_adj'])
@@ -262,22 +266,22 @@ class barra_base(factor_base):
                 temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
                 print(cursor)
                 return temp
-            if __name__ == '__main__':
-                ncpus = 20
-                p = mp.ProcessPool(ncpus)
-                # 从252期开始
-                data_size = np.arange(251, self.base_data.stock_price.ix['daily_excess_simple_return'].shape[0])
-                chunksize = int(len(data_size)/ncpus)
-                results = p.map(one_time_beta, data_size, chunksize=chunksize)
-                # 储存结果
-                beta = pd.concat([i.ix['beta'] for i in results], axis=1).T
-                hsigma = pd.concat([i.ix['hsigma'] for i in results], axis=1).T
-                # 两个数据对应的日期，为原始数据的日期减去251，因为前251期的数据并没有计算
-                data_index = self.base_data.stock_price.iloc[:, 251-self.base_data.stock_price.shape[1]:, :].major_axis
-                beta = beta.set_index(data_index)
-                hsigma = hsigma.set_index(data_index)
-                self.base_data.factor['beta'] = beta
-                self.temp_hsigma = hsigma.reindex(self.base_data.stock_price.major_axis)
+
+            ncpus = 20
+            p = mp.ProcessPool(ncpus)
+            # 从252期开始
+            data_size = np.arange(251, self.base_data.stock_price.ix['daily_excess_simple_return'].shape[0])
+            chunksize = int(len(data_size)/ncpus)
+            results = p.map(one_time_beta, data_size, chunksize=chunksize)
+            # 储存结果
+            beta = pd.concat([i.ix['beta'] for i in results], axis=1).T
+            hsigma = pd.concat([i.ix['hsigma'] for i in results], axis=1).T
+            # 两个数据对应的日期，为原始数据的日期减去251，因为前251期的数据并没有计算
+            data_index = self.base_data.stock_price.iloc[:, 251-self.base_data.stock_price.shape[1]:, :].major_axis
+            beta = beta.set_index(data_index)
+            hsigma = hsigma.set_index(data_index)
+            self.base_data.factor['beta'] = beta
+            self.temp_hsigma = hsigma.reindex(self.base_data.stock_price.major_axis)
 
     # 计算momentum因子 
     def get_momentum(self):
@@ -454,7 +458,7 @@ class barra_base(factor_base):
             stom = data.read_data(['stom'+self.filename_appendix], ['stom'])
             stom = stom.ix['stom']
         else:
-            # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
+            # 注意, 这里的股票交易数据因为要用过去一段时间的数据, 因此要用完整的数据
             v2s = self.complete_base_data.stock_price.ix['Volume'].div(
                 self.complete_base_data.stock_price.ix['FreeShares'])
             stom = v2s.rolling(21, min_periods=5).apply(lambda x:np.log(np.sum(x)))
@@ -560,8 +564,8 @@ class barra_base(factor_base):
                 fy2_weight = 1-fy1_weight
                 return (fy1_data.mul(fy1_weight, axis=0) + fy2_data.mul(fy2_weight, axis=0))
             # 用预测的净利润数据除以市值数据得到预测的ep
-            ep_fy1 = self.base_data.raw_data.ix['NetIncome_fy1']/self.base_data.stock_price.ix['FreeMarketValue']
-            ep_fy2 = self.base_data.raw_data.ix['NetIncome_fy2']/self.base_data.stock_price.ix['FreeMarketValue']
+            ep_fy1 = self.base_data.raw_data.ix['NetIncome_fy1']/self.base_data.stock_price.ix['MarketValue']
+            ep_fy2 = self.base_data.raw_data.ix['NetIncome_fy2']/self.base_data.stock_price.ix['MarketValue']
             epfwd = epfwd_func(ep_fy1, ep_fy2)
         self.base_data.raw_data['epfwd'] = epfwd
             
@@ -573,7 +577,7 @@ class barra_base(factor_base):
             cetop = cetop.ix['cetop']
         else:
             # 用cash earnings ttm 除以市值
-            cetop = self.base_data.raw_data.ix['CashEarnings_ttm']/self.base_data.stock_price.ix['FreeMarketValue']
+            cetop = self.base_data.raw_data.ix['CashEarnings_ttm']/self.base_data.stock_price.ix['MarketValue']
         self.base_data.raw_data['cetop'] = cetop
         
     # 计算earnings yield中的etop
@@ -759,17 +763,10 @@ class barra_base(factor_base):
     def construct_reading_file_appendix(self, *, filename_appendix='default'):
         # 默认就是用到当前的股票池
         if filename_appendix == 'default':
-            if self.base_data.stock_pool == 'all':
-                self.filename_appendix = ''
-            else:
-                self.filename_appendix = '_' + self.base_data.stock_pool
+            self.filename_appendix = '_' + self.base_data.stock_pool
         # 有可能会使用到与当前股票池不同的股票池下计算出的因子值
         else:
-            # 如果给的文件后缀是all, 则不加任何后缀
-            if filename_appendix == 'all':
-                self.filename_appendix = ''
-            else:
-                self.filename_appendix = filename_appendix
+            self.filename_appendix = filename_appendix
             # 需要输出提示用户, 因为这个改动比较重要, 注意, 这个改动只会影响读取的因子值,
             # 不会影响算出来的因子值, 算出来的因子值还是与当前股票池一样
             print('Attention: The stock pool you specify under which the base factors are calculated '
@@ -823,23 +820,20 @@ class barra_base(factor_base):
         self.get_factor_group_count()
 
         # 如果显示指定了储存数据且股票池为所有股票，则储存因子值数据
-        # 注意，即便显示指定了储存数据，但股票池不是所有股票，仍不会进行储存
         if not self.is_update and if_save:
             # 如果要储存因子数据, 必须保证当前股票池和文件后缀是完全一致的, 否则报错
-            if self.base_data.stock_pool == 'all':
-                assert self.filename_appendix == '', 'Error: The stock pool of base is different ' \
-                    'from filename appendix, in order to avoid possible data loss, the saving ' \
-                    'procedure has been terminated! \n'
-            else:
-                assert self.filename_appendix[1:] == self.base_data.stock_pool, 'Error: The stock ' \
-                    'pool of base is different from filename appendix, in order to avoid possible ' \
-                    'data loss, the saving procedure has been terminated! \n'
+            assert self.filename_appendix[1:] == self.base_data.stock_pool, 'Error: The stock ' \
+                'pool of base is different from filename appendix, in order to avoid possible ' \
+                'data loss, the saving procedure has been terminated! \n'
             # 根据股票池, 生成要储存的文件名
             written_filename = []
             for i in self.base_data.factor.items:
                 written_filename.append(i+self.filename_appendix)
             data.write_data(self.base_data.factor, file_name=written_filename)
             print('Style factor data have been saved!\n')
+            # 储存因子暴露
+            self.base_data.factor_expo.to_hdf('bb_factor_expo' + self.filename_appendix, '123')
+            print('factor exposure data has been saved!\n')
 
     # # 仅计算barra base的因子值，主要用于对于不同股票池，可以率先建立一个只有因子值而没有暴露的bb对象
     # def just_get_sytle_factor(self):
@@ -906,19 +900,18 @@ class barra_base(factor_base):
 
         # 如果需要储存, 则储存因子收益数据
         # 如果要储存因子数据, 必须保证当前股票池和文件后缀是完全一致的, 否则报错
-        if if_save:
-            if self.base_data.stock_pool == 'all':
-                assert self.filename_appendix == '', 'Error: The stock pool of base is different ' \
-                'from filename appendix, in order to avoid possible data loss, the saving ' \
-                'procedure has been terminated! \n'
-            else:
-                assert self.filename_appendix[1:] == self.base_data.stock_pool, 'Error: The stock ' \
-                'pool of base is different from filename appendix, in order to avoid possible ' \
-                'data loss, the saving procedure has been terminated! \n'
+        if not self.is_update and if_save:
+            assert self.filename_appendix[1:] == self.base_data.stock_pool, 'Error: The stock ' \
+            'pool of base is different from filename appendix, in order to avoid possible ' \
+            'data loss, the saving procedure has been terminated! \n'
 
-            self.base_factor_return.to_csv('bb_factor_return_'+self.base_data.stock_pool+'.csv',
+            # self.base_factor_return.to_csv('bb_factor_return_'+self.base_data.stock_pool+'.csv',
+            #                              index_label='datetime', na_rep='NaN', encoding='GB18030')
+            # self.specific_return.to_csv('bb_specific_return_'+self.base_data.stock_pool+'.csv',
+            #                             index_label='datetime', na_rep='NaN', encoding='GB18030')
+            self.base_factor_return.to_csv('barra_factor_return_'+self.base_data.stock_pool+'.csv',
                                          index_label='datetime', na_rep='NaN', encoding='GB18030')
-            self.specific_return.to_csv('bb_specific_return_'+self.base_data.stock_pool+'.csv',
+            self.specific_return.to_csv('barra_specific_return_'+self.base_data.stock_pool+'.csv',
                                         index_label='datetime', na_rep='NaN', encoding='GB18030')
             print('The bb factor return has been saved! \n')
 
@@ -940,6 +933,11 @@ class barra_base(factor_base):
         for i in original_old_base_factor_names:
             old_base_factor_names.append(i+self.filename_appendix)
         old_base_factors = data.read_data(old_base_factor_names, original_old_base_factor_names)
+        # 读取旧的因子暴露数据和因子收益数据
+        old_factor_expo = pd.read_hdf('bb_factor_expo'+self.filename_appendix, '123')
+        old_factor_return = data.read_data(['bb_factor_return'+self.filename_appendix]).iloc[0]
+        old_specific_return = data.read_data(['bb_specific_return'+self.filename_appendix]).iloc[0]
+
         # 更新与否取决于原始数据和因子数据，若因子数据的时间轴早于原始数据，则进行更新
         # 这里对比的数据实际是free mv和lncap，因为barra base的计算是以这两个为基准的
         last_day = old_base_factors.major_axis[-1]
@@ -948,27 +946,46 @@ class barra_base(factor_base):
             return
         # 找因子数据的最后一天在原始数据中的对应位置
         last_loc = self.base_data.stock_price.major_axis.get_loc(last_day)
-        # 将原始数据截取，截取范围从更新的第一天的（即因子数据的最后一天的下一天）前525天到最后一天
+        # 将原始数据截取，截取范围从更新的第一天的（即因子数据的最后一天的）前525天到最后一天
         # 更新前525天的选取是因为t时刻的bb因子值最远需要取到525天前的原始数据，在momentum因子中用到
-        new_start_loc = last_loc + 1 - 525
+        new_start_loc = last_loc - 525
         self.base_data.stock_price = self.base_data.stock_price.iloc[:, new_start_loc:, :]
         self.base_data.raw_data = self.base_data.raw_data.iloc[:, new_start_loc:, :]
         self.base_data.if_tradable = self.base_data.if_tradable.iloc[:, new_start_loc:, :]
+        # 还要记得截取complete_base_data中的数据
+        self.complete_base_data.stock_price = self.complete_base_data.stock_price.iloc[:, new_start_loc:, :]
+        self.complete_base_data.raw_data = self.complete_base_data.raw_data.iloc[:, new_start_loc:, :]
+        self.complete_base_data.if_tradable = self.complete_base_data.if_tradable.iloc[:, new_start_loc:, :]
 
         # 开始计算新的因子值
         self.construct_factor_base()
+        self.get_base_factor_return()
 
         # 将旧因子值的股票索引换成新的因子值的股票索引
         old_base_factors = old_base_factors.reindex(minor_axis=self.base_data.factor.minor_axis)
+        old_factor_expo = old_factor_expo.reindex(minor_axis=self.base_data.factor_expo.minor_axis)
+        old_specific_return = old_specific_return.reindex(columns=self.specific_return.columns)
         # 衔接新旧因子值, 注意, 衔接的时候一定要把last_day的老数据丢弃掉, 只用新的数据
         # 就像database的更新一样, 最后一天的老数据, 会因更新的当时可能数据不全, 有各种问题
         # 因此一定不能用.
         new_factor_data = pd.concat([old_base_factors.drop(last_day, axis=1), self.base_data.factor], axis=1)
+        new_factor_expo = pd.concat([old_factor_expo.drop(last_day, axis=1), self.base_data.factor_expo], axis=1)
+        new_factor_return = pd.concat([old_factor_return.drop(last_day, axis=0), self.base_factor_return], axis=0)
+        new_specific_return = pd.concat([old_specific_return.drop(last_day, axis=0), self.specific_return], axis=0)
         # 因为更新数据需要用到以前的数据的原因, 会导致更新的时候更新数据的起头不会是last_day
         # 且这些数据都是nan, 因此只能要第一个数据, 即当时的老数据, 而丢弃掉那些因更新原因产生的nan的数据
         self.base_data.factor = new_factor_data.groupby(new_factor_data.major_axis).first()
-        # 储存因子值数据
+        self.base_data.factor_expo = new_factor_expo.groupby(new_factor_expo.major_axis).first()
+        self.base_factor_return = new_factor_return.groupby(new_factor_return.index).first()
+        self.specific_return = new_specific_return.groupby(new_specific_return.index).first()
+        # 储存因子值数据, 因为这里的因子顺序与定义的排序不一样, 因此要将items的数据转化为手动定义的顺序, 再进行储存
+        self.base_data.factor = self.base_data.factor[original_old_base_factor_names]
         data.write_data(self.base_data.factor, file_name=old_base_factor_names)
+        self.base_data.factor_expo.to_hdf('bb_factor_expo'+self.filename_appendix, '123')
+        self.base_factor_return.to_csv('bb_factor_return_' + self.base_data.stock_pool + '.csv',
+                                       index_label='datetime', na_rep='NaN', encoding='GB18030')
+        self.specific_return.to_csv('bb_specific_return_' + self.base_data.stock_pool + '.csv',
+                                    index_label='datetime', na_rep='NaN', encoding='GB18030')
 
         self.is_update = False
         self.try_to_read = True
@@ -977,33 +994,64 @@ class barra_base(factor_base):
 if __name__ == '__main__':
     import time
     # pools = ['all', 'hs300', 'zz500', 'zz800', 'sz50', 'zxb', 'cyb']
+    # pools = ['all', 'hs300', 'zz500', 'sz50']
     # for i in pools:
     bb = barra_base()
-    bb.base_data.stock_pool = 'hs300'
+    bb.base_data.stock_pool = 'all'
     # bb.base_data.stock_pool = i
-    bb.try_to_read = True
-    bb.read_original_data()
-    bb.construct_factor_base(if_save=False)
+    # bb.try_to_read = False
+    # bb.read_original_data()
+    # bb.construct_factor_base(if_save=False)
+    # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+    # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
+    #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
+    #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
+    #     'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
+    #     'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
+    #     'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
+    #     'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
+    #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
+    # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
+    # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+    # for cursor, name in enumerate(bb.base_data.factor_expo.items):
+    #     bb.base_data.factor_expo.iloc[cursor] = bb.base_data.factor_expo.iloc[cursor]. \
+    #         where(bb.base_data.if_tradable['if_inv'], np.nan)
+    #     pass
+    # bb.n_indus = 32
     # bb.get_base_factor_return(if_save=True)
-    fr = data.read_data(['bb_factor_return_hs300'])
-    bb.base_factor_return = fr['bb_factor_return_hs300']
+    # if i in ['all', 'hs300', 'zz500']:
+    #     bb.base_data.factor_expo.to_hdf('bb_factorexpo_'+i, '123')
+    bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+    bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
+        'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
+        'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
+        'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
+        'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
+        'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
+        'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
+        'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
+    bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
+    bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+    bb.base_factor_return = data.read_data(['barra_factor_return_all']).iloc[0]
+    bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
+    bb.specific_return = data.read_data(['barra_specific_return_all']).iloc[0]
     # bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_all', '123')
-    # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_all', '123')
-    sr = data.read_data(['bb_specific_return_hs300'])
-    bb.specific_return = sr['bb_specific_return_hs300']
-    # start_time = time.time()
+    # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_hs300', '123')
     # bb.get_initial_cov_mat()
+    # bb.get_initial_cov_mat_parallel()
     # bb.get_vra_cov_mat()
     # bb.get_eigen_adjusted_cov_mat_parallel(n_of_sims=100, simed_sample_size=504, scaling_factor=3)
-    # bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
+    bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
     # bb.get_initial_spec_vol()
     # bb.get_initial_spec_vol_parallel()
     # bb.get_vra_spec_vol()
     # bb.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=0.25)
+    # start_time = time.time()
+    bb.construct_risk_forecast_parallel(eigen_adj_sims=1000)
     # bb.handle_barra_data()
-    # bb.risk_forecast_performance_parallel(test_type='optimized', bias_type=2)
+    # bb.risk_forecast_performance_parallel(test_type='random', bias_type=2, freq='w')
     # bb.risk_forecast_performance_parallel_spec(test_type='stock', bias_type=1, cap_weighted_bias=False)
-    bb.risk_forecast_performance_total_parallel(test_type='optimized', bias_type=1, no_of_sims=1000)
+    # bb.risk_forecast_performance_total_parallel(test_type='random', bias_type=2, freq='w')
     # bb.update_factor_base_data()
     # print("time: {0} seconds\n".format(time.time()-start_time))
     pass

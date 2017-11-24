@@ -100,11 +100,11 @@ class dynamic_backtest(backtest):
 
         # 计算账面的价值
         self.account_value.ix[curr_time] = (self.real_vol_position.holding_matrix.ix[curr_time, :] *
-            100 * self.bkt_data.stock_price.ix['ClosePrice_adj', :, :]).sum() + \
+            100 * self.bkt_data.stock_price.ix['ClosePrice_adj', curr_time, :]).sum() + \
             self.real_vol_position.cash.ix[curr_time]
         # 现金的实际持有比例, 为实际现金数量除以账面价值
-        self.real_pct_position.cash.ix[curr_time] = self.real_vol_position.cash.ix[curr_time].\
-            div(self.account_value.ix[curr_time])
+        self.real_pct_position.cash.ix[curr_time] = self.real_vol_position.cash.ix[curr_time] / \
+            self.account_value.ix[curr_time]
 
         # 如果是第一期, 需要将账面价值序列和基准序列进行拼接, 及加上初始资金的第一项, 时间为回测开始前1秒
         # 这一点和一般的backtest的操作是一样的, 只不过改到了只有底一期的时候才加上去
@@ -123,19 +123,20 @@ class dynamic_backtest(backtest):
             self.benchmark_value = pd.concat([benchmark_base_value, self.benchmark_value])
 
         # 计算每天的持股数
-        self.info_series.ix[curr_time, 'holding_num'] = (self.real_vol_position.holding_matrix != 0).sum()
+        self.info_series.ix[curr_time, 'holding_num'] = (self.real_vol_position.holding_matrix.
+            ix[curr_time, :] != 0).sum()
         # 计算手续费所占总价值序列的比例, 注意是占上个交易日的账户价值的比例,
         # 注意, 因为分母是用上一期的账户价值的比例, 而账户价值序列刚好多了一期
         # 因此, 只需要用cursor索引就好, 不需要用cursor-1
-        self.info_series.ix[curr_time, 'cost_ratio'] = (self.info_series[curr_time, 'cost_value'] / \
+        self.info_series.ix[curr_time, 'cost_ratio'] = (self.info_series.ix[curr_time, 'cost_value'] / \
                                                         self.account_value.ix[cursor])
         # 计算真实的股票仓位的持仓比例和目标持仓比例的差别
         self.info_series.ix[curr_time, 'holding_diff'] = self.real_pct_position.holding_matrix. \
             ix[curr_time, :].sub(self.tar_pct_position.holding_matrix.ix[curr_time, :]).abs().sum()
         # 计算真实的现金仓位的比例和目标的现金仓位比例的差别,
         # 注意, 现金的比例差别应该和股票的比例差别一致
-        self.info_series.ix[curr_time, 'cash_diff'] = self.real_pct_position.cash.iloc[cursor].\
-            sub(self.tar_pct_position.cash.iloc[cursor-1])
+        self.info_series.ix[curr_time, 'cash_diff'] = self.real_pct_position.cash.iloc[cursor] - \
+            self.tar_pct_position.cash.iloc[cursor-1]
 
 
 

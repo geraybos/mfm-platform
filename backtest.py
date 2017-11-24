@@ -52,7 +52,7 @@ class backtest(object):
         self.bkt_data = backtest_data()
         # 初始化股价数据，包括收盘价, vwap(交易量加权平均价)等
         if bkt_stock_data is None:
-            self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','ClosePrice_adj'],
+            self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','vwap_adj'],
                                                   ['ClosePrice_adj','vwap_adj'])
         else:
             self.bkt_data.stock_price = data.read_data(bkt_stock_data)
@@ -63,7 +63,7 @@ class backtest(object):
         if bkt_benchmark_data is None:
             self.bkt_data.benchmark_price = data.read_data(['ClosePrice_adj_zz500'], ['ClosePrice_adj'])
         else:
-            self.bkt_data.benchmark_price = data.read_data([bkt_benchmark_data], [bkt_benchmark_data])
+            self.bkt_data.benchmark_price = data.read_data([bkt_benchmark_data], ['ClosePrice_adj'])
         # 读取股票上市退市停牌数据，并生成标记股票是否可交易的矩阵
         self.bkt_data.generate_if_tradable()
         # 生成标记股票是否涨跌停, 是否可买入卖出的矩阵
@@ -525,7 +525,8 @@ class backtest(object):
     # 如果不使用模拟的真实数据进行归因，则使用日收益数据直接计算组合收益率，这种情况下，如进行超额归因，则是对基准进行每日再平衡
     def get_performance_attribution(self, *, benchmark_weight=None, outside_base=None, discard_factor=[],
                                     show_warning=True, is_real_world=False, real_world_type=0,
-                                    foldername='', pdfs=None, enable_reading_pa_return=True):
+                                    foldername='', pdfs=None, enable_reading_pa_return=True,
+                                    base_stock_pool='all'):
         if is_real_world:
             if real_world_type == 0:
                 self.bkt_pa = performance_attribution(self.real_pct_position, self.bkt_performance.log_return,
@@ -556,7 +557,7 @@ class backtest(object):
         # 设置归因警告提示
         self.bkt_pa.show_warning = show_warning
         self.bkt_pa.execute_performance_attribution(outside_base=outside_base, discard_factor=discard_factor,
-                                                    foldername=foldername,
+                                                    foldername=foldername, base_stock_pool=base_stock_pool,
                                                     enable_reading_pa_return=enable_reading_pa_return)
         self.bkt_pa.plot_performance_attribution(foldername=foldername, pdfs=pdfs)
 

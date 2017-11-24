@@ -166,7 +166,7 @@ class performance(object):
         def func_intra_nav(x, *, get_deviation=False, get_node_value=False):
             # 股票资产的收益率序列, 分为调仓期前的部分和调仓后的部分
             stock_return_before = x['log_return_equity1'] + x['log_return_equity2']
-            # 最后一天, 即下一个调仓日的
+            # 最后一天, 即下一个调仓日的当天
             stock_return_before.iloc[-1] -= x.ix[-1, 'log_return_equity2']
             # 先计算从第一天, 到最后一天(即调仓日那天)换仓前的那部分净值增值序列
             stock_nav_change_before = np.exp(stock_return_before.cumsum()) - 1
@@ -192,7 +192,8 @@ class performance(object):
 
             # 现在来计算调仓后的部分
             stock_return_after = x.ix[-1, 'log_return_equity2']
-            stock_nav_change_after = np.exp(stock_return_after) - 1
+            # 注意, 调仓后股票部分的收益的基础是调仓前的股票部分的净值, 而不是1.
+            stock_nav_change_after = (np.exp(stock_return_after) - 1) * (stock_nav_change_before.iloc[-1] + 1)
             # 由于假设, 1. benchmark均在收盘价换仓, 即benchmark的所有收益分配到第一部分
             # 2. 现金的无风险收益算在隔夜上, 同样也全部分配到了第一部分
             # 因此第二部分的收益就只有换仓后的股票资产的收益
@@ -201,8 +202,10 @@ class performance(object):
                 x.ix[-1, 'base_stock_value2'])
             active_nav_change_after = stock_nav_change_after * (1 - base_cash_ratio2)
 
-            # 最后总的nav序列为前后两个nav之和
-            intra_active_nav_change = active_nav_change_before + active_nav_change_after
+            # 最后总的nav变化序列为调仓前的nav变化序列, 以及其最后一项加上调仓后的nav变化
+            # 注意, 因为非调仓日没有调仓后的nav变化, 因此只要给最后一天, 即调仓日那天加上调仓后的nav变化就行了
+            intra_active_nav_change = active_nav_change_before * 1
+            intra_active_nav_change.iloc[-1] = intra_active_nav_change.iloc[-1] + active_nav_change_after
 
             # 如果只是为了得到周期最后一天的净值, 则只返回最后一个, 否则返回一个序列
             if get_node_value:

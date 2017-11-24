@@ -8,6 +8,8 @@ Created on Tue Dec 27 10:32:36 2016
 
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('PDF')  # Do this BEFORE importing matplotlib.pyplot
 import matplotlib.pyplot as plt
 from pandas import Series, DataFrame, Panel
 from datetime import datetime
@@ -46,15 +48,15 @@ class single_factor_strategy(strategy):
     # 生成调仓日的函数
     # holding_freq为持仓频率，默认为月，这个参数将作为resample的参数
     # start_date和end_date为调仓日的范围区间，默认为取数据的所有区间断
-    def generate_holding_days(self, *, holding_freq='w', start_date=None, end_date=None, loc=0):
+    def generate_holding_days(self, *, holding_freq='w', start_date=None, end_date=None, loc=-1):
         # 读取free market value以其日期作为holding days的选取区间
         holding_days = strategy.resample_tradingdays(self.strategy_data.stock_price.\
                                                      ix['FreeMarketValue', :, 0], freq=holding_freq, loc=loc)
         # 根据传入参数截取需要的调仓日区间
         if isinstance(start_date, pd.Timestamp):
-            holding_days = holding_days.ix[start_date:]
+            holding_days = holding_days[holding_days >= start_date]
         if isinstance(end_date, pd.Timestamp):
-            holding_days = holding_days.ix[:end_date]
+            holding_days = holding_days[holding_days <= end_date]
         self.holding_days = holding_days
         
     # 选取股票，选股比例默认为最前的80%到100%，方向默认为因子越大越好，weight=1为市值加权，0为等权
@@ -875,7 +877,7 @@ class single_factor_strategy(strategy):
 
     # 根据一个股票池进行一次完整的单因子测试的函数
     # select method为单因子测试策略的选股方式，0为按比例选股，1为分行业按比例选股
-    def single_factor_test(self, *, loc=0, factor=None, direction='+', bkt_obj=None, base_obj=None,
+    def single_factor_test(self, *, loc=-1, factor=None, direction='+', bkt_obj=None, base_obj=None,
                            discard_factor=[], bkt_start=None, bkt_end=None, stock_pool='all',
                            select_method=0, do_pa=True, do_active_pa=False, do_base_pure_factor=False,
                            holding_freq='w', do_data_description=False, do_factor_corr_test=False):
@@ -932,7 +934,7 @@ class single_factor_strategy(strategy):
         # 单因子测试函数结束
         ###################################################################################################
 
-    def sft_part_1(self, *, loc=0, stock_pool='all', holding_freq='w'):
+    def sft_part_1(self, *, loc=-1, stock_pool='all', holding_freq='w'):
         # 第一部分是生成调仓日, 股票池, 及可投资标记
         # 生成调仓日和生成可投资标记是第一件事, 因为之后包括因子构建的函数都要用到它
 
@@ -1159,6 +1161,9 @@ class single_factor_strategy(strategy):
         # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
         #                             self.position.holding_matrix.columns, method='ffill').fillna(0.0)
         # pass
+        # holding = pd.read_hdf('opt_holding_tar_hs300', '123')
+        # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
+        #                                                method='ffill').fillna(0.0)
         pass
 
             

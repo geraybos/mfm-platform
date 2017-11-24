@@ -40,7 +40,7 @@ class performance_attribution(object):
                 apply(lambda x:x if (x==0).all() else x.div(x.sum()), axis=1)
             self.pa_position.holding_matrix = input_position.holding_matrix.sub(new_benchmark_weight, fill_value=0)
             # 提示用户, 归因变成了对超额部分的归因
-            print('Note that with benchmark_weight being passed, the performance attribution will be base on the '
+            print('Note that with benchmark_weight being passed, the performance attribution will be based on the '
                   'active part of the portfolio against the benchmark. Please make sure that the portfolio returns '
                   'you passed to the pa is the corresponding active return! \n')
         else:
@@ -92,14 +92,15 @@ class performance_attribution(object):
         self.show_warning = show_warning
 
     # 建立barra因子库，有些时候可以直接用在其他地方（如策略中）已计算出的barra因子库，就可以不必计算了
-    def construct_base(self, *, outside_base=None):
+    def construct_base(self, *, outside_base=None, base_stock_pool='all'):
         if isinstance(outside_base, factor_base):
             self.base = outside_base
-            # 外部的base，如果没有factor expo则也需要再次计算
+            # 外部的base，如果没有factor expo则也需要再次计算, 股票池则用外部base的股票池
             if self.base.base_data.factor_expo.empty:
                 self.base.construct_factor_base()
             pass
         else:
+            self.base.base_data.stock_pool = base_stock_pool
             self.base.construct_factor_base()
 
     # 进行业绩归因
@@ -593,9 +594,9 @@ class performance_attribution(object):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
     # 进行业绩归因
-    def execute_performance_attribution(self, *, outside_base=None, discard_factor=[], foldername='',
-                                        enable_reading_pa_return=True):
-        self.construct_base(outside_base=outside_base)
+    def execute_performance_attribution(self, *, outside_base=None, base_stock_pool='all', discard_factor=[],
+                                        foldername='', enable_reading_pa_return=True):
+        self.construct_base(outside_base=outside_base, base_stock_pool= base_stock_pool)
         self.get_pa_return(discard_factor=discard_factor, enable_reading_pa_return=enable_reading_pa_return)
         self.analyze_pa_return_outcome()
         self.analyze_pa_risk_outcome()
