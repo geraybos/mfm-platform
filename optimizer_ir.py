@@ -68,7 +68,7 @@ if __name__ == '__main__':
     from barra_base import barra_base
     from data import data
 
-    opt = ir_optimizer()
+    opt = optimizer_ir()
 
     # universe = pd.read_csv('universe.csv')
     # AssetData = pd.read_csv('CNE5S_100_Asset_Data.20170309')
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     # old_w = pd.Series(1/stock_return.shape[0], index=stock_return.index)
     old_w = pd.Series(0.0, index=stock_return.index)
 
-    optimized_weight = opt.solve_ir_optimization(bench_weight, factor_expo, stock_return, factor_cov,
+    optimized_weight = opt.solve_optimization(bench_weight, factor_expo, stock_return, factor_cov,
                                                  specific_var=spec_var, enable_turnover_cons=False,
                                                  enable_trans_cost=False, long_only=True, old_w=old_w,
                                                  turnover_cap=0.3, enable_factor_expo_cons=False,

@@ -42,6 +42,8 @@ class single_factor_strategy(strategy):
         self.strategy_data.generate_if_tradable(shift=True)
         # 读取市值数据以进行市值加权
         self.strategy_data.stock_price = data.read_data(['FreeMarketValue'],['FreeMarketValue'],shift = True)
+        # 用来储存输出的文字或图片信息的文件夹位置
+        self.folder_name = None
         # 用来画图的pdf对象
         self.pdfs = None
 
@@ -61,7 +63,7 @@ class single_factor_strategy(strategy):
         
     # 选取股票，选股比例默认为最前的80%到100%，方向默认为因子越大越好，weight=1为市值加权，0为等权
     # weight=3 为按照因子值加权, 需注意因子是否进行了标准化
-    def select_stocks(self, *, select_ratio=[0.8, 1], direction='+', weight=0,
+    def select_stocks(self, *, select_ratio=(0.8, 1), direction='+', weight=0,
                       use_factor_expo = True, expo_weight = 1):
         # 对调仓期进行循环
         for cursor, time in self.holding_days.iteritems():
@@ -119,12 +121,12 @@ class single_factor_strategy(strategy):
     # 分行业选股，跟上面的选股方式一样，只是在每个行业里选固定比例的股票
     # weight等于0为等权，等于1为直接市值加权，等于2则行业内等权, 行业间按基准加权
     # 等于3为行业内市值加权, 行业间按基准加权
-    def select_stocks_within_indus(self, *, select_ratio=[0.8, 1], direction='+', weight=0):
+    def select_stocks_within_indus(self, *, select_ratio=(0.8, 1), direction='+', weight=0):
         # 读取行业数据：
         industry = data.read_data(['Industry'], ['Industry'])
         industry = industry['Industry']
         # 定义选股的函数
-        def get_stks(factor_data, *, select_ratio=[0.8, 1], direction='+'):
+        def get_stks(factor_data, *, select_ratio=(0.8, 1), direction='+'):
             holding = pd.Series(0, index=factor_data.index)
             # 取有效的股票数
             effective_num = factor_data.dropna().size
@@ -479,7 +481,7 @@ class single_factor_strategy(strategy):
         ax.set_title('The Return Series of The Factor')
         plt.xticks(rotation=30)
         plt.grid()
-        plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'FactorReturn.png', dpi=1200)
+        plt.savefig(str(os.path.abspath('.')) + '/' + self.folder_name + '/' + 'FactorReturn.png', dpi=1200)
         if isinstance(self.pdfs, PdfPages):
             plt.savefig(self.pdfs, format='pdf')
 
@@ -492,7 +494,7 @@ class single_factor_strategy(strategy):
         ax.set_title('The T-Stats Series of The Factor Return')
         plt.xticks(rotation=30)
         plt.grid()
-        plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'FactorReturnTStats.png', dpi=1200)
+        plt.savefig(str(os.path.abspath('.')) + '/' + self.folder_name + '/' + 'FactorReturnTStats.png', dpi=1200)
         if isinstance(self.pdfs, PdfPages):
             plt.savefig(self.pdfs, format='pdf')
 
@@ -558,7 +560,7 @@ class single_factor_strategy(strategy):
         ax.set_title('The IC Time Series of The Factor')
         plt.xticks(rotation=30)
         plt.grid()
-        plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'FactorIC.png', dpi=1200)
+        plt.savefig(str(os.path.abspath('.')) + '/' + self.folder_name + '/' + 'FactorIC.png', dpi=1200)
         if isinstance(self.pdfs, PdfPages):
             plt.savefig(self.pdfs, format='pdf')
         
@@ -645,7 +647,7 @@ class single_factor_strategy(strategy):
             ax1.legend(loc='best')
             plt.xticks(rotation=30)
             plt.grid()
-            plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'QGroupsNetValue.png', dpi=1200)
+            plt.savefig(str(os.path.abspath('.')) + '/' + self.folder_name + '/' + 'QGroupsNetValue.png', dpi=1200)
             if isinstance(self.pdfs, PdfPages):
                 plt.savefig(self.pdfs, format='pdf')
 
@@ -658,7 +660,7 @@ class single_factor_strategy(strategy):
             plt.plot(long_series - short_series)
             plt.xticks(rotation=30)
             plt.grid()
-            plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'LongShortNetValue.png', dpi=1200)
+            plt.savefig(str(os.path.abspath('.')) + '/' + self.folder_name + '/' + 'LongShortNetValue.png', dpi=1200)
             if isinstance(self.pdfs, PdfPages):
                 plt.savefig(self.pdfs, format='pdf')
 
@@ -694,7 +696,7 @@ class single_factor_strategy(strategy):
             ax1.legend(loc='best')
             plt.xticks(rotation=30)
             plt.grid()
-            plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'QGroupsCumLog.png', dpi=1200)
+            plt.savefig(str(os.path.abspath('.')) + '/' + self.folder_name + '/' + 'QGroupsCumLog.png', dpi=1200)
             if isinstance(self.pdfs, PdfPages):
                 plt.savefig(self.pdfs, format='pdf')
 
@@ -707,7 +709,7 @@ class single_factor_strategy(strategy):
             plt.plot((long_series - short_series) * 100)
             plt.xticks(rotation=30)
             plt.grid()
-            plt.savefig(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/' + 'LongShortCumLog.png', dpi=1200)
+            plt.savefig(str(os.path.abspath('.')) + '/' + self.folder_name + '/' + 'LongShortCumLog.png', dpi=1200)
             if isinstance(self.pdfs, PdfPages):
                 plt.savefig(self.pdfs, format='pdf')
 
@@ -878,7 +880,7 @@ class single_factor_strategy(strategy):
     # 根据一个股票池进行一次完整的单因子测试的函数
     # select method为单因子测试策略的选股方式，0为按比例选股，1为分行业按比例选股
     def single_factor_test(self, *, loc=-1, factor=None, direction='+', bkt_obj=None, base_obj=None,
-                           discard_factor=[], bkt_start=None, bkt_end=None, stock_pool='all',
+                           folder_name=None, discard_factor=(), bkt_start=None, bkt_end=None, stock_pool='all',
                            select_method=0, do_pa=True, do_active_pa=False, do_base_pure_factor=False,
                            holding_freq='w', do_data_description=False, do_factor_corr_test=False):
         ###################################################################################################
@@ -893,7 +895,7 @@ class single_factor_strategy(strategy):
         ###################################################################################################
         # 第三部分是除去不可投资的数据, 初始化或者重置策略持仓,
         # 处理barra base类, backtest类, 以及建立文件夹等零碎的事情
-        self.sft_part_3(base_obj=base_obj)
+        self.sft_part_3(base_obj=base_obj, folder_name=folder_name)
 
         ###################################################################################################
         # 第四部分为, 1. 若各策略类有对原始因子数据的计算等, 可以在data description中进行
@@ -924,7 +926,7 @@ class single_factor_strategy(strategy):
         # 2. 计算单因子的ic序列
         # 3. 单因子选股策略的n分位图
         # 4. 画单因子策略n分位图的long-short图
-        self.sft_part_7(direction=direction, bkt_start=bkt_start, bkt_end=bkt_end)
+        # self.sft_part_7(direction=direction, bkt_start=bkt_start, bkt_end=bkt_end)
 
         ###################################################################################################
         # 第八部分, 最后的收尾工作
@@ -978,7 +980,7 @@ class single_factor_strategy(strategy):
             else:
                 self.strategy_data.factor.iloc[0] = factor * 1
 
-    def sft_part_3(self, *, base_obj=None):
+    def sft_part_3(self, *, base_obj=None, folder_name=None):
         # 第三部分是除去不可投资的数据, 初始化或者重置策略持仓,
         # 处理barra base类, backtest类, 以及建立文件夹等零碎的事情
 
@@ -1019,11 +1021,17 @@ class single_factor_strategy(strategy):
         # 都一定要对base_obj中的数据进行lag才能使用
         self.base_obj = copy.deepcopy(base_obj)
 
+        # 如果没有传入文件夹的名字, 则默认是投资域的名称
+        if folder_name is None:
+            self.folder_name = self.strategy_data.stock_pool
+        else:
+            self.folder_name = folder_name
+
         # 如果没有文件夹，则建立一个文件夹
-        if not os.path.exists(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/'):
-            os.makedirs(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/')
+        if not os.path.exists(str(os.path.abspath('.')) + '/' + self.folder_name + '/'):
+            os.makedirs(str(os.path.abspath('.')) + '/' + self.folder_name + '/')
         # 建立画pdf的对象
-        self.pdfs = PdfPages(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool + '/allfigs.pdf')
+        self.pdfs = PdfPages(str(os.path.abspath('.')) + '/' + self.folder_name + '/allfigs.pdf')
 
     def sft_part_4(self, *, do_data_description=False, do_factor_corr_test=False, do_base_pure_factor=False):
         # 第四部分为, 1. 若各策略类有对原始因子数据的计算等, 可以在data description中进行
@@ -1050,10 +1058,10 @@ class single_factor_strategy(strategy):
         # 按策略进行选股
         if select_method == 0:
             # 简单分位数选股
-            self.select_stocks(weight=1, direction=direction, select_ratio=[0.8, 1])
+            self.select_stocks(weight=1, direction=direction, select_ratio=(0.7, 1))
         elif select_method == 1:
             # 分行业选股
-            self.select_stocks_within_indus(weight=3, direction=direction, select_ratio=[0.8, 1])
+            self.select_stocks_within_indus(weight=3, direction=direction, select_ratio=(0.7, 1))
         elif select_method == 2 or select_method == 3:
             # 用构造纯因子组合的方法选股，2为组合自己是纯因子组合，3为组合相对基准是纯因子组合
             # 首先和计算纯因子一样，要base因子的暴露, 且同样需要lag
@@ -1084,7 +1092,7 @@ class single_factor_strategy(strategy):
                                                use_factor_expo=not self.is_curr_factor_already_expo)
 
     def sft_part_6(self, *, bkt_obj=None, bkt_start=None, bkt_end=None, do_pa=True, do_active_pa=False,
-                   discard_factor=[]):
+                   discard_factor=()):
         # 第六部分为, 1. 对策略选出的股票进行回测, 画图
         # 2. 如果有归因, 则对策略选出的股票进行归因
 
@@ -1105,7 +1113,7 @@ class single_factor_strategy(strategy):
         # 回测、画图、归因
         self.bkt_obj.execute_backtest()
         print("exec time: {0} seconds\n".format(time.time() - start_time))
-        self.bkt_obj.get_performance(foldername=self.strategy_data.stock_pool, pdfs=self.pdfs)
+        self.bkt_obj.get_performance(foldername=self.folder_name, pdfs=self.pdfs)
         print("plot time: {0} seconds\n".format(time.time() - start_time))
 
         # 如果要进行归因的话
@@ -1129,8 +1137,8 @@ class single_factor_strategy(strategy):
             # 只要是一个股票池之间的计算, 就不会出现数据的丢失. 注意base_obj中的数据是没有shift过的, 专供归因所用
             self.bkt_obj.get_performance_attribution(outside_base=self.base_obj, benchmark_weight=pa_benchmark_weight,
                 discard_factor=discard_factor, show_warning=False, pdfs=self.pdfs, is_real_world=True,
-                foldername=self.strategy_data.stock_pool, real_world_type=2,
-                enable_reading_pa_return=True)
+                foldername=self.folder_name, real_world_type=2, enable_read_base_expo=True,
+                enable_read_pa_return=True)
         
     def sft_part_7(self, *, direction='+', bkt_start=None, bkt_end=None):
         # 第七部分为, 1. 根据回归算单因子的纯因子组合收益率

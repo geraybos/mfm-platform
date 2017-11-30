@@ -860,7 +860,7 @@ class barra_base(factor_base):
     #     print('get leverage completed...\n')
     #     # 计算风格因子暴露之前再过滤一次
     #     self.base_data.discard_uninv_data()
-    #
+
     # # 仅计算barra base的因子暴露，主要用于对与不同股票池，可以在不重新建立新对象的情况下，根据已有因子值算不同的因子暴露
     # def just_get_factor_expo(self):
     #     self.base_data.discard_uninv_data()
@@ -1013,10 +1013,6 @@ if __name__ == '__main__':
     #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
     # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
     # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    # for cursor, name in enumerate(bb.base_data.factor_expo.items):
-    #     bb.base_data.factor_expo.iloc[cursor] = bb.base_data.factor_expo.iloc[cursor]. \
-    #         where(bb.base_data.if_tradable['if_inv'], np.nan)
-    #     pass
     # bb.n_indus = 32
     # bb.get_base_factor_return(if_save=True)
     # if i in ['all', 'hs300', 'zz500']:
@@ -1032,21 +1028,24 @@ if __name__ == '__main__':
         'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
     bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
     bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    bb.base_factor_return = data.read_data(['barra_factor_return_all']).iloc[0]
+    # bb.base_factor_return = data.read_data(['bb_factor_return_all']).iloc[0]
+    # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
+    # bb.specific_return = data.read_data(['bb_specific_return_all']).iloc[0]
+    bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
     bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
-    bb.specific_return = data.read_data(['barra_specific_return_all']).iloc[0]
+    bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')
     # bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_all', '123')
     # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_hs300', '123')
     # bb.get_initial_cov_mat()
     # bb.get_initial_cov_mat_parallel()
     # bb.get_vra_cov_mat()
     # bb.get_eigen_adjusted_cov_mat_parallel(n_of_sims=100, simed_sample_size=504, scaling_factor=3)
-    bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
     # bb.get_initial_spec_vol()
     # bb.get_initial_spec_vol_parallel()
     # bb.get_vra_spec_vol()
     # bb.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=0.25)
     # start_time = time.time()
+    bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
     bb.construct_risk_forecast_parallel(eigen_adj_sims=1000)
     # bb.handle_barra_data()
     # bb.risk_forecast_performance_parallel(test_type='random', bias_type=2, freq='w')

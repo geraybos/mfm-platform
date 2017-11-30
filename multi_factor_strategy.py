@@ -33,7 +33,7 @@ class multi_factor_strategy(single_factor_strategy):
         single_factor_strategy.__init__(self)
 
     # 构造最大化IR的组合
-    def construct_ir_optimized_portfolio(self):
+    def construct_optimized_portfolio(self, *, indus_neutral=False):
         # 首先设置optimizer
         self.optimizer = optimizer()
 
@@ -97,7 +97,7 @@ class multi_factor_strategy(single_factor_strategy):
                 #     curr_factor_expo, factor_ret, factor_cov, old_w=latest_holding,
                 #     enable_turnover_cons=True)
                 # 暂时不加任何限制
-                optimized_weight = self.optimizer.solve_ir_optimization(curr_bench_weight,
+                optimized_weight = self.optimizer.solve_optimization(curr_bench_weight,
                     curr_factor_expo, factor_ret, factor_cov, specific_var=spec_var)
 
                 self.dy_bkt.tar_pct_position.holding_matrix.ix[curr_time, :] = \

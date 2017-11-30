@@ -169,7 +169,8 @@ class database(object):
                     "on a.InnerCode=b.InnerCode " \
                     "order by SecuCode, ExDiviDate"
         AdjustFactor = self.jydb_engine.get_original_data(sql_query)
-        AdjustFactor = AdjustFactor.pivot_table(index='ExDiviDate', columns='SecuCode', values='RatioAdjustingFactor')
+        AdjustFactor = AdjustFactor.pivot_table(index='ExDiviDate', columns='SecuCode', values='RatioAdjustingFactor',
+                                                aggfunc='first')
 
         # 要处理更新数据的时候可能出现的空数据的情况
         if AdjustFactor.empty:
@@ -495,7 +496,7 @@ class database(object):
         # 把两组数据衔接起来一起使用
         weight_data = weight_data.append(weight_data_minor)
         index_weight = weight_data.pivot_table(index='EndDate', columns=['index_code', 'comp_code'],
-                                               values='Weight')
+                                               values='Weight', aggfunc='first')
 
         index_name = {'000016': 'sz50', '000300': 'hs300', '000902': 'zzlt',
                       '000905': 'zz500', '000906': 'zz800', '399005': 'zxb', '399006': 'cyb'}
@@ -662,9 +663,10 @@ class database(object):
             fillna(method='ffill').fillna(0).astype(np.int)
         self.data.if_tradable['is_delisted'] = self.data.if_tradable['is_delisted'].\
             fillna(method='ffill').fillna(0).astype(np.int)
+        # 指数权重数据也是这样, 在用旧数据向前填na之后, 还要再fill一次na, 原因与上面的上市退市数据是一样的
         for index_name in benchmark_index_name:
-            self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name]\
-                                                              .fillna(method='ffill')
+            self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
+                fillna(method='ffill').fillna(0.0)
         # 复权因子在更新的时候, 需要在衔接了停牌标记后, 在此进行复权因子(以及之后的后复权价格)的计算
         # 同直接取所有的复权因子数据时一样, 首先将停牌期间的复权因子设置为nan,
         # 然后使用停牌前最后一天的复权因子向前填充, 使得停牌期间的复权因子变化反映在复牌后第一天,
@@ -683,20 +685,20 @@ class database(object):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    db = database(start_date=pd.Timestamp('2017-01-01'), end_date=pd.Timestamp('2017-06-21'))
+    db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-11-14'))
     # db.is_update=False
     # db.get_data_from_db()
-    db.update_data_from_db(end_date=pd.Timestamp('2017-11-14'))
-    # db.initialize_jydb()
-    # db.initialize_sq()
-    # db.initialize_gg()
-    # db.get_trading_days()
-    # db.get_labels()
+    # db.update_data_from_db(end_date=pd.Timestamp('2017-11-14'))
+    db.initialize_jydb()
+    db.initialize_sq()
+    db.initialize_gg()
+    db.get_trading_days()
+    db.get_labels()
     # db.get_AdjustFactor()
     # db.get_sq_data()
     # db.get_index_price()
-    # db.get_index_weight()
-    # data.write_data(db.data.raw_data)
+    db.get_index_weight()
+    data.write_data(db.data.benchmark_price)
     # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
     #     db.get_runner_value(runner_id)
     # db.data.stock_price.to_hdf('runner_value', '123')

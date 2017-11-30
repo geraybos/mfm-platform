@@ -17,8 +17,8 @@ class optimizer_utility(optimizer):
         optimizer.__init__(self)
         # 初始化两个风险部分的风险厌恶系数
         # 按照barra优化器的初始值, 都将初始值设置为0.75
-        self.cov_risk_aversion = 0.75
-        self.spec_risk_aversion = 0.75
+        self.cov_risk_aversion = 1000
+        self.spec_risk_aversion = 1000
 
     # 最大化效用函数的目标函数
     def objective(self, w, add_params):

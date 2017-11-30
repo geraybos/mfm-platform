@@ -92,30 +92,46 @@ class performance_attribution(object):
         self.show_warning = show_warning
 
     # 建立barra因子库，有些时候可以直接用在其他地方（如策略中）已计算出的barra因子库，就可以不必计算了
-    def construct_base(self, *, outside_base=None, base_stock_pool='all'):
+    def construct_base(self, *, outside_base=None, base_stock_pool='all', enable_read_base_expo=False):
         if isinstance(outside_base, factor_base):
             self.base = outside_base
-            # 外部的base，如果没有factor expo则也需要再次计算, 股票池则用外部base的股票池
+            print('PA system has successfully got base from outside! Please note that the base from '
+                  'outside should at least contain basic data.\n')
+            # 外部的base，如果没有factor expo则需要读取或再次计算, 股票池则用外部base的股票池
             if self.base.base_data.factor_expo.empty:
-                self.base.construct_factor_base()
+                if enable_read_base_expo:
+                    self.base.base_data.factor_expo = pd.read_hdf('bb_factor_expo_'+
+                                                                  self.base.base_data.stock_pool, '123')
+                    self.base.get_factor_group_count()
+                    print('PA system has successfully read base expo from local files!\n')
+                else:
+                    self.base.construct_factor_base()
             pass
         else:
             self.base.base_data.stock_pool = base_stock_pool
-            self.base.construct_factor_base()
+            if enable_read_base_expo:
+                # 如果选择读取本地储存的暴露值, 在读取之前, 还需要先读取original data, 因为这些数据在之后的归因中会用到
+                self.base.read_original_data()
+                self.base.base_data.factor_expo = pd.read_hdf('bb_factor_expo_' +
+                                                              self.base.base_data.stock_pool, '123')
+                self.base.get_factor_group_count()
+                print('PA system has successfully read base expo from local files!\n')
+            else:
+                self.base.construct_factor_base()
 
     # 进行业绩归因
     # 用discard_factor可以定制用来归因的因子，将不需要的因子的名字或序号以list写入即可
     # 注意，只能用来删除风格因子，不能用来删除行业因子或country factor
-    def get_pa_return(self, *, discard_factor=[], enable_reading_pa_return=True):
+    def get_pa_return(self, *, discard_factor=(), enable_read_pa_return=False):
         # 如果有储存的因子收益, 且没有被丢弃的因子, 则读取储存在本地的因子
         if os.path.isfile('bb_factor_return_'+self.base.base_data.stock_pool+'.csv') and \
-                        len(discard_factor) == 0 and enable_reading_pa_return:
+                        len(discard_factor) == 0 and enable_read_pa_return:
             base_factor_return = data.read_data(['bb_factor_return_'+self.base.base_data.stock_pool], ['pa_returns'])
             self.pa_returns = base_factor_return['pa_returns']
-            print('Barra base factor returns successfully read from local files! \n')
+            print('PA system has successfully read base return from local files! \n')
         else:
             # 将被删除的风格因子的暴露全部设置为0
-            self.base.base_data.factor_expo.ix[discard_factor, :, :] = 0
+            self.base.base_data.factor_expo.ix[list(discard_factor), :, :] = 0
             # 再次将不能交易的值设置为nan
             self.base.base_data.discard_uninv_data()
             # 建立储存因子收益的dataframe
@@ -147,7 +163,8 @@ class performance_attribution(object):
             self.base.base_data.factor_expo, self.base.base_data.if_tradable, show_warning=self.show_warning)
 
         # 根据因子收益和因子暴露计算组合在因子上的收益，注意因子暴露用的是组合上一期的因子暴露
-        self.port_pa_returns = self.pa_returns.mul(self.port_expo.shift(1))
+        # 为了使得每个因子第一天的收益都从0开始, 因此将第一天的nan填成0
+        self.port_pa_returns = self.pa_returns.mul(self.port_expo.shift(1)).fillna(0.0)
 
         # 将组合因子收益和因子暴露数据重索引为pa position的时间（即持仓区间），原时间为barra base的区间
         self.port_expo = self.port_expo.reindex(self.pa_position.holding_matrix.index)
@@ -156,10 +173,11 @@ class performance_attribution(object):
         # 注意, 如果进行的是真实世界的超额收益归因, 如果传入了偏离度序列, 则要将country factor因子的暴露重新
         # 调整为偏离度序列, 然后重新计算收益, 注意, 这里的调整是原始的暴露加上偏离度序列,
         # 因为原始的暴露可能因为调仓日和起始回测日的原因, 导致最开始的几天是-1.
+        # 同样要记得把第一天的nan填成0
         if isinstance(self.intra_holding_deviation, pd.Series):
             self.port_expo['country_factor'] += self.intra_holding_deviation
             self.port_pa_returns['country_factor'] = self.pa_returns['country_factor'].\
-                mul(self.port_expo['country_factor'].shift(1))
+                mul(self.port_expo['country_factor'].shift(1)).fillna(0)
 
         if self.do_cash_pa:
             # 首先要将在base中的无风险收益的时间索引重索引为归因时间段
@@ -216,6 +234,8 @@ class performance_attribution(object):
         # 因此计算方法也是一样的，只不过port_nav在shift过后，将第一期的nan填成1，以表示最一开始的资产净值是1
         if isinstance(self.trans_cost, pd.Series):
             self.trans_cost_cum = self.trans_cost.mul(port_nav.shift(1).fillna(1)).cumsum()
+        # 对于现金来讲, 由于现金在t日的收益, 实际上是昨日持有现金比例的隔夜收益,
+        # 因此第一天事实上考虑的是刚刚拿到资产进场的那天, 所以不存在昨日的隔夜收益, 因此第一项填成0
         if self.do_cash_pa:
             self.cash_returns_cum = self.cash_returns.mul(port_nav.shift(1)).fillna(0).cumsum()
         # 最后计算组合的累计简单收益，以做参考
@@ -227,14 +247,16 @@ class performance_attribution(object):
         # 在每个时间点上, 用过去能得到的所有因子收益率序列来计算因子收益率的波动率
         # 并没有用加权的方法来估计波动率, 因为归因是对组合的历史波动率归因,
         # 计算历史波动率时, 并不加权, 而是进行回溯的等权计算
-        self.pa_sigma = self.pa_returns.expanding(min_periods=21).std()
+        # 注意, 由于波动选取的窗口为21个交易日, 因此序列最开始的前20个交易日的数据默认都填成0
+        self.pa_sigma = self.pa_returns.expanding(min_periods=21).std().fillna(0.0)
         # 同样的, 在每个时间点上, 用过去能得到的所有因子收益率序列, 和组合的收益率序列来计算相关系数
-        self.pa_corr = self.pa_returns.expanding(min_periods=21).corr(self.port_returns)
+        self.pa_corr = self.pa_returns.expanding(min_periods=21).corr(self.port_returns).fillna(0.0)
 
         # 根据barra: risk contribution = exposure * volatility * correlation 的框架,
         # 将风险贡献归因到风格, 行业, 国家因子, 以及残余部分上去, 详细的方法见barra文档.
         # 首先将每个小因子的风险贡献部分计算出来, 注意, 与收益归因一样, 暴露同样是要用上一期的暴露
-        self.port_pa_risks = self.port_expo.shift(1) * self.pa_sigma * self.pa_corr
+        # 将第一天的nan也填成0, 保证风险前20个交易日都是0
+        self.port_pa_risks = (self.port_expo.shift(1) * self.pa_sigma * self.pa_corr).fillna(0.0)
         # 然后根据因子分类, 将风险贡献分配到不同的因子类型上去
         self.style_factor_risks = self.port_pa_risks.ix[:, 0:self.base.n_style].sum(1)
         self.industry_factor_risks = self.port_pa_risks.ix[:,
@@ -244,7 +266,7 @@ class performance_attribution(object):
 
         # 残余收益贡献的风险, 由组合总风险减去已经归因的风险得到
         # 计算组合的风险
-        self.port_risks = self.port_returns.expanding(min_periods=21).std()
+        self.port_risks = self.port_returns.expanding(min_periods=21).std().fillna(0.0)
         # 残余收益贡献的风险
         self.residual_risks = self.port_risks - (self.style_factor_risks + self.industry_factor_risks
                                                  + self.country_factor_risks)
@@ -252,9 +274,9 @@ class performance_attribution(object):
         # 为了保证风险归因的真实性, 如果有手续费在, 需要计算手续费对组合风险的影响
         if isinstance(self.trans_cost, pd.Series):
             # 计算手续费的风险
-            self.trans_cost_sigma = self.trans_cost.expanding().std()
+            self.trans_cost_sigma = self.trans_cost.expanding(min_periods=21).std().fillna(0)
             # 计算手续费与组合的相关系数
-            self.trans_cost_corr = self.trans_cost.expanding().corr(self.port_returns)
+            self.trans_cost_corr = self.trans_cost.expanding(min_periods=21).corr(self.port_returns).fillna(0.0)
             # 默认手续费暴露是1, 计算手续费的风险贡献
             self.trans_cost_risks = self.trans_cost_sigma * self.trans_cost_corr
             # 于是, 残余风险要减去手续费的风险, 即将手续费的风险贡献从残余收益风险贡献中剥离出去
@@ -262,11 +284,11 @@ class performance_attribution(object):
         # 如果要做现金部分的归因，还需要计算现金部分的收益对组合风险的影响
         if self.do_cash_pa:
             # 现金的风险
-            self.cash_sigma = self.risk_free_rate_simple.expanding().std()
+            self.cash_sigma = self.risk_free_rate_simple.expanding(min_periods=21).std().fillna(0.0)
             # 现金与组合的相关系数
-            self.cash_corr = self.risk_free_rate_simple.expanding().corr(self.port_returns)
+            self.cash_corr = self.risk_free_rate_simple.expanding(min_periods=21).corr(self.port_returns).fillna(0.0)
             # 计算现金部分的风险贡献
-            self.cash_risks = self.pa_position.cash.shift(1) * self.cash_sigma * self.cash_corr
+            self.cash_risks = (self.pa_position.cash.shift(1) * self.cash_sigma * self.cash_corr).fillna(0.0)
             # 残余风险要减去现金部分的风险
             self.residual_risks -= self.cash_risks
 
@@ -594,10 +616,12 @@ class performance_attribution(object):
             plt.savefig(pdfs, format='pdf', bbox_inches='tight')
 
     # 进行业绩归因
-    def execute_performance_attribution(self, *, outside_base=None, base_stock_pool='all', discard_factor=[],
-                                        foldername='', enable_reading_pa_return=True):
-        self.construct_base(outside_base=outside_base, base_stock_pool= base_stock_pool)
-        self.get_pa_return(discard_factor=discard_factor, enable_reading_pa_return=enable_reading_pa_return)
+    def execute_performance_attribution(self, *, outside_base=None, base_stock_pool='all', discard_factor=(),
+                                        foldername='', enbale_read_base_expo=False,
+                                        enable_read_pa_return=False):
+        self.construct_base(outside_base=outside_base, base_stock_pool= base_stock_pool,
+                            enable_read_base_expo=enbale_read_base_expo)
+        self.get_pa_return(discard_factor=discard_factor, enable_read_pa_return=enable_read_pa_return)
         self.analyze_pa_return_outcome()
         self.analyze_pa_risk_outcome()
         self.handle_discarded_stocks(foldername=foldername)

@@ -101,7 +101,10 @@ class optimizer(object):
 
     # 添加因子暴露值的限制条件
     @staticmethod
-    def factor_expo_cons(w, *, factor, lower_bound=True, limit=0):
+    def factor_expo_cons(w, *, factor, lower_bound=True, limit=0, bench_weight=None):
+        # 如果有bench_weight, 则是对active部分的因子暴露做限制
+        if isinstance(bench_weight, pd.Series):
+            w = w - bench_weight
         # 根据选择的因子暴露和限制, 减去限制
         factor_expo = factor.dot(w) - limit
         # 因为函数的条件形式是大于0, 因此如果是下限, 则不管, 上限则取负号
@@ -124,7 +127,7 @@ class optimizer(object):
                             specific_var=None, residual_return=None, old_w=None, enable_trans_cost=False,
                             buy_cost=1.5/1000, sell_cost=1.5/1000, enable_turnover_cons=False,
                             turnover_cap=1.0, enable_full_inv_cons=True, cash_ratio=0, long_only=True,
-                            asset_cap=None, enable_factor_expo_cons=False):
+                            asset_cap=None, factor_expo_cons=None):
 
         if enable_turnover_cons:
             optimized_weight = self.solve_opt_with_turnover_cons(bench_weight, factor_expo, factor_ret, factor_cov,
@@ -132,14 +135,14 @@ class optimizer(object):
                 enable_trans_cost=enable_trans_cost, buy_cost=buy_cost, sell_cost=sell_cost,
                 turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
                 cash_ratio=cash_ratio, long_only=long_only, asset_cap=asset_cap,
-                enable_factor_expo_cons=enable_factor_expo_cons)
+                factor_expo_cons=factor_expo_cons)
         else:
             optimized_weight = self.solve_ordinary_opt(bench_weight, factor_expo, factor_ret, factor_cov,
                 specific_var=specific_var, residual_return=residual_return, old_w=old_w,
                 enable_trans_cost=enable_trans_cost, buy_cost=buy_cost, sell_cost=sell_cost,
                 turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
                 cash_ratio=cash_ratio, long_only=long_only, asset_cap=asset_cap,
-                enable_factor_expo_cons=enable_factor_expo_cons)
+                factor_expo_cons=factor_expo_cons)
 
         return optimized_weight
 
@@ -148,7 +151,7 @@ class optimizer(object):
                               specific_var=None, residual_return=None, old_w=None, enable_trans_cost=False,
                               buy_cost=1.5/1000, sell_cost=1.5/1000, turnover_cap=1.0,
                               enable_full_inv_cons=True, cash_ratio=0, long_only=True,
-                              asset_cap=None, enable_factor_expo_cons=False):
+                              asset_cap=None, factor_expo_cons=None):
         # 注意要把dataframe的变量做成ndarray的格式, 主要是不能有nan
         # 因此规则是, 只要股票的某一因子暴露是nan, 则填为0
         # 因此, 如果这里有投资域的问题, 则需要注意, 要在传入此函数之前, 就将投资域外的股票全部去掉,
@@ -187,19 +190,38 @@ class optimizer(object):
         #     ineq_cons_funcs['turnover_cons'] = functools.partial(optimizer.turnover_cons, old_w=old_w,
         #                                                        turnover_cap=turnover_cap)
 
-        # 因子暴露的不等式限制条件
-        # 先实验一下限制市值的暴露
-        if enable_factor_expo_cons:
-            ineq_cons_funcs['size_cons'] = functools.partial(optimizer.factor_expo_cons, factor=
-                                                             factor_expo.ix['CNE5S_SIZE', :],
-                                                             lower_bound=False, limit=0)
-
         # 等式的限制条件
         eq_cons_funcs = {}
         # 持仓之和的限制条件
         if enable_full_inv_cons:
             eq_cons_funcs['full_inv_cons'] = functools.partial(optimizer.full_inv_cons, n_assets=n_assets,
                                                                cash_ratio=cash_ratio)
+
+        # 因子暴露的限制条件, 包括等式和不等式, 需要用户自己定义
+        if isinstance(factor_expo_cons, pd.DataFrame):
+            # 根据用户设定的因子暴露限制条件进行设置.
+            for i, curr_con in factor_expo_cons.iterrows():
+                curr_limit = curr_con['limit']
+                # 先判断是等式条件还是不等式条件
+                if not curr_con['if_eq']:
+                    # 如果是不等式条件, 则判断是upper的条件还是lower的条件, 即设置的是上限还是下限
+                    if_lower_bound = curr_con['if_lower_bound']
+                    cons_name = curr_con['factor'] + '_ineq_' + ('lower' if if_lower_bound else 'upper') + '_cons'
+                    ineq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
+                        factor_expo.ix[curr_con['factor'], :], lower_bound=if_lower_bound, limit=curr_limit,
+                        bench_weight=bench_weight)
+                else:
+                    # 等式条件就不需要判断上下限的问题
+                    cons_name = curr_con['factor'] + '_eq_cons'
+                    eq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
+                        factor_expo.ix[curr_con['factor'], :], limit=curr_limit, bench_weight=bench_weight)
+
+        # if isinstance(factor_expo_cons, pd.DataFrame):
+        #     def indus_func(x):
+        #         active_x = x - bench_weight
+        #         expo = factor_expo.ix[factor_expo_cons['factor']].dot(active_x)
+        #         return expo
+        #     eq_cons_funcs['indus'] = indus_func
 
         # 第三步, 设置变量的边界条件
         # 注意, 这里对变量的边界条件是对所有变量都是一样的,
@@ -224,7 +246,7 @@ class optimizer(object):
                               specific_var=None, residual_return=None, old_w=None, enable_trans_cost=False,
                               buy_cost=1.5/1000, sell_cost=1.5/1000, turnover_cap=1.0,
                               enable_full_inv_cons=True, cash_ratio=0, long_only=True,
-                              asset_cap=None, enable_factor_expo_cons=False):
+                              asset_cap=None, factor_expo_cons=None):
         n_factors = factor_expo.shape[0]
         n_assets = factor_expo.shape[1]
         # split variable的数量, 为资产数量的2倍
@@ -276,17 +298,29 @@ class optimizer(object):
                                                            n_assets=n_assets)
         # 还有一个关于split varaible的边界条件, 将在优化器函数中设置
 
-        # # 因子暴露的不等式限制条件
-        # # 先实验一下限制市值的暴露
-        # if enable_factor_expo_cons:
-        #     ineq_cons_funcs['size_cons'] = functools.partial(optimizer.factor_expo_cons, factor=
-        #       factor_expo.ix['CNE5S_SIZE', :], lower_bound=False, limit=0)
-
-
         # 持仓之和的限制条件
         if enable_full_inv_cons:
             eq_cons_funcs['full_inv_cons'] = functools.partial(optimizer.full_inv_cons, n_assets=n_assets,
                                                                cash_ratio=cash_ratio)
+
+        # 因子暴露的限制条件, 包括等式和不等式, 需要用户自己定义
+        if isinstance(factor_expo_cons, pd.DataFrame):
+            # 根据用户设定的因子暴露限制条件进行设置.
+            for i, curr_con in factor_expo_cons.iterrows():
+                curr_limit = curr_con['limit']
+                # 先判断是等式条件还是不等式条件
+                if not curr_con['if_eq']:
+                    # 如果是不等式条件, 则判断是upper的条件还是lower的条件, 即设置的是上限还是下限
+                    if_lower_bound = curr_con['if_lower_bound']
+                    cons_name = curr_con['factor'] + '_ineq_' + ('lower' if if_lower_bound else 'upper') + '_cons'
+                    ineq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
+                        factor_expo.ix[curr_con['factor'], :], lower_bound=if_lower_bound, limit=curr_limit,
+                        bench_weight=bench_weight)
+                else:
+                    # 等式条件就不需要判断上下限的问题
+                    cons_name = curr_con['factor'] + '_eq_cons'
+                    eq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
+                        factor_expo.ix[curr_con['factor'], :], limit=curr_limit, bench_weight=bench_weight)
 
         # 第三步, 设置变量的边界条件
         # 注意, 这里对变量的边界条件是对所有变量都是一样的,
