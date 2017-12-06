@@ -460,7 +460,7 @@ class factor_base(object):
             reg_base = factor_expo.ix[:, time, valid_data.columns]
             # # reg_base = reg_base.drop(['lncap', 'beta', 'nls', 'bp', 'ey', 'growth', 'leverage'], axis=1)
             str_outcome = factor_base.str_spec_vol_estimator(ts_outcome[0], ts_outcome[1], ts_weight,
-                reg_base, n_style=10, n_indus=32, reg_weight=np.sqrt(mv.ix[time, valid_data.columns]))
+                reg_base, n_style=10, n_indus=28, reg_weight=np.sqrt(mv.ix[time, valid_data.columns]))
 
             return [ts_outcome[0], ts_outcome[1], str_outcome[0], str_outcome[1], ts_weight]
 
@@ -713,11 +713,11 @@ class factor_base(object):
         self.get_eigen_adjusted_cov_mat_parallel(n_of_sims=eigen_adj_sims, scaling_factor=scaling_factor,
                                                  simed_sample_size=covmat_sample_size)
 
-        # # 储存数据
-        # self.eigen_adjusted_cov_mat.to_hdf('bb_riskmodel_covmat_'+self.base_data.stock_pool, '123')
-        # self.spec_var.to_hdf('bb_riskmodel_specvar_'+self.base_data.stock_pool, '123')
-        self.eigen_adjusted_cov_mat.to_hdf('barra_riskmodel_covmat_all_facret', '123')
-        self.spec_var.to_hdf('barra_riskmodel_specvar_all_facret', '123')
+        # 储存数据
+        self.eigen_adjusted_cov_mat.to_hdf('bb_riskmodel_covmat_'+self.base_data.stock_pool, '123')
+        self.spec_var.to_hdf('bb_riskmodel_specvar_'+self.base_data.stock_pool, '123')
+        # self.eigen_adjusted_cov_mat.to_hdf('barra_riskmodel_covmat_all_facret', '123')
+        # self.spec_var.to_hdf('barra_riskmodel_specvar_all_facret', '123')
 
     # 根据barra的bias statistics来测试风险预测能力的函数
     def risk_forecast_performance(self, *, no_of_sims=10000, freq='m', test_type='random'):

@@ -169,14 +169,15 @@ def sf_test_multiple_pools_parallel(factor=None, *, direction='+', bb_obj=None, 
 # # orth_mom = strategy_data.simple_orth_gs(ii.intangible_return, bb)
 # orth_mom = orth_mom[0]
 
-rv = pd.read_hdf('stock_alpha_hs300_split', '123')
-for iname, idf in rv.iteritems():
+# rv = pd.read_hdf('stock_alpha_zz500_split', '123')
+# for iname, idf in rv.iteritems():
+alpha = pd.read_hdf('stock_alpha_zz500', '123')
 
-    sf_test_multiple_pools(factor=idf, direction='+', folder_name='naive_test/'+iname,
-                           bkt_start=pd.Timestamp('2011-05-04'), holding_freq='w',
-                           bkt_end=pd.Timestamp('2017-03-09'), stock_pools=('hs300', ),
-                           do_bb_pure_factor=False, do_pa=False, select_method=1, do_active_pa=True,
-                           do_data_description=False, do_factor_corr_test=False, loc=-1)
+sf_test_multiple_pools(factor=alpha, direction='+', folder_name='zz500',
+                       bkt_start=pd.Timestamp('2011-05-04'), holding_freq='w',
+                       bkt_end=pd.Timestamp('2017-03-09'), stock_pools=('zz500', ),
+                       do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+                       do_data_description=False, do_factor_corr_test=False, loc=-1)
 
 # sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),
 #                                 bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['sz50', 'zxb', 'cyb', 'hs300', 'zz500'],

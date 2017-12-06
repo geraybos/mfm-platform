@@ -113,7 +113,7 @@ class multi_factor_strategy(single_factor_strategy):
         # 读取储存好的runner value数据
         runner_value = pd.read_hdf('runner_value', '123')
         # 投资域为沪深300
-        self.strategy_data.stock_pool = 'hs300'
+        self.strategy_data.stock_pool = 'zz500'
         self.strategy_data.handle_stock_pool()
         # 读取行业数据
         industry = data.read_data(['Industry'])
@@ -144,15 +144,15 @@ class multi_factor_strategy(single_factor_strategy):
             curr_data = runner_value.ix[:, time, :]
             expo = curr_data.groupby(industry.ix[time, :]).apply(expo_within_indus_func)
             expo_within_indus.ix[:, time, :] = expo
-        # # 循环结束后, 计算股票的alpha, 即因子暴露加和
-        # stock_alpha = expo_within_indus.sum(axis=0)
-        # # 将不可投资的部分改为nan
-        # stock_alpha = stock_alpha.where(self.strategy_data.if_tradable['if_inv'], np.nan)
-        # # 储存算出的股票alpha
-        # stock_alpha.to_hdf('stock_alpha_hs300', '123')
-        stock_alpha= expo_within_indus.apply(lambda x: x.where(self.strategy_data.if_tradable['if_inv'], np.nan),
-                                             axis=(1, 2))
-        stock_alpha.to_hdf('stock_alpha_hs300_split', '123')
+        # 循环结束后, 计算股票的alpha, 即因子暴露加和
+        stock_alpha = expo_within_indus.sum(axis=0)
+        # 将不可投资的部分改为nan
+        stock_alpha = stock_alpha.where(self.strategy_data.if_tradable['if_inv'], np.nan)
+        # 储存算出的股票alpha
+        stock_alpha.to_hdf('stock_alpha_zz500', '123')
+        # stock_alpha= expo_within_indus.apply(lambda x: x.where(self.strategy_data.if_tradable['if_inv'], np.nan),
+        #                                      axis=(1, 2))
+        # stock_alpha.to_hdf('stock_alpha_zz500_split', '123')
         pass
 
 

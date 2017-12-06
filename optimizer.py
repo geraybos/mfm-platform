@@ -208,13 +208,14 @@ class optimizer(object):
                     if_lower_bound = curr_con['if_lower_bound']
                     cons_name = curr_con['factor'] + '_ineq_' + ('lower' if if_lower_bound else 'upper') + '_cons'
                     ineq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
-                        factor_expo.ix[curr_con['factor'], :], lower_bound=if_lower_bound, limit=curr_limit,
-                        bench_weight=bench_weight)
+                        factor_expo.ix[curr_con['factor'], :].fillna(method='bfill'), lower_bound=if_lower_bound,
+                        limit=curr_limit, bench_weight=bench_weight)
                 else:
                     # 等式条件就不需要判断上下限的问题
                     cons_name = curr_con['factor'] + '_eq_cons'
                     eq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
-                        factor_expo.ix[curr_con['factor'], :], limit=curr_limit, bench_weight=bench_weight)
+                        factor_expo.ix[curr_con['factor'], :].fillna(method='bfill'), limit=curr_limit,
+                        bench_weight=bench_weight)
 
         # if isinstance(factor_expo_cons, pd.DataFrame):
         #     def indus_func(x):

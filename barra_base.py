@@ -905,14 +905,14 @@ class barra_base(factor_base):
             'pool of base is different from filename appendix, in order to avoid possible ' \
             'data loss, the saving procedure has been terminated! \n'
 
-            # self.base_factor_return.to_csv('bb_factor_return_'+self.base_data.stock_pool+'.csv',
-            #                              index_label='datetime', na_rep='NaN', encoding='GB18030')
-            # self.specific_return.to_csv('bb_specific_return_'+self.base_data.stock_pool+'.csv',
-            #                             index_label='datetime', na_rep='NaN', encoding='GB18030')
-            self.base_factor_return.to_csv('barra_factor_return_'+self.base_data.stock_pool+'.csv',
+            self.base_factor_return.to_csv('bb_factor_return_'+self.base_data.stock_pool+'.csv',
                                          index_label='datetime', na_rep='NaN', encoding='GB18030')
-            self.specific_return.to_csv('barra_specific_return_'+self.base_data.stock_pool+'.csv',
+            self.specific_return.to_csv('bb_specific_return_'+self.base_data.stock_pool+'.csv',
                                         index_label='datetime', na_rep='NaN', encoding='GB18030')
+            # self.base_factor_return.to_csv('barra_factor_return_'+self.base_data.stock_pool+'.csv',
+            #                              index_label='datetime', na_rep='NaN', encoding='GB18030')
+            # self.specific_return.to_csv('barra_specific_return_'+self.base_data.stock_pool+'.csv',
+            #                             index_label='datetime', na_rep='NaN', encoding='GB18030')
             print('The bb factor return has been saved! \n')
 
 
@@ -997,12 +997,12 @@ if __name__ == '__main__':
     # pools = ['all', 'hs300', 'zz500', 'sz50']
     # for i in pools:
     bb = barra_base()
-    bb.base_data.stock_pool = 'all'
+    bb.base_data.stock_pool = 'zz500'
     # bb.base_data.stock_pool = i
     # bb.try_to_read = False
     # bb.read_original_data()
-    # bb.construct_factor_base(if_save=False)
-    # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+    bb.construct_factor_base(if_save=False)
+    bb.base_data.factor_expo = pd.read_hdf('bb_factor_expo_zz500', '123')
     # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
     #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
     #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
@@ -1014,26 +1014,26 @@ if __name__ == '__main__':
     # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
     # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
     # bb.n_indus = 32
-    # bb.get_base_factor_return(if_save=True)
+    bb.get_base_factor_return(if_save=True)
     # if i in ['all', 'hs300', 'zz500']:
     #     bb.base_data.factor_expo.to_hdf('bb_factorexpo_'+i, '123')
-    bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
-    bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
-        'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
-        'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
-        'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
-        'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
-        'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
-        'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
-        'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
-    bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
-    bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    # bb.base_factor_return = data.read_data(['bb_factor_return_all']).iloc[0]
+    # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+    # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
+    #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
+    #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
+    #     'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
+    #     'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
+    #     'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
+    #     'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
+    #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
+    # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
+    # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+    # bb.base_factor_return = data.read_data(['bb_factor_return_zz500']).iloc[0]
     # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
-    # bb.specific_return = data.read_data(['bb_specific_return_all']).iloc[0]
-    bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
-    bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
-    bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')
+    # bb.specific_return = data.read_data(['bb_specific_return_zz500']).iloc[0]
+    # bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
+    # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
+    # bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')
     # bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_all', '123')
     # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_hs300', '123')
     # bb.get_initial_cov_mat()
@@ -1045,8 +1045,8 @@ if __name__ == '__main__':
     # bb.get_vra_spec_vol()
     # bb.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=0.25)
     # start_time = time.time()
-    bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
-    bb.construct_risk_forecast_parallel(eigen_adj_sims=1000)
+    # bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
+    # bb.construct_risk_forecast_parallel(eigen_adj_sims=1000)
     # bb.handle_barra_data()
     # bb.risk_forecast_performance_parallel(test_type='random', bias_type=2, freq='w')
     # bb.risk_forecast_performance_parallel_spec(test_type='stock', bias_type=1, cap_weighted_bias=False)
