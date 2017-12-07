@@ -37,7 +37,8 @@ def sf_test_multiple_pools(factor=None, *, direction='+', bb_obj=None, discard_f
     temp_position = position(cp_adj)
 
     # 先要初始化bkt对象
-    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000, sell_cost=1.5/1000)
+    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000, sell_cost=1.5/1000,
+                       bkt_benchmark_data='ClosePrice_adj_hs300')
     # 建立bb对象，否则之后每次循环都要建立一次新的bb对象
     if bb_obj is None:
         bb_obj = barra_base()
@@ -171,12 +172,12 @@ def sf_test_multiple_pools_parallel(factor=None, *, direction='+', bb_obj=None, 
 
 # rv = pd.read_hdf('stock_alpha_zz500_split', '123')
 # for iname, idf in rv.iteritems():
-alpha = pd.read_hdf('stock_alpha_zz500', '123')
+alpha = pd.read_hdf('stock_alpha_hs300', '123')
 
-sf_test_multiple_pools(factor=alpha, direction='+', folder_name='zz500',
-                       bkt_start=pd.Timestamp('2011-05-04'), holding_freq='w',
-                       bkt_end=pd.Timestamp('2017-03-09'), stock_pools=('zz500', ),
-                       do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+sf_test_multiple_pools(factor=alpha, direction='+', folder_name='tar_holding_bkt/300s',
+                       bkt_start=pd.Timestamp('2016-04-12'), holding_freq='w',
+                       bkt_end=pd.Timestamp('2017-11-13'), stock_pools=('all', ),
+                       do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,
                        do_data_description=False, do_factor_corr_test=False, loc=-1)
 
 # sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),

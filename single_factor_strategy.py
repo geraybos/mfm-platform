@@ -1130,8 +1130,8 @@ class single_factor_strategy(strategy):
                                                          ['Weight_' + self.strategy_data.stock_pool])
                     pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool]
                 else:
-                    temp_weight = data.read_data(['Weight_zz500'], ['Weight_zz500'])
-                    pa_benchmark_weight = temp_weight['Weight_zz500']
+                    temp_weight = data.read_data(['Weight_hs300'], ['Weight_hs300'])
+                    pa_benchmark_weight = temp_weight['Weight_hs300']
 
             # base_obj在这里不用进行深拷贝, 因为归因的股票池=base_obj中base_data的股票池=策略的股票池,
             # 只要是一个股票池之间的计算, 就不会出现数据的丢失. 注意base_obj中的数据是没有shift过的, 专供归因所用
@@ -1172,6 +1172,15 @@ class single_factor_strategy(strategy):
         # holding = pd.read_hdf('opt_holding_tar_hs300', '123')
         # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
         #                                                method='ffill').fillna(0.0)
+        tar_holding = pd.read_hdf('tar_holding_vol', '123')
+        curr_tar_holding = tar_holding['300alpha投机']
+        curr_tar_holding = curr_tar_holding.where(curr_tar_holding.sum(1)!=0, np.nan). \
+            fillna(method='ffill').fillna(0.0)
+        cp = data.read_data(['ClosePrice'], shift=True).iloc[0]
+        holding_value = curr_tar_holding.mul(cp)
+        self.position.holding_matrix = holding_value.div(holding_value.sum(1), axis=0).fillna(0.0)
+
+        print('Please Note: the position of strategy has been set to an outside position!\n')
         pass
 
             
