@@ -174,7 +174,7 @@ def sf_test_multiple_pools_parallel(factor=None, *, direction='+', bb_obj=None, 
 # for iname, idf in rv.iteritems():
 alpha = pd.read_hdf('stock_alpha_hs300', '123')
 
-sf_test_multiple_pools(factor=alpha, direction='+', folder_name='tar_holding_bkt/300s',
+sf_test_multiple_pools(factor=alpha, direction='+', folder_name='tar_holding_bkt/just_test',
                        bkt_start=pd.Timestamp('2016-04-12'), holding_freq='w',
                        bkt_end=pd.Timestamp('2017-11-13'), stock_pools=('all', ),
                        do_bb_pure_factor=False, do_pa=True, select_method=0, do_active_pa=True,

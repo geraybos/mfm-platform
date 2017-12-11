@@ -158,7 +158,7 @@ class database(object):
     # 取是否停牌
     def get_is_suspended(self):
         is_suspended = self.sq_data.pivot(index='TradingDay', columns='SecuCode', values='is_suspended')
-        self.data.if_tradable['is_suspended'] = is_suspended
+        self.data.if_tradable['is_suspended'] = is_suspended.fillna(0).astype(np.bool)
 
     # 从聚源数据库里取复权因子
     def get_AdjustFactor(self, *, first_date=pd.Timestamp('1900-01-01')):
@@ -248,7 +248,7 @@ class database(object):
         if self.is_update:
             is_enlisted = is_enlisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
         else:
-            is_enlisted = is_enlisted.fillna(0).astype(np.int)
+            is_enlisted = is_enlisted.fillna(0).astype(np.bool)
 
         # 退市标记为4， 找到那些为4的，然后将false改为nan，向前填充true，即可得到is_delisted
         # 即一旦退市之后，之后的is_delisted都为true
@@ -266,7 +266,7 @@ class database(object):
         if self.is_update:
             is_delisted = is_delisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
         else:
-            is_delisted = is_delisted.fillna(0).astype(np.int)
+            is_delisted = is_delisted.fillna(0).astype(np.bool)
 
         self.data.if_tradable['is_enlisted'] = is_enlisted
         self.data.if_tradable['is_delisted'] = is_delisted
@@ -660,9 +660,9 @@ class database(object):
         self.get_pb()
         # 注意这两个数据在用旧数据向前填na之后，还要再fill一次na，因为更新的时候出现的新股票，之前的旧数据因为重索引的关系，也是nan
         self.data.if_tradable['is_enlisted'] = self.data.if_tradable['is_enlisted'].\
-            fillna(method='ffill').fillna(0).astype(np.int)
+            fillna(method='ffill').fillna(0).astype(np.bool)
         self.data.if_tradable['is_delisted'] = self.data.if_tradable['is_delisted'].\
-            fillna(method='ffill').fillna(0).astype(np.int)
+            fillna(method='ffill').fillna(0).astype(np.bool)
         # 指数权重数据也是这样, 在用旧数据向前填na之后, 还要再fill一次na, 原因与上面的上市退市数据是一样的
         for index_name in benchmark_index_name:
             self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
@@ -694,11 +694,12 @@ if __name__ == '__main__':
     db.initialize_gg()
     db.get_trading_days()
     db.get_labels()
+    db.get_list_status()
     # db.get_AdjustFactor()
     # db.get_sq_data()
     # db.get_index_price()
-    db.get_index_weight()
-    data.write_data(db.data.benchmark_price)
+    # db.get_index_weight()
+    # data.write_data(db.data.benchmark_price)
     # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
     #     db.get_runner_value(runner_id)
     # db.data.stock_price.to_hdf('runner_value', '123')

@@ -107,9 +107,9 @@ class data(object):
         self.if_tradable = data.read_data(file_name, item_name, shift = shift)
         # 将已上市且未退市，未停牌的股票标记为可交易(if_tradable = True)
         # 注意没有停牌数据的股票默认为不停牌
-        self.if_tradable['if_tradable'] = (self.if_tradable.ix['is_enlisted', :, :] * \
-                                           np.logical_not(self.if_tradable.ix['is_delisted', :, :]) * \
-                                           np.logical_not(self.if_tradable.ix['is_suspended', :, :].fillna(0))).astype(np.bool)
+        self.if_tradable['if_tradable'] = (self.if_tradable.ix['is_enlisted', :, :] *
+            np.logical_not(self.if_tradable.ix['is_delisted', :, :]) *
+            np.logical_not(self.if_tradable.ix['is_suspended', :, :].fillna(0))).astype(np.bool)
             
     # 四舍五入的函数
     @staticmethod
