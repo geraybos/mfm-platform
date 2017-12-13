@@ -120,9 +120,9 @@ class opt_portfolio_test(multi_factor_strategy):
         self.strategy_data.discard_uninv_data()
         self.factor_return = self.factor_return.where(self.strategy_data.if_tradable['if_inv'], np.nan)
 
-        # 投资域为全市场时的tricky解法, 只保留有alpha, 且在benchmark中的股票
-        self.factor_return = self.factor_return.mask(np.logical_and(self.strategy_data.benchmark_price.iloc[0]>0,
-                self.factor_return.isnull()), 0)
+        # # 投资域为全市场时的tricky解法, 只保留有alpha, 且在benchmark中的股票
+        # self.factor_return = self.factor_return.mask(np.logical_and(self.strategy_data.benchmark_price.iloc[0]>0,
+        #         self.factor_return.isnull()), 0)
 
         # 解优化组合
         self.construct_optimized_portfolio(indus_neutral=indus_neutral)
@@ -138,17 +138,17 @@ class opt_portfolio_test(multi_factor_strategy):
 
         # 进行回测
         self.bkt_obj = backtest(self.position, bkt_start=start_date, bkt_end=end_date,
-                                bkt_benchmark_data='ClosePrice_adj_hs300')
+                                bkt_benchmark_data='ClosePrice_adj_zz500')
         self.bkt_obj.execute_backtest()
         self.bkt_obj.get_performance(foldername=foldername + self.strategy_data.stock_pool, pdfs=self.pdfs)
 
         # 做真实情况下的超额归因
-        # pa_benchmark_weight = data.read_data(['Weight_' + self.strategy_data.stock_pool],
-        #                                      ['Weight_' + self.strategy_data.stock_pool])
-        # pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool]
-        pa_benchmark_weight = data.read_data(['Weight_hs300'],
-                                             ['Weight_hs300'])
-        pa_benchmark_weight = pa_benchmark_weight['Weight_hs300']
+        pa_benchmark_weight = data.read_data(['Weight_' + self.strategy_data.stock_pool],
+                                             ['Weight_' + self.strategy_data.stock_pool])
+        pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool]
+        # pa_benchmark_weight = data.read_data(['Weight_hs300'],
+        #                                      ['Weight_hs300'])
+        # pa_benchmark_weight = pa_benchmark_weight['Weight_hs300']
 
         self.bkt_obj.get_performance_attribution(benchmark_weight=pa_benchmark_weight, show_warning=False,
             pdfs=self.pdfs, is_real_world=True, foldername=foldername + self.strategy_data.stock_pool,
@@ -169,12 +169,12 @@ if __name__ == '__main__':
             continue
 
         opt_test = opt_portfolio_test()
-        opt_test.strategy_data.stock_pool = 'all'
+        opt_test.strategy_data.stock_pool = 'zz500'
 
         # 读取数据, 注意数据需要shift一个交易日
-        opt_test.factor_cov = pd.read_hdf('bb_riskmodel_covmat_all', '123')
-        opt_test.strategy_data.factor_expo = pd.read_hdf('bb_factor_expo_all', '123')
-        opt_test.spec_var = pd.read_hdf('bb_riskmodel_specvar_all', '123')
+        opt_test.factor_cov = pd.read_hdf('bb_riskmodel_covmat_zz500', '123')
+        opt_test.strategy_data.factor_expo = pd.read_hdf('bb_factor_expo_zz500', '123')
+        opt_test.spec_var = pd.read_hdf('bb_riskmodel_specvar_zz500', '123')
 
 
         # opt_test.factor_cov = pd.read_hdf('barra_fore_cov_mat', '123')
@@ -230,26 +230,28 @@ if __name__ == '__main__':
 
         # opt_test.factor_return = pd.read_hdf('stock_alpha_zz500', '123')
         # opt_test.factor_return = opt_test.factor_return.div(20)
+        opt_test.factor_return = data.read_data(['runner_value_63']).iloc[0]
         # opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0)
+        opt_test.factor_return = opt_test.factor_return.div(5)
         # opt_test.factor_return = idf
 
-        tar_holding = pd.read_hdf('tar_holding_vol', '123')
-        curr_tar_holding = tar_holding['300alpha投机']
-        curr_tar_holding = curr_tar_holding.where(curr_tar_holding.sum(1)!=0, np.nan). \
-            fillna(method='ffill').fillna(0.0)
-        cp = data.read_data(['ClosePrice'], shift=True).iloc[0]
-        holding_value = curr_tar_holding.mul(cp)
-        opt_test.factor_return = holding_value.div(holding_value.sum(1), axis=0).fillna(0.0)
-        opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0).fillna(0.0)
-        opt_test.factor_return = opt_test.factor_return.replace(0, np.nan)
+        # tar_holding = pd.read_hdf('tar_holding_vol', '123')
+        # curr_tar_holding = tar_holding['300alpha投机']
+        # curr_tar_holding = curr_tar_holding.where(curr_tar_holding.sum(1)!=0, np.nan). \
+        #     fillna(method='ffill').fillna(0.0)
+        # cp = data.read_data(['ClosePrice'], shift=True).iloc[0]
+        # holding_value = curr_tar_holding.mul(cp)
+        # opt_test.factor_return = holding_value.div(holding_value.sum(1), axis=0).fillna(0.0)
+        # opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0).fillna(0.0)
+        # opt_test.factor_return = opt_test.factor_return.replace(0, np.nan)
 
         opt_test.factor_return = opt_test.factor_return.shift(1)
-        opt_test.strategy_data.benchmark_price = data.read_data(['Weight_hs300'], shift=True)
+        opt_test.strategy_data.benchmark_price = data.read_data(['Weight_zz500'], shift=True)
 
         # folder_name = 'opt_test/my_opt_sf1p4_bs_indus/' + iname + '_'
-        folder_name = 'tar_holding_bkt/opt_300s_'
+        folder_name = 'tar_holding_bkt/rv64_opt_500h_div5_'
         # folder_name = 'opt_test/hs300/stock_alpha_hs300/my_opt_sf1p4_bs_std1_'
-        opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2016-04-12'), end_date=pd.Timestamp('2017-11-13'),
+        opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2011-05-04'), end_date=pd.Timestamp('2017-11-13'),
             loc=-1, foldername=folder_name, indus_neutral=True)
 
 

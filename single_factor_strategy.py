@@ -123,7 +123,7 @@ class single_factor_strategy(strategy):
     # 等于3为行业内市值加权, 行业间按基准加权
     def select_stocks_within_indus(self, *, select_ratio=(0.8, 1), direction='+', weight=0):
         # 读取行业数据：
-        industry = data.read_data(['Industry'], ['Industry'])
+        industry = data.read_data(['Industry'], ['Industry'], shift=True)
         industry = industry['Industry']
         # 定义选股的函数
         def get_stks(factor_data, *, select_ratio=(0.8, 1), direction='+'):
@@ -253,7 +253,7 @@ class single_factor_strategy(strategy):
             if expo_weight == 1:
                 factor_expo = strategy_data.get_cap_wgt_exposure(self.strategy_data.factor.iloc[0],
                                 self.strategy_data.stock_price.ix['FreeMarketValue'])
-            elif expo_weight == 0 :
+            elif expo_weight == 0:
                 factor_expo = strategy_data.get_exposure(self.strategy_data.factor.iloc[0])
         else:
             factor_expo = self.strategy_data.factor.iloc[0]
@@ -1172,15 +1172,15 @@ class single_factor_strategy(strategy):
         # holding = pd.read_hdf('opt_holding_tar_hs300', '123')
         # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
         #                                                method='ffill').fillna(0.0)
-        tar_holding = pd.read_hdf('tar_holding_vol', '123')
-        curr_tar_holding = tar_holding['300alpha投机']
-        curr_tar_holding = curr_tar_holding.where(curr_tar_holding.sum(1)!=0, np.nan). \
-            fillna(method='ffill').fillna(0.0)
-        cp = data.read_data(['ClosePrice'], shift=True).iloc[0]
-        holding_value = curr_tar_holding.mul(cp)
-        self.position.holding_matrix = holding_value.div(holding_value.sum(1), axis=0).fillna(0.0)
-
-        print('Please Note: the position of strategy has been set to an outside position!\n')
+        # tar_holding = pd.read_hdf('tar_holding_vol', '123')
+        # curr_tar_holding = tar_holding['300alpha投机']
+        # curr_tar_holding = curr_tar_holding.where(curr_tar_holding.sum(1)!=0, np.nan). \
+        #     fillna(method='ffill').fillna(0.0)
+        # cp = data.read_data(['ClosePrice'], shift=True).iloc[0]
+        # holding_value = curr_tar_holding.mul(cp)
+        # self.position.holding_matrix = holding_value.div(holding_value.sum(1), axis=0).fillna(0.0)
+        #
+        # print('Please Note: the position of strategy has been set to an outside position!\n')
         pass
 
             

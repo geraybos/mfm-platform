@@ -30,13 +30,13 @@ class database(object):
         # 数据库取出来后整理成型的数据
         self.data = data()
         # 聚源数据库的引擎
-        self.jydb_engine = None
+        self.initialize_jydb()
         # smart quant数据库引擎，取常用的行情数据
-        self.sq_engine = None
+        self.initialize_sq()
         # smart quant数据库中取出的数据
         self.sq_data = pd.DataFrame()
         # 朝阳永续数据库引擎，取分析师预期数据
-        self.gg_engine = None
+        self.initialize_gg()
         # 所取数据的开始、截止日期，市场代码
         self.start_date = start_date
         self.end_date = end_date
@@ -158,7 +158,8 @@ class database(object):
     # 取是否停牌
     def get_is_suspended(self):
         is_suspended = self.sq_data.pivot(index='TradingDay', columns='SecuCode', values='is_suspended')
-        self.data.if_tradable['is_suspended'] = is_suspended.fillna(0).astype(np.bool)
+        # self.data.if_tradable['is_suspended'] = is_suspended.fillna(0).astype(np.bool)
+        self.data.if_tradable['is_suspended'] = is_suspended
 
     # 从聚源数据库里取复权因子
     def get_AdjustFactor(self, *, first_date=pd.Timestamp('1900-01-01')):
@@ -196,19 +197,21 @@ class database(object):
             AdjustFactor = AdjustFactor.fillna(method='ffill').reindex(index=suspended_mark.index,
                             columns=suspended_mark.columns, method='ffill')
             # 对于停牌期间的股票, 要将它们的复权因子数据都改为nan
+            # suspened_mark是nan的股票, 都是那些根本没上市或者退市的股票, 因此如何改都没有影响
             AdjustFactor = AdjustFactor.where(np.logical_not(suspended_mark), np.nan)
             # 然后用停牌前最后一天的复权因子向前填充, 将停牌期间的复权因子都设置为停牌前最后一天的复权因子
             AdjustFactor = AdjustFactor.fillna(method='ffill')
 
-            # 将数据直接储存进data.stock_price, 可以自动reindex, 最后再将nan填充成1
-            self.data.stock_price['AdjustFactor'] = AdjustFactor.fillna(1)
+            # 将数据直接储存进data.stock_price, 可以自动reindex
+            # 不需要再将数据填成1, 在算adj price的时候进行fill value就可以了
+            self.data.stock_price['AdjustFactor'] = AdjustFactor
         pass
 
     # 复权因子后, 计算调整后的价格
     def get_ochl_vwap_adj(self):
         ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice', 'vwap']
         for data_name in ochl:
-            curr_data_adj = self.data.stock_price[data_name].mul(self.data.stock_price['AdjustFactor'])
+            curr_data_adj = self.data.stock_price[data_name].mul(self.data.stock_price['AdjustFactor'].fillna(1))
             self.data.stock_price[data_name + '_adj'] = curr_data_adj
         pass
 
@@ -243,12 +246,12 @@ class database(object):
         is_enlisted = is_enlisted.reindex(self.data.stock_price.major_axis, method='ffill')
         # 将股票索引对其，以保证fillna时可以填充所有的股票
         is_enlisted = is_enlisted.reindex(columns=self.data.stock_price.minor_axis)
-        # 股票上市前会变成nan，它们未上市，因此将它们填成false
-        # 更新的时候，那些一列全是nan的不能填，要等衔接旧数据时填
-        if self.is_update:
-            is_enlisted = is_enlisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
-        else:
-            is_enlisted = is_enlisted.fillna(0).astype(np.bool)
+        # # 股票上市前会变成nan，它们未上市，因此将它们填成false
+        # # 更新的时候，那些一列全是nan的不能填，要等衔接旧数据时填
+        # if self.is_update:
+        #     is_enlisted = is_enlisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
+        # else:
+        #     is_enlisted = is_enlisted.fillna(0).astype(np.bool)
 
         # 退市标记为4， 找到那些为4的，然后将false改为nan，向前填充true，即可得到is_delisted
         # 即一旦退市之后，之后的is_delisted都为true
@@ -261,12 +264,12 @@ class database(object):
         # 将股票索引对其，以保证fillna时可以填充所有的股票
         is_delisted = is_delisted.reindex(columns=self.data.stock_price.minor_axis)
         # 未退市过的股票，因为没有出现过4，会出现全是nan的情况，将它们填成false
-        # 股票退市前会变成nan，它们未退市，依然填成false
-        # 更新的时候，那些一列全是nan的不能填，要等衔接旧数据时填
-        if self.is_update:
-            is_delisted = is_delisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
-        else:
-            is_delisted = is_delisted.fillna(0).astype(np.bool)
+        # # 股票退市前会变成nan，它们未退市，依然填成false
+        # # 更新的时候，那些一列全是nan的不能填，要等衔接旧数据时填
+        # if self.is_update:
+        #     is_delisted = is_delisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
+        # else:
+        #     is_delisted = is_delisted.fillna(0).astype(np.bool)
 
         self.data.if_tradable['is_enlisted'] = is_enlisted
         self.data.if_tradable['is_delisted'] = is_delisted
@@ -516,16 +519,19 @@ class database(object):
             else:
                 curr_weight = curr_weight.dropna(axis=0, how='all').reindex(curr_weight.index, method='ffill').\
                     reindex(self.data.stock_price.major_axis, method='ffill')
+            # 无论是否更新, 都对指数权重做归一化处理, 更新的时候那些某一天全是nan的, 做完归一化处理后也是nan,
+            # 因此没有问题, 这些数据会在更新的时候被ffill, 因此同样也是归一化后的, 因为久的数据都是已经被归一化的
+            curr_weight = curr_weight.div(curr_weight.sum(1), axis=0)
             self.data.benchmark_price['Weight_'+index_name[i]] = curr_weight
-            # 将权重数据的nan填上0
-            # 如果为更新数据，则一行全是nan的情况不填，一行有数据的情况才将nan填成0
-            if self.is_update:
-                self.data.benchmark_price['Weight_'+index_name[i]] = self.data.benchmark_price['Weight_'+index_name[i]].\
-                    apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=1)
-            else:
-                self.data.benchmark_price['Weight_'+index_name[i]] = \
-                    self.data.benchmark_price['Weight_'+index_name[i]].fillna(0)
-            pass
+            # # 将权重数据的nan填上0
+            # # 如果为更新数据，则一行全是nan的情况不填，一行有数据的情况才将nan填成0
+            # if self.is_update:
+            #     self.data.benchmark_price['Weight_'+index_name[i]] = self.data.benchmark_price['Weight_'+index_name[i]].\
+            #         apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=1)
+            # else:
+            #     self.data.benchmark_price['Weight_'+index_name[i]] = \
+            #         self.data.benchmark_price['Weight_'+index_name[i]].fillna(0)
+            # pass
 
     # 从现在的因子库里取因子数据
     def get_runner_value(self, runner_id):
@@ -547,14 +553,11 @@ class database(object):
         data.write_data(self.data.raw_data)
         data.write_data(self.data.benchmark_price)
         data.write_data(self.data.if_tradable)
-        self.data.const_data.to_csv('const_data.csv', index_label='datetime', na_rep='NaN', encoding='GB18030')
+        self.data.const_data.to_csv('RiskModelData/const_data.csv', index_label='datetime', na_rep='NaN', encoding='GB18030')
 
     # 取数据的主函数
     # update_time为default时，则为首次取数据，需要更新数据时，传入更新的第一个交易日的时间给update_time即可
     def get_data_from_db(self, *, update_time=pd.Timestamp('1900-01-01')):
-        self.initialize_jydb()
-        self.initialize_sq()
-        self.initialize_gg()
         self.get_trading_days()
         self.get_labels()
         self.get_sq_data()
@@ -587,16 +590,22 @@ class database(object):
            self.save_data()
 
     # 更新数据的主函数
-    def update_data_from_db(self, *, end_date=None):
+    def update_data_from_db(self, *, start_date=None, end_date=None):
         # 更新标记
         self.is_update = True
         # 首先读取ClosePrice_adj数据，将其当作更新数据时的参照标签
         data_mark = pd.read_csv('ClosePrice_adj.csv', parse_dates=True, index_col=0)
         # 更新的第一天为之前数据标签日期的最后一天
         # 因为有可能当时更新数据的时候，还没有得到那次的数据
-        # 因此为了统一，更新的第一天都设置为那一天
+        # 因此为了统一，更新的第一天都默认设置为那一天
         last_day = data_mark.iloc[-1].name
-        self.start_date = last_day
+        # 如果有传入的指定更新数据的开始时间, 则选取last_day和指定开始时间更早的那天
+        if isinstance(start_date, pd.Timestamp):
+            self.start_date = min(start_date, last_day)
+        else:
+            self.start_date = last_day
+        # 当衔接新旧数据的时候, 需要丢弃的数据是从开始更新的那一天, 一直到last_day
+        dropped_time = data_mark.ix[self.start_date:last_day, :].index
 
         # 可以设置更新数据的更新截止日，默认为更新到当天
         if isinstance(end_date, pd.Timestamp):
@@ -635,15 +644,15 @@ class database(object):
         old_benchmark_price = old_benchmark_price.reindex(minor_axis=new_stock_index)
 
         # 衔接新旧数据
-        new_stock_price = pd.concat([old_stock_price.drop(last_day, axis=1).sort_index(),
+        new_stock_price = pd.concat([old_stock_price.drop(dropped_time, axis=1).sort_index(),
                                      self.data.stock_price.sort_index()], axis=1)
-        new_raw_data = pd.concat([old_raw_data.drop(last_day, axis=1).sort_index(),
+        new_raw_data = pd.concat([old_raw_data.drop(dropped_time, axis=1).sort_index(),
                                   self.data.raw_data.sort_index()], axis=1)
-        new_if_tradable = pd.concat([old_if_tradable.drop(last_day, axis=1).sort_index(),
+        new_if_tradable = pd.concat([old_if_tradable.drop(dropped_time, axis=1).sort_index(),
                                      self.data.if_tradable.sort_index()], axis=1)
-        new_benchmark_price = pd.concat([old_benchmark_price.drop(last_day, axis=1).sort_index(),
+        new_benchmark_price = pd.concat([old_benchmark_price.drop(dropped_time, axis=1).sort_index(),
                                          self.data.benchmark_price.sort_index()], axis=1)
-        new_const_data = pd.concat([old_const_data.drop(last_day, axis=0).sort_index(axis=1),
+        new_const_data = pd.concat([old_const_data.drop(dropped_time, axis=0).sort_index(axis=1),
                                     self.data.const_data.sort_index(axis=1)], axis=0)
 
         self.data.stock_price = new_stock_price
@@ -658,22 +667,30 @@ class database(object):
         self.data.raw_data['TotalLiability'] = self.data.raw_data['TotalLiability'].fillna(method='ffill')
         self.data.raw_data['TotalEquity'] = self.data.raw_data['TotalEquity'].fillna(method='ffill')
         self.get_pb()
-        # 注意这两个数据在用旧数据向前填na之后，还要再fill一次na，因为更新的时候出现的新股票，之前的旧数据因为重索引的关系，也是nan
+        # # 注意这两个数据在用旧数据向前填na之后，还要再fill一次na，因为更新的时候出现的新股票，之前的旧数据因为重索引的关系，也是nan
+        # self.data.if_tradable['is_enlisted'] = self.data.if_tradable['is_enlisted'].\
+        #     fillna(method='ffill').fillna(0).astype(np.bool)
+        # self.data.if_tradable['is_delisted'] = self.data.if_tradable['is_delisted'].\
+        #     fillna(method='ffill').fillna(0).astype(np.bool)
+        # # 指数权重数据也是这样, 在用旧数据向前填na之后, 还要再fill一次na, 原因与上面的上市退市数据是一样的
+        # for index_name in benchmark_index_name:
+        #     self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
+        #         fillna(method='ffill').fillna(0.0)
+        # 现在上市退市标记和指数权重数据只进行向前填充, 不再进行将所有nan填成0的步骤
         self.data.if_tradable['is_enlisted'] = self.data.if_tradable['is_enlisted'].\
-            fillna(method='ffill').fillna(0).astype(np.bool)
+            fillna(method='ffill')
         self.data.if_tradable['is_delisted'] = self.data.if_tradable['is_delisted'].\
-            fillna(method='ffill').fillna(0).astype(np.bool)
-        # 指数权重数据也是这样, 在用旧数据向前填na之后, 还要再fill一次na, 原因与上面的上市退市数据是一样的
+            fillna(method='ffill')
         for index_name in benchmark_index_name:
             self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
-                fillna(method='ffill').fillna(0.0)
+                fillna(method='ffill')
         # 复权因子在更新的时候, 需要在衔接了停牌标记后, 在此进行复权因子(以及之后的后复权价格)的计算
         # 同直接取所有的复权因子数据时一样, 首先将停牌期间的复权因子设置为nan,
         # 然后使用停牌前最后一天的复权因子向前填充, 使得停牌期间的复权因子变化反映在复牌后第一天,
-        # 最后需要把数据中的nan填成1
+        # 不需要再将数据填成1, 在算adj price的时候进行fill value就可以了
         self.data.stock_price['AdjustFactor'] = self.data.stock_price['AdjustFactor'].where(
             np.logical_not(self.data.if_tradable['is_suspended']), np.nan).\
-            fillna(method='ffill').fillna(1)
+            fillna(method='ffill')
         # 因为衔接并向前填充了复权因子, 因此要重新计算后复权价格, 否则之前的后复权价格将是nan
         self.get_ochl_vwap_adj()
 
@@ -685,25 +702,22 @@ class database(object):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-11-14'))
+    db = database(start_date=pd.Timestamp('2007-01-01'))
     # db.is_update=False
-    # db.get_data_from_db()
+    db.get_data_from_db()
     # db.update_data_from_db(end_date=pd.Timestamp('2017-11-14'))
-    db.initialize_jydb()
-    db.initialize_sq()
-    db.initialize_gg()
-    db.get_trading_days()
-    db.get_labels()
-    db.get_list_status()
+    # db.get_trading_days()
+    # db.get_labels()
+    # db.get_list_status()
     # db.get_AdjustFactor()
     # db.get_sq_data()
     # db.get_index_price()
     # db.get_index_weight()
     # data.write_data(db.data.benchmark_price)
     # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
-    #     db.get_runner_value(runner_id)
+    # db.get_runner_value(63)
     # db.data.stock_price.to_hdf('runner_value', '123')
-    # data.write_data(db.data.stock_price, file_name=['runner_value_5'])
+    # data.write_data(db.data.stock_price, file_name=['runner_value_63'])
     print("time: {0} seconds\n".format(time.time()-start_time))
 
 

@@ -75,11 +75,11 @@ class data(object):
         """
         if file_name is None:
             for cursor, item_name in enumerate(written_data.items):
-                written_data.ix[cursor].to_csv(str(item_name)+'.csv', index_label='datetime', na_rep='NaN',
+                written_data.ix[cursor].to_csv('RiskModelData/'+str(item_name)+'.csv', index_label='datetime', na_rep='NaN',
                                                encoding='GB18030')
         else:
             for cursor, item_name in enumerate(written_data.items):
-                written_data.ix[cursor].to_csv(file_name[cursor]+'.csv', index_label='datetime', na_rep='NaN',
+                written_data.ix[cursor].to_csv('RiskModelData/'+file_name[cursor]+'.csv', index_label='datetime', na_rep='NaN',
                                                encoding='GB18030')
         
     # 重新对齐索引的函数
