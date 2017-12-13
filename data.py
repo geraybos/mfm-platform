@@ -103,13 +103,18 @@ class data(object):
     def generate_if_tradable(self, *, file_name=['is_enlisted','is_delisted','is_suspended'],
                              item_name=['is_enlisted','is_delisted','is_suspended'],
                              shift = False):
-        # 读取上市、退市、停牌数据
-        self.if_tradable = data.read_data(file_name, item_name, shift = shift)
+        if 'is_enlisted' not in self.if_tradable.items or 'is_delisted' not in self.if_tradable.items or \
+                'is_suspended' not in self.if_tradable.items:
+            # 读取上市、退市、停牌数据
+            self.if_tradable = data.read_data(file_name, item_name, shift = shift)
+        # 将数据中的nan填成false, 即未上市的股票, is_delisted会变成False, 未上市或已退市的股票is_suspended会变成False
+        # 这样其实没有关系, 因为1.有is_enlisted来控制这些股票 2. 这些股票本来也没有数据
+        self.if_tradable = self.if_tradable.fillna(0)
         # 将已上市且未退市，未停牌的股票标记为可交易(if_tradable = True)
         # 注意没有停牌数据的股票默认为不停牌
         self.if_tradable['if_tradable'] = (self.if_tradable.ix['is_enlisted', :, :] *
             np.logical_not(self.if_tradable.ix['is_delisted', :, :]) *
-            np.logical_not(self.if_tradable.ix['is_suspended', :, :].fillna(0))).astype(np.bool)
+            np.logical_not(self.if_tradable.ix['is_suspended', :, :])).astype(np.bool)
             
     # 四舍五入的函数
     @staticmethod

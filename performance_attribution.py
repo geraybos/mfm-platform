@@ -181,7 +181,7 @@ class performance_attribution(object):
 
         if self.do_cash_pa:
             # 首先要将在base中的无风险收益的时间索引重索引为归因时间段
-            self.risk_free_rate_simple = self.base.base_data.const_data['risk_free_rate_simple'].\
+            self.risk_free_rate_simple = self.base.base_data.const_data['RiskFreeRate_simple'].\
                 reindex(index=self.pa_position.holding_matrix.index)
             # 现在来根据现金资产的存在对收益归因进行调整，首先，组合的暴露全部被现金比例等比例缩小
             self.port_expo = self.port_expo.mul(1 - self.pa_position.cash, axis=0)

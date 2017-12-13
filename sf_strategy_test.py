@@ -175,9 +175,9 @@ def sf_test_multiple_pools_parallel(factor=None, *, direction='+', bb_obj=None, 
 # alpha = pd.read_hdf('stock_alpha_hs300', '123')
 alpha = data.read_data(['runner_value_63'], shift=True).iloc[0]
 
-sf_test_multiple_pools(factor=alpha, direction='+', folder_name='tar_holding_bkt/rv63_500h',
-                       bkt_start=pd.Timestamp('2011-05-04'), holding_freq='w',
-                       bkt_end=pd.Timestamp('2017-11-13'), stock_pools=('zz500', ),
+sf_test_multiple_pools(factor=alpha, direction='+', folder_name='tar_holding_bkt/rv63_300h_16170309',
+                       bkt_start=pd.Timestamp('2016-01-04'), holding_freq='w',
+                       bkt_end=pd.Timestamp('2017-03-09'), stock_pools=('hs300', ),
                        do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
                        do_data_description=False, do_factor_corr_test=False, loc=-1)
 

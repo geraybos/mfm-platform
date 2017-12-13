@@ -52,7 +52,8 @@ class strategy_data(data):
             self.if_tradable['if_inpool'] = self.benchmark_price.ix['Weight_'+self.stock_pool]>0
         # 若不在，则读取weight数据，文件名即为stock_pool
         else:
-            temp_weights = data.read_data(['Weight_'+self.stock_pool],['Weight_'+self.stock_pool], shift=shift)
+            temp_weights = data.read_data(['Weight_'+self.stock_pool],['Weight_'+self.stock_pool],
+                                          shift=shift).fillna(0.0)
             if self.benchmark_price.empty:
                 self.benchmark_price = temp_weights
             else:
@@ -63,8 +64,9 @@ class strategy_data(data):
             # 指数权重大于0的股票, 即为在指数内的股票
             self.if_tradable['if_inpool'] = self.benchmark_price.ix['Weight_'+self.stock_pool]>0
 
-        # 若还没有if_tradable，报错
-        assert 'if_tradable' in self.if_tradable.items, 'Please generate if_tradable first!'
+        # 若还没有if_tradable，则生成if_tradable
+        if 'if_tradable' not in self.if_tradable.items:
+            self.generate_if_tradable(shift=shift)
 
         # 新建一个if_inv，表明在股票池中，且可以交易
         # 在if_tradable中为true，且在if_inpool中为true，才可投资，即在if_inv中为true

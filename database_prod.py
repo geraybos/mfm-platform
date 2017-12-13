@@ -19,7 +19,6 @@ class database_prod(database):
         database.__init__(self, start_date=start_date, end_date=end_date, market=market)
         self.initialize_rm()
 
-
     # 初始化链接到RiskModel数据库的引擎
     def initialize_rm(self):
         self.rm_engine = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',

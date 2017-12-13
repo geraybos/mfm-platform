@@ -31,9 +31,10 @@ class barra_base(factor_base):
     
     foo
     """
-    
     def __init__(self, *, stock_pool='all'):
         factor_base.__init__(self, stock_pool=stock_pool)
+        # 储存行业数据
+        self.industry = pd.DataFrame()
         # 提示是否为数据更新
         self.is_update = False
         # 提示数据计算中是否尝试读取现有文件
@@ -52,13 +53,13 @@ class barra_base(factor_base):
         # 初始化无风险利率序列
         if os.path.isfile('const_data.csv'):
             self.base_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True, encoding='GB18030')
-            if 'risk_free_rate' not in self.base_data.const_data.columns:
-                self.base_data.const_data['risk_free_rate'] = 0
+            if 'RiskFreeRate' not in self.base_data.const_data.columns:
+                self.base_data.const_data['RiskFreeRate'] = 0
             else:
                 print('risk free rate successfully loaded')
         else:
             self.base_data.const_data = pd.DataFrame(0, index=self.base_data.stock_price.major_axis,
-                                                   columns=['risk_free_rate'])
+                                                   columns=['RiskFreeRate'])
         # 读取市值
         if 'MarketValue' not in self.base_data.stock_price.items:
             temp_mv =data.read_data(['MarketValue'], ['MarketValue'])
@@ -74,17 +75,17 @@ class barra_base(factor_base):
         # 计算每只股票的日超额对数收益
         if 'daily_excess_log_return' not in self.base_data.stock_price.items:
             self.base_data.stock_price['daily_excess_log_return'] = self.base_data.stock_price.ix['daily_log_return'].sub(
-                self.base_data.const_data.ix[:, 'risk_free_rate'], axis=0)
+                self.base_data.const_data.ix[:, 'RiskFreeRate'], axis=0)
         # 计算每只股票的日简单收益，注意是按日复利的日化收益，即代表净值增值
         if 'daily_simple_return' not in self.base_data.stock_price.items:
             self.base_data.stock_price['daily_simple_return'] = self.base_data.stock_price.ix['ClosePrice_adj'].div(
                 self.base_data.stock_price.ix['ClosePrice_adj'].shift(1)).sub(1.0)
         # 计算每只股票的日超额简单收益，注意是按日复利的日化收益，
-        # 另外注意risk_free_rate默认是连续复利，要将其转化成对应的简单收益
+        # 另外注意RiskFreeRate默认是连续复利，要将其转化成对应的简单收益
         if 'daily_excess_simple_return' not in self.base_data.stock_price.items:
-            self.base_data.const_data['risk_free_rate_simple'] = np.exp(self.base_data.const_data['risk_free_rate']) - 1
+            self.base_data.const_data['RiskFreeRate_simple'] = np.exp(self.base_data.const_data['RiskFreeRate']) - 1
             self.base_data.stock_price['daily_excess_simple_return'] = self.base_data.stock_price. \
-                ix['daily_simple_return'].sub(self.base_data.const_data['risk_free_rate_simple'], axis=0)
+                ix['daily_simple_return'].sub(self.base_data.const_data['RiskFreeRate_simple'], axis=0)
         # 读取交易量数据
         if 'Volume' not in self.base_data.stock_price.items:
             volume = data.read_data(['Volume'], ['Volume'])
@@ -715,8 +716,9 @@ class barra_base(factor_base):
     # 得到行业因子的虚拟变量
     def get_industry_factor(self):
         # 读取行业信息数据
-        industry = data.read_data(['Industry'],['Industry'])
-        self.industry = industry.ix['Industry']
+        if self.industry.empty:
+            industry = data.read_data(['Industry'],['Industry'])
+            self.industry = industry.ix['Industry']
         # 对第一个拥有所有行业的日期取虚拟变量，以建立储存数据的panel
         industry_num = self.industry.apply(lambda x:x.unique().size, axis=1)
         # 注意所有行业28个，加上nan有29个
