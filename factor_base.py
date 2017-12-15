@@ -62,7 +62,7 @@ class factor_base(object):
     def get_base_factor_return(self, *, if_save=False):
         pass
 
-    def update_factor_base_data(self):
+    def update_factor_base_data(self, *, start_date=None):
         pass
 
     ######################################################################################################

@@ -92,7 +92,7 @@ class database(object):
     # 取ClosePrice_adj数据，将data中的panel数据index和columns都设置为ClosePrice_adj的index和columns
     # 先将所有的数据都取出来，之后不用再次从sq中取
     def get_sq_data(self):
-        sql_query = "select TradingDay, SecuCode, OpenPrice, HighPrice, LowPrice, ClosePrice, PrevClosePrice, "\
+        sql_query = "select TradingDay, SecuCode, PrevClosePrice, "\
                     "TurnoverVolume as Volume, TurnoverValue, TotalShares as Shares, " \
                     "NonRestrictedShares as FreeShares, MarketCap as MarketValue, " \
                     "FloatMarketCap as FreeMarketValue, IndustryNameNew as Industry, "\
@@ -103,7 +103,6 @@ class database(object):
         self.sq_data = self.sq_engine.get_original_data(sql_query)
 
         # 提取sq_data里所需要的各种数据
-        self.get_ochl()
         self.get_PrevClosePrice()
         self.get_Volume()
         self.get_value_and_vwap()
@@ -111,13 +110,6 @@ class database(object):
         self.get_total_and_free_shares()
         self.get_Industry()
         self.get_is_suspended()
-
-    # 取open，close， high， low的价格数据
-    def get_ochl(self):
-        ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice']
-        for data_name in ochl:
-            curr_data = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values=data_name)
-            self.data.stock_price[data_name] = curr_data
 
     # 取PrevClosePrice, 可用来算涨跌停价格, 也可用来算日收益率(后复权)
     def get_PrevClosePrice(self):
@@ -161,6 +153,42 @@ class database(object):
         # self.data.if_tradable['is_suspended'] = is_suspended.fillna(0).astype(np.bool)
         self.data.if_tradable['is_suspended'] = is_suspended
 
+    # 取open，close， high， low的价格数据, 注意, 由于聚源数据库在停牌期间会修改收盘价数据, 因此
+    # 这里的价格数据全部按照复权因子一样的算法进行计算, 即停牌期间的数据一律不要, 用停牌前最后一天的数据来填充
+    def get_ochl(self, *, first_date=pd.Timestamp('1900-01-01')):
+        # 去高开低收数据, 以及停牌标记数据, 与复权因子数据一样, 要从first_date开始取
+        sql_query = "select TradingDay, SecuCode, OpenPrice, HighPrice, LowPrice, ClosePrice, " \
+                    "IfSuspended as is_suspended from ReturnDaily where " \
+                    "IfTradingDay=1 and TradingDay>='" + str(first_date) + "' and TradingDay<='" + \
+                    str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode"
+        ochl_sus_data = self.sq_engine.get_original_data(sql_query)
+        suspended_mark = ochl_sus_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                                   values='is_suspended', aggfunc='first')
+        # 循环高开低收数据, 每一次循环的流程和处理复权因子数据时一模一样
+        ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice']
+        for data_name in ochl:
+            curr_price_data = ochl_sus_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                                        values=data_name, aggfunc='first')
+            # 要处理更新数据的时候可能出现的空数据的情况
+            if curr_price_data.empty:
+                self.data.stock_price[data_name] = np.nan
+            # 如果是有数据, 但是是在更新数据, 就不在这里进行计算, 而是在更新函数里衔接了数据后再计算
+            elif self.is_update:
+                self.data.stock_price[data_name] = curr_price_data.fillna(method='ffill')
+                self.data.stock_price[data_name] = self.data.stock_price[data_name].fillna(method='ffill')
+            else:
+                # 同复权因子的计算一样, 将停牌期间的数据抹去, 然后用停牌前最后一天的数据来填充
+                # 首先将价格数据向前填充, 然后reindex到停牌数据上去
+                curr_price_data = curr_price_data.fillna(method='ffill').reindex(index=suspended_mark.index,
+                            columns=suspended_mark.columns, method='ffill')
+                # 对于停牌期间的股票, 要将它们的价格数据都改为nan
+                # suspened_mark是nan的股票, 都是那些根本没上市或者退市的股票, 因此如何改都没有影响
+                curr_price_data = curr_price_data.where(np.logical_not(suspended_mark), np.nan)
+                # 然后用停牌前最后一天的价格数据向前填充, 将停牌期间的价格数据都设置为停牌前最后一天的价格数据
+                curr_price_data = curr_price_data.fillna(method='ffill')
+
+                self.data.stock_price[data_name] = curr_price_data
+
     # 从聚源数据库里取复权因子
     def get_AdjustFactor(self, *, first_date=pd.Timestamp('1900-01-01')):
         sql_query = "select b.ExDiviDate, b.RatioAdjustingFactor, a.SecuCode from " \
@@ -192,7 +220,8 @@ class database(object):
                             "IfTradingDay=1 and TradingDay >= '" + str(first_date) + "' and TradingDay <= ' " + \
                             str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode"
             suspended_mark = self.sq_engine.get_original_data(sql_query_sus)
-            suspended_mark = suspended_mark.pivot_table(index='TradingDay', columns='SecuCode', values='is_suspended')
+            suspended_mark = suspended_mark.pivot_table(index='TradingDay', columns='SecuCode',
+                                                        values='is_suspended', aggfunc='first')
             # 首先将复权因子向前填充, 然后reindex到停牌数据上去
             AdjustFactor = AdjustFactor.fillna(method='ffill').reindex(index=suspended_mark.index,
                             columns=suspended_mark.columns, method='ffill')
@@ -560,10 +589,11 @@ class database(object):
     def get_data_from_db(self, *, update_time=pd.Timestamp('1900-01-01')):
         self.get_trading_days()
         self.get_labels()
-        # self.get_sq_data()
-        # self.get_AdjustFactor(first_date=update_time)
-        # self.get_ochl_vwap_adj()
-        # print('get sq data has been completed...\n')
+        self.get_sq_data()
+        self.get_ochl(first_date=update_time)
+        self.get_AdjustFactor(first_date=update_time)
+        self.get_ochl_vwap_adj()
+        print('get sq data has been completed...\n')
         # self.get_list_status(first_date=update_time)
         # print('get list status has been completed...\n')
         # self.get_asset_liability_equity(first_date=update_time)
@@ -579,8 +609,8 @@ class database(object):
         # print('get netincome ttm has been completed...\n')
         # self.get_pe_ttm()
         # print('get pe_ttm has been completed...\n')
-        self.get_ni_revenue_eps_growth()
-        print('get growth ttm has been completed...\n')
+        # self.get_ni_revenue_eps_growth()
+        # print('get growth ttm has been completed...\n')
         # self.get_index_price()
         # self.get_index_weight(first_date=update_time)
         # print('get index data has been completed...\n')
@@ -617,8 +647,8 @@ class database(object):
         # 读取以前的老数据
         stock_price_name_list = ['ClosePrice_adj', 'OpenPrice_adj', 'HighPrice_adj', 'LowPrice_adj',
                                  'vwap', 'OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice',
-                                 'vwap_adj', 'PrevClosePrice', 'AdjustFactor', 'Volume', 'Shares',
-                                 'FreeShares', 'MarketValue', 'FreeMarketValue']
+                                 'vwap_adj', 'PrevClosePrice', 'AdjustFactor', 'Volume', 'TurnoverValue',
+                                 'Shares', 'FreeShares', 'MarketValue', 'FreeMarketValue']
         raw_data_name_list = ['Industry', 'TotalAssets', 'TotalLiability', 'TotalEquity', 'PB', 'NetIncome_fy1',
                               'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'CFO_ttm', 'NetIncome_ttm',
                               'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
@@ -684,6 +714,11 @@ class database(object):
         for index_name in benchmark_index_name:
             self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
                 fillna(method='ffill')
+        # 同下面的复权因子一样, 在衔接了停牌标记后, 在此进行高开低收价格数据的计算
+        ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice']
+        for data_name in ochl:
+            self.data.stock_price[data_name] = self.data.stock_price[data_name].where(np.logical_not(
+                self.data.if_tradable['is_suspended']), np.nan).fillna(method='ffill')
         # 复权因子在更新的时候, 需要在衔接了停牌标记后, 在此进行复权因子(以及之后的后复权价格)的计算
         # 同直接取所有的复权因子数据时一样, 首先将停牌期间的复权因子设置为nan,
         # 然后使用停牌前最后一天的复权因子向前填充, 使得停牌期间的复权因子变化反映在复牌后第一天,
@@ -702,7 +737,7 @@ class database(object):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    db = database(start_date=pd.Timestamp('2007-01-01'))
+    db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-12-14'))
     # db.is_update=False
     db.get_data_from_db()
     # db.update_data_from_db(end_date=pd.Timestamp('2017-11-14'))

@@ -305,7 +305,7 @@ class performance(object):
     # 计算年化calmar比率
     @staticmethod
     def annual_calmar_ratio(annual_return, max_drawdown):
-        return annual_return / max_drawdown
+        return annual_return / np.abs(max_drawdown)
 
     # 计算年化sortino比率
     @staticmethod
@@ -376,7 +376,7 @@ class performance(object):
                      'Max drawdown happened between {4} and {5}\n' \
                      'Annual Calmar ratio: {6:.2f}\n' \
                      'Annual Sortino ratio: {7:.2f}\n' \
-                     'Averge cash ratio: {8:.2f}%\n '.format(
+                     'Averge cash ratio: {8:.2f}%\n'.format(
             annual_r*100, annual_std*100, annual_sharpe, max_dd*100, self.cum_log_return.index[peak_loc],
             self.cum_log_return.index[low_loc], annual_calmar, annual_sortino, self.cash_ratio.mean()*100
             )

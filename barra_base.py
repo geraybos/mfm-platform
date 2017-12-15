@@ -887,9 +887,6 @@ class barra_base(factor_base):
         lag_mv = self.base_data.stock_price.ix['FreeMarketValue'].shift(1)
         # 循环回归，计算因子收益
         for time, temp_data in self.base_factor_return.iterrows():
-            if time == pd.Timestamp('2015-07-07'):
-                print('a')
-                pass
             outcome = strategy_data.constrained_gls_barra_base(
                        self.base_data.stock_price.ix['daily_simple_return', time, :],
                        lag_factor_expo.ix[:, time, :],
@@ -919,7 +916,7 @@ class barra_base(factor_base):
 
 
     # 更新数据
-    def update_factor_base_data(self):
+    def update_factor_base_data(self, *, start_date=None):
         self.is_update = True
         # 更新的时候不允许读取数据
         self.try_to_read = False
@@ -929,7 +926,7 @@ class barra_base(factor_base):
         self.construct_reading_file_appendix(filename_appendix='default')
         # 读取旧的因子数据
         original_old_base_factor_names = ['lncap', 'beta', 'momentum', 'rv', 'nls', 'bp', 'liquidity',
-                                        'ey', 'growth', 'leverage']
+                                          'ey', 'growth', 'leverage']
         # 加上文件后缀
         old_base_factor_names = []
         for i in original_old_base_factor_names:
@@ -943,14 +940,20 @@ class barra_base(factor_base):
         # 更新与否取决于原始数据和因子数据，若因子数据的时间轴早于原始数据，则进行更新
         # 这里对比的数据实际是free mv和lncap，因为barra base的计算是以这两个为基准的
         last_day = old_base_factors.major_axis[-1]
-        if last_day == self.base_data.stock_price.major_axis[-1]:
+        # 如果设置了开始时间, 则开始时间是last day和开始时间最早的那个
+        if isinstance(start_date, pd.Timestamp):
+            start_date = min(last_day, start_date)
+        else:
+            start_date = last_day
+        if start_date == self.base_data.stock_price.major_axis[-1]:
             print('The barra base factor data have been up-to-date.\n')
             return
-        # 找因子数据的最后一天在原始数据中的对应位置
-        last_loc = self.base_data.stock_price.major_axis.get_loc(last_day)
+
+        # 找因子数据的开始更新的那一天在原始数据中的对应位置
+        start_loc = self.base_data.stock_price.major_axis.get_loc(start_date)
         # 将原始数据截取，截取范围从更新的第一天的（即因子数据的最后一天的）前525天到最后一天
         # 更新前525天的选取是因为t时刻的bb因子值最远需要取到525天前的原始数据，在momentum因子中用到
-        new_start_loc = last_loc - 525
+        new_start_loc = start_loc - 525
         self.base_data.stock_price = self.base_data.stock_price.iloc[:, new_start_loc:, :]
         self.base_data.raw_data = self.base_data.raw_data.iloc[:, new_start_loc:, :]
         self.base_data.if_tradable = self.base_data.if_tradable.iloc[:, new_start_loc:, :]

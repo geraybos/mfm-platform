@@ -5,6 +5,7 @@ from datetime import datetime
 
 from db_engine import db_engine
 from database import database
+from data import data
 
 # 生产系统中维护数据库的类
 # 主要区别是, 不是将数据存在本地, 而是存在数据库里
@@ -211,6 +212,11 @@ class database_prod(database):
         for item, df in whole_data.iteritems():
             if item.startswith('Weight_'):
                 whole_data[item] = df.fillna(method='ffill')
+        # 同下面的复权因子一样, 在衔接了停牌标记后, 在此进行高开低收价格数据的计算
+        ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice']
+        for data_name in ochl:
+            whole_data[data_name] = whole_data[data_name].where(np.logical_not(
+                whole_data['is_suspended']), np.nan).fillna(method='ffill')
         # 复权因子在更新的时候, 需要在衔接了停牌标记后, 在此进行复权因子(以及之后的后复权价格)的计算
         # 同直接取所有的复权因子数据时一样, 首先将停牌期间的复权因子设置为nan,
         # 然后使用停牌前最后一天的复权因子向前填充, 使得停牌期间的复权因子变化反映在复牌后第一天,
@@ -219,10 +225,14 @@ class database_prod(database):
         whole_data['AdjustFactor'] = whole_data['AdjustFactor'].where(np.logical_not(
             whole_data['is_suspended']), np.nan).fillna(method='ffill')
         # 因为衔接并向前填充了复权因子, 因此要重新计算后复权价格, 否则之前的后复权价格将是nan
-        ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice', 'vwap']
-        for data_name in ochl:
+        ochl_adj = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice', 'vwap']
+        for data_name in ochl_adj:
             whole_data[data_name + '_adj'] = whole_data[data_name].mul(whole_data['AdjustFactor'].fillna(1))
 
+        # 由于旧数据的时间索引的名字是DataDate, 新数据是trading_days, 衔接后变为默认名字,
+        # 因此为了正常储存, 将名字统一改为trading days
+        whole_data.major_axis.rename('trading_days', inplace=True)
+        whole_const_data.index.rename('trading_days', inplace=True)
         # 将数据储存到数据库去, 这里因为都在一个大数据whole data中, 因此无法使用save data函数
         for item, df in whole_data.iteritems():
             if item == 'Industry':
@@ -246,13 +256,36 @@ class database_prod(database):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    dbp = database_prod(start_date=pd.Timestamp('2007-01-01'))
-    dbp.get_data_from_db()
+    dbp = database_prod(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-12-14'))
+    # dbp.get_data_from_db()
     # dbp.update_data_from_db(start_date=pd.Timestamp('2017-12-01'))
     # dbp.create_rawdata_table()
+    # dbp.create_industry_mark_table()
+    # dbp.data.raw_data = data.read_data(['RiskModelData/Industry'], ['Industry'])
+    # dbp.data.raw_data.major_axis.rename('trading_days', inplace=True)
+    # dbp.save_industry_mark_to_sql()
     # dbp.get_trading_days()
     # dbp.get_labels()
     # dbp.get_asset_liability_equity()
     # df = pd.DataFrame(index=dbp.trading_days)
     # dbp.save_to_sql('test', df)
-    print('Time: {0}\n'.format(time.time() - start_time))
+
+    name_list = ['LowPrice_adj', 'vwap', 'OpenPrice',
+                 'ClosePrice', 'HighPrice', 'LowPrice', 'vwap_adj', 'PrevClosePrice', 'AdjustFactor',
+                 'Volume', 'TurnoverValue', 'Shares', 'FreeShares', 'MarketValue', 'FreeMarketValue']
+    name_list += ['TotalAssets', 'TotalLiability', 'TotalEquity', 'PB', 'NetIncome_fy1',
+                  'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'CFO_ttm', 'NetIncome_ttm',
+                  'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
+    name_list += ['is_suspended', 'is_enlisted', 'is_delisted']
+    benchmark_index_name = ['sz50', 'hs300', 'zzlt', 'zz500', 'zz800', 'zxb', 'cyb']
+    benchmark_data_type = ['ClosePrice', 'OpenPrice', 'Weight', 'ClosePrice_adj']
+    benchmark_price_name_list = [a + '_' + b for a in benchmark_data_type for b in benchmark_index_name]
+    benchmark_price_name_list.remove('ClosePrice_adj_zzlt')
+    name_list += benchmark_price_name_list
+
+    for curr_name in name_list:
+        assert curr_name != 'Industry', 'Error: No Industry Data!\n'
+        curr_data = data.read_data(['RiskModelData/'+curr_name], [curr_name]).iloc[0]
+        curr_data.index.rename('trading_days', inplace=True)
+        dbp.save_to_sql(curr_name, curr_data)
+        print('Time: {0}\n'.format(time.time() - start_time))
