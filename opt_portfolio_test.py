@@ -172,9 +172,9 @@ if __name__ == '__main__':
         opt_test.strategy_data.stock_pool = 'hs300'
 
         # 读取数据, 注意数据需要shift一个交易日
-        opt_test.factor_cov = pd.read_hdf('bb_riskmodel_covmat_hs300', '123')
-        opt_test.strategy_data.factor_expo = pd.read_hdf('bb_factor_expo_hs300', '123')
-        opt_test.spec_var = pd.read_hdf('bb_riskmodel_specvar_hs300', '123')
+        opt_test.factor_cov = pd.read_hdf('bb_riskmodel_covmat_all', '123')
+        opt_test.strategy_data.factor_expo = pd.read_hdf('bb_factor_expo_all', '123')
+        opt_test.spec_var = pd.read_hdf('bb_riskmodel_specvar_all', '123')
 
 
         # opt_test.factor_cov = pd.read_hdf('barra_fore_cov_mat', '123')
@@ -228,9 +228,9 @@ if __name__ == '__main__':
                                         opt_test.strategy_data.factor_expo.major_axis)
         opt_test.spec_var = opt_test.spec_var.shift(1)
 
-        # opt_test.factor_return = pd.read_hdf('stock_alpha_zz500', '123')
+        opt_test.factor_return = pd.read_hdf('stock_alpha_hs300', '123')
         # opt_test.factor_return = opt_test.factor_return.div(20)
-        opt_test.factor_return = data.read_data(['runner_value_63']).iloc[0]
+        # opt_test.factor_return = data.read_data(['runner_value_63']).iloc[0]
         opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0)
         # opt_test.factor_return = opt_test.factor_return.div(5)
         # opt_test.factor_return = idf
@@ -249,9 +249,9 @@ if __name__ == '__main__':
         opt_test.strategy_data.benchmark_price = data.read_data(['Weight_hs300'], shift=True)
 
         # folder_name = 'opt_test/my_opt_sf1p4_bs_indus/' + iname + '_'
-        folder_name = 'tar_holding_bkt/rv63_opt_300h_16170309_'
+        folder_name = 'opt_test/stock_alpha_hs300_allopt_std1_'
         # folder_name = 'opt_test/hs300/stock_alpha_hs300/my_opt_sf1p4_bs_std1_'
-        opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2016-01-04'), end_date=pd.Timestamp('2017-03-09'),
+        opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2011-05-04'), end_date=pd.Timestamp('2017-03-09'),
             loc=-1, foldername=folder_name, indus_neutral=True)
 
 
