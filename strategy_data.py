@@ -42,6 +42,10 @@ class strategy_data(data):
         # 目前对股票池的处理方法是将其归为不可交易，用discard_untradable_data来将股票池外的数据设为nan
         self.stock_pool = 'all'
 
+    # 设置strategy data的投资域
+    def set_stock_pool(self, stock_pool):
+        self.stock_pool = stock_pool
+
     # 新建一个dataframe储存股票是否在股票池内，再建一个dataframe和if_tradable取交集
     def handle_stock_pool(self, *, shift=False):
         # 如果未设置股票池
@@ -49,6 +53,9 @@ class strategy_data(data):
             self.if_tradable['if_inpool'] = True
         # 设置了股票池，若已存在benchmark中的weight，则直接使用
         elif 'Weight_'+self.stock_pool in self.benchmark_price.items:
+            # 为了保险, 依然要先将benchmark weight数据的nan填成0
+            self.benchmark_price.ix['Weight_'+self.stock_pool] = \
+                self.benchmark_price.ix['Weight_'+self.stock_pool].fillna(0.0)
             self.if_tradable['if_inpool'] = self.benchmark_price.ix['Weight_'+self.stock_pool]>0
         # 若不在，则读取weight数据，文件名即为stock_pool
         else:
@@ -58,7 +65,7 @@ class strategy_data(data):
                 self.benchmark_price = temp_weights
             else:
                 self.benchmark_price['Weight_'+self.stock_pool] = temp_weights['Weight_'+self.stock_pool]
-            # 由于指数权重数据会跟1有一点点偏离, 因此要将其归一化
+            # 由于指数权重数据可能会跟1有一点点偏离, 因此要将其归一化
             self.benchmark_price['Weight_'+self.stock_pool] = self.benchmark_price['Weight_'+self.stock_pool]. \
                 apply(position.to_percentage_func, axis=1)
             # 指数权重大于0的股票, 即为在指数内的股票

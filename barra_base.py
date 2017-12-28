@@ -35,10 +35,6 @@ class barra_base(factor_base):
         factor_base.__init__(self, stock_pool=stock_pool)
         # 储存行业数据
         self.industry = pd.DataFrame()
-        # 提示是否为数据更新
-        self.is_update = False
-        # 提示数据计算中是否尝试读取现有文件
-        self.try_to_read = True
 
     # 读取在计算风格因子中需要用到的原始数据，注意：行业信息数据不在这里读取
     # 即使可以读取已算好的因子，也在这里处理，因为这样方便统一处理，不至于让代码太乱
@@ -207,7 +203,7 @@ class barra_base(factor_base):
             temp_hsigma = self.base_data.stock_price.ix['daily_excess_simple_return']*np.nan
             for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_simple_return'].index):
                 # 至少第252期时才回归
-                if cursor<=250:
+                if cursor < 251:
                     continue
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
                 curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return',cursor-251:cursor+1,:]
@@ -262,23 +258,31 @@ class barra_base(factor_base):
             def one_time_beta(cursor):
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
                 # curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return', cursor - 251:cursor+1, :]
-                curr_data = complete_return_data.ix[cursor - 251:cursor+1, :]
-                curr_x = cap_wgt_universe_return.ix[cursor - 251:cursor+1]
+                curr_data = complete_return_data.ix[cursor - 251:cursor + 1, :]
+                curr_x = cap_wgt_universe_return.ix[cursor - 251:cursor + 1]
                 temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
                 print(cursor)
                 return temp
 
             ncpus = 20
             p = mp.ProcessPool(ncpus)
-            # 从252期开始
-            data_size = np.arange(251, self.base_data.stock_price.ix['daily_excess_simple_return'].shape[0])
+            # 一般情况下, 是从252期开始计算beta因子
+            # 注意, 在更新的时候, 为了节约时间, 不会算第252到第524个交易日的beta值
+            # 因此在更新的时候, 会从第525期开始计算
+            if self.is_update:
+                start_cursor = 524
+            else:
+                start_cursor = 251
+            data_size = np.arange(start_cursor, self.base_data.stock_price.ix['daily_excess_simple_return'].shape[0])
             chunksize = int(len(data_size)/ncpus)
             results = p.map(one_time_beta, data_size, chunksize=chunksize)
             # 储存结果
             beta = pd.concat([i.ix['beta'] for i in results], axis=1).T
             hsigma = pd.concat([i.ix['hsigma'] for i in results], axis=1).T
             # 两个数据对应的日期，为原始数据的日期减去251，因为前251期的数据并没有计算
-            data_index = self.base_data.stock_price.iloc[:, 251-self.base_data.stock_price.shape[1]:, :].major_axis
+            # 在更新的时候, 则是原始数据日期减去524, 原因同理
+            data_index = self.base_data.stock_price.iloc[:,
+                         start_cursor - self.base_data.stock_price.shape[1]:, :].major_axis
             beta = beta.set_index(data_index)
             hsigma = hsigma.set_index(data_index)
             self.base_data.factor['beta'] = beta
@@ -310,7 +314,7 @@ class barra_base(factor_base):
             momentum = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
             for cursor, date in enumerate(lag_return.index):
                 # 至少504+21期才开始计算
-                if cursor<=(502+21):
+                if cursor < (503+21):
                     continue
                 curr_data = lag_return.ix[cursor-503:cursor+1, :]
                 temp = func_mom(curr_data, weights=exponential_weights)
@@ -337,7 +341,7 @@ class barra_base(factor_base):
             dastd = self.base_data.stock_price.ix['daily_excess_simple_return']*np.nan
             for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_simple_return'].index):
                 # 至少252期才开始计算
-                if cursor<=250:
+                if cursor < 251:
                     continue
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据，且要用简单收益
                 curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return', cursor-251:cursor+1,:]
@@ -371,7 +375,7 @@ class barra_base(factor_base):
             cmra = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
             for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少252期才开始计算
-                if cursor <= 250:
+                if cursor < 251:
                     continue
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据，且要用对数收益
                 curr_data = self.complete_base_data.stock_price.ix['daily_excess_log_return', cursor-251:cursor+1, :]
@@ -442,12 +446,12 @@ class barra_base(factor_base):
             new_nls = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.base_data.stock_price.ix['FreeMarketValue']))[0]
             self.base_data.factor['nls'] = new_nls
 
-    # 计算pb
-    def get_pb(self):
+    # 计算bp
+    def get_bp(self):
         if os.path.isfile('bp'+self.filename_appendix+'.csv') \
                 and not self.is_update and self.try_to_read:
-            pb = data.read_data(['bp'+self.filename_appendix], ['bp'])
-            self.base_data.factor['bp'] = pb.ix['bp']
+            bp = data.read_data(['bp'+self.filename_appendix], ['bp'])
+            self.base_data.factor['bp'] = bp.ix['bp']
         else:
             self.base_data.factor['bp'] = 1/self.base_data.raw_data.ix['PB']
 
@@ -481,7 +485,7 @@ class barra_base(factor_base):
             stoq = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
             for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少63期才开始计算
-                if cursor<=61:
+                if cursor < 62:
                     continue
                 curr_data = self.base_data.raw_data.ix['stom', cursor-62:cursor+1,:]
                 temp = func_stoq(curr_data)
@@ -504,7 +508,7 @@ class barra_base(factor_base):
             stoa = self.base_data.stock_price.ix['daily_excess_log_return']*np.nan
             for cursor, date in enumerate(self.base_data.stock_price.ix['daily_excess_log_return'].index):
                 # 至少252期才开始计算
-                if cursor<=250:
+                if cursor < 251:
                     continue
                 curr_data = self.base_data.raw_data.ix['stom', cursor-251:cursor+1,:]
                 temp = func_stoa(curr_data)
@@ -720,9 +724,9 @@ class barra_base(factor_base):
             industry = data.read_data(['Industry'],['Industry'])
             self.industry = industry.ix['Industry']
         # 对第一个拥有所有行业的日期取虚拟变量，以建立储存数据的panel
-        industry_num = self.industry.apply(lambda x:x.unique().size, axis=1)
-        # 注意所有行业28个，加上nan有29个
-        first_valid_index = industry_num[industry_num==29].index[0]
+        industry_num = self.industry.apply(lambda x:x.drop_duplicates().dropna().size, axis=1)
+        # 注意在dropna之后, 所有行业28个，
+        first_valid_index = industry_num[industry_num==28].index[0]
         temp_dum = pd.get_dummies(self.industry.ix[first_valid_index], prefix='Industry')
         industry_dummies = pd.Panel(data=None, major_axis = temp_dum.index, minor_axis = temp_dum.columns)
         # 开始循环
@@ -795,8 +799,8 @@ class barra_base(factor_base):
         print('get rv completed...\n')
         self.get_nonlinear_size()
         print('get nls completed...\n')
-        self.get_pb()
-        print('get pb completed...\n')
+        self.get_bp()
+        print('get bp completed...\n')
         self.get_liquidity()
         print('get liquidity completed...\n')
         self.get_earnings_yeild()
@@ -834,7 +838,7 @@ class barra_base(factor_base):
             data.write_data(self.base_data.factor, file_name=written_filename)
             print('Style factor data have been saved!\n')
             # 储存因子暴露
-            self.base_data.factor_expo.to_hdf('bb_factor_expo' + self.filename_appendix, '123')
+            self.base_data.factor_expo.to_hdf('RiskModelData/bb_factor_expo' + self.filename_appendix, '123')
             print('factor exposure data has been saved!\n')
 
     # # 仅计算barra base的因子值，主要用于对于不同股票池，可以率先建立一个只有因子值而没有暴露的bb对象
@@ -852,7 +856,7 @@ class barra_base(factor_base):
     #     print('get rv completed...\n')
     #     self.get_nonlinear_size()
     #     print('get nls completed...\n')
-    #     self.get_pb()
+    #     self.get_bp()
     #     self.get_liquidity()
     #     print('get liquidity completed...\n')
     #     self.get_earnings_yeild()
@@ -904,9 +908,9 @@ class barra_base(factor_base):
             'pool of base is different from filename appendix, in order to avoid possible ' \
             'data loss, the saving procedure has been terminated! \n'
 
-            self.base_factor_return.to_csv('bb_factor_return_'+self.base_data.stock_pool+'.csv',
+            self.base_factor_return.to_csv('RiskModelData/bb_factor_return_'+self.base_data.stock_pool+'.csv',
                                          index_label='datetime', na_rep='NaN', encoding='GB18030')
-            self.specific_return.to_csv('bb_specific_return_'+self.base_data.stock_pool+'.csv',
+            self.specific_return.to_csv('RiskModelData/bb_specific_return_'+self.base_data.stock_pool+'.csv',
                                         index_label='datetime', na_rep='NaN', encoding='GB18030')
             # self.base_factor_return.to_csv('barra_factor_return_'+self.base_data.stock_pool+'.csv',
             #                              index_label='datetime', na_rep='NaN', encoding='GB18030')
@@ -953,6 +957,8 @@ class barra_base(factor_base):
         start_loc = self.base_data.stock_price.major_axis.get_loc(start_date)
         # 将原始数据截取，截取范围从更新的第一天的（即因子数据的最后一天的）前525天到最后一天
         # 更新前525天的选取是因为t时刻的bb因子值最远需要取到525天前的原始数据，在momentum因子中用到
+        # 注意, 这里将start loc减去525后, 其实多选取了525个数据, 即前一天的因子暴露也可以算出来
+        # 这是因为在计算因子收益的时候, 需要用到前一天的因子暴露, 因此实际还需要计算前一天的因子暴露.
         new_start_loc = start_loc - 525
         self.base_data.stock_price = self.base_data.stock_price.iloc[:, new_start_loc:, :]
         self.base_data.raw_data = self.base_data.raw_data.iloc[:, new_start_loc:, :]
@@ -999,15 +1005,14 @@ class barra_base(factor_base):
 if __name__ == '__main__':
     import time
     # pools = ['all', 'hs300', 'zz500', 'zz800', 'sz50', 'zxb', 'cyb']
-    # pools = ['all', 'hs300', 'zz500', 'sz50']
-    # for i in pools:
-    bb = barra_base()
-    bb.base_data.stock_pool = 'zz500'
-    # bb.base_data.stock_pool = i
+    pools = ['all', 'hs300', 'zz500']
+    for i in pools:
+        bb = barra_base(stock_pool=i)
     # bb.try_to_read = False
+    # bb.base_data.stock_pool = i
     # bb.read_original_data()
-    bb.construct_factor_base(if_save=False)
-    bb.base_data.factor_expo = pd.read_hdf('bb_factor_expo_zz500', '123')
+    # bb.construct_factor_base(if_save=False)
+        bb.base_data.factor_expo = pd.read_hdf('RiskModelData/bb_factor_expo_'+i, '123')
     # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
     #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
     #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
@@ -1019,7 +1024,7 @@ if __name__ == '__main__':
     # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
     # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
     # bb.n_indus = 32
-    bb.get_base_factor_return(if_save=True)
+    # bb.get_base_factor_return(if_save=True)
     # if i in ['all', 'hs300', 'zz500']:
     #     bb.base_data.factor_expo.to_hdf('bb_factorexpo_'+i, '123')
     # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
@@ -1033,9 +1038,9 @@ if __name__ == '__main__':
     #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
     # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
     # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    # bb.base_factor_return = data.read_data(['bb_factor_return_zz500']).iloc[0]
+        bb.base_factor_return = data.read_data(['bb_factor_return_'+i]).iloc[0]
     # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
-    # bb.specific_return = data.read_data(['bb_specific_return_zz500']).iloc[0]
+        bb.specific_return = data.read_data(['bb_specific_return_'+i]).iloc[0]
     # bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
     # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
     # bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')
@@ -1050,8 +1055,8 @@ if __name__ == '__main__':
     # bb.get_vra_spec_vol()
     # bb.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=0.25)
     # start_time = time.time()
-    # bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
-    # bb.construct_risk_forecast_parallel(eigen_adj_sims=1000)
+        bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
+        bb.construct_risk_forecast_parallel(eigen_adj_sims=1000)
     # bb.handle_barra_data()
     # bb.risk_forecast_performance_parallel(test_type='random', bias_type=2, freq='w')
     # bb.risk_forecast_performance_parallel_spec(test_type='stock', bias_type=1, cap_weighted_bias=False)

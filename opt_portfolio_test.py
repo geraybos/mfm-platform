@@ -54,8 +54,8 @@ class opt_portfolio_test(multi_factor_strategy):
         if indus_neutral:
             global indus_cons
 
-            indus_name = factor_expo_g.items[10:38].rename(None)
-            indus_cons = pd.DataFrame(indus_name, columns=['factor'])
+            indus_name = factor_expo_g.items[10:38]
+            indus_cons = pd.DataFrame(indus_name.values, columns=['factor'])
             indus_cons['if_eq'] = True
             indus_cons['if_lower_bound'] = True
             indus_cons['limit'] = 0
@@ -87,11 +87,11 @@ class opt_portfolio_test(multi_factor_strategy):
             # curr_indus_cons = None
 
             # 不添加任何限制的解最大化IR的组合
-            optimized_weight = opt.solve_optimization(curr_bench_weight, curr_factor_expo,
-                curr_factor_ret, curr_factor_cov, specific_var=curr_spec_var, factor_expo_cons=curr_indus_cons,
-                enable_full_inv_cons=enable_full_inv_cons)
+            opt.solve_optimization(curr_bench_weight, curr_factor_expo, curr_factor_cov,
+                residual_return=curr_factor_ret, specific_var=curr_spec_var,
+                factor_expo_cons=curr_indus_cons, enable_full_inv_cons=enable_full_inv_cons)
 
-            return optimized_weight.reindex(alpha_g.columns)
+            return (opt.optimized_weight.reindex(alpha_g.columns), opt.forecasted_vol)
 
         ncpus = 20
         p = mp.ProcessPool(ncpus=ncpus)
@@ -100,11 +100,13 @@ class opt_portfolio_test(multi_factor_strategy):
         data_size = np.arange(self.holding_days.shape[0])
         chunksize = int(len(data_size) / ncpus)
         results = p.map(one_time_opt_func, data_size, chunksize=chunksize)
-        tar_holding = pd.DataFrame({i: v for i, v in zip(self.holding_days.index, results)}).T
+        tar_holding = pd.DataFrame({i: v[0] for i, v in zip(self.holding_days.index, results)}).T
+        forecasted_vol = pd.Series({i: v[1] for i, v in zip(self.holding_days.index, results)})
         p.close()
         p.join()
 
         self.position.holding_matrix = tar_holding.fillna(0.0)
+        self.forecasted_vol = forecasted_vol
 
     # 解最优化持仓, 进行回测, 然后归因的函数
     def do_opt_portfolio_test(self, *, start_date=None, end_date=None, loc=-1, foldername='',
@@ -145,7 +147,7 @@ class opt_portfolio_test(multi_factor_strategy):
         # 做真实情况下的超额归因
         pa_benchmark_weight = data.read_data(['Weight_' + self.strategy_data.stock_pool],
                                              ['Weight_' + self.strategy_data.stock_pool])
-        pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool]
+        pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool].fillna(0.0)
         # pa_benchmark_weight = data.read_data(['Weight_hs300'],
         #                                      ['Weight_hs300'])
         # pa_benchmark_weight = pa_benchmark_weight['Weight_hs300']
@@ -246,10 +248,10 @@ if __name__ == '__main__':
         # opt_test.factor_return = opt_test.factor_return.replace(0, np.nan)
 
         opt_test.factor_return = opt_test.factor_return.shift(1)
-        opt_test.strategy_data.benchmark_price = data.read_data(['Weight_hs300'], shift=True)
+        opt_test.strategy_data.benchmark_price = data.read_data(['Weight_hs300'], shift=True).fillna(0.0)
 
         # folder_name = 'opt_test/my_opt_sf1p4_bs_indus/' + iname + '_'
-        folder_name = 'opt_test/stock_alpha_hs300_allopt_std1_'
+        folder_name = 'opt_test/stock_alpha_hs300_allopt_std1_TEST'
         # folder_name = 'opt_test/hs300/stock_alpha_hs300/my_opt_sf1p4_bs_std1_'
         opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2011-05-04'), end_date=pd.Timestamp('2017-03-09'),
             loc=-1, foldername=folder_name, indus_neutral=True)

@@ -53,7 +53,7 @@ class data(object):
         # 从文件中读取数据
         obj = {}
         for i, s in enumerate(file_name):
-            temp_df = pd.read_csv(str(os.path.abspath('.'))+'/'+s+'.csv',
+            temp_df = pd.read_csv(str(os.path.abspath('.'))+'/RiskModelData/'+s+'.csv',
                                    index_col=0, parse_dates=True, encoding='GB18030')
             if shift:
                 temp_df = temp_df.shift(1)
@@ -102,7 +102,7 @@ class data(object):
     # 读取上市、退市、停牌数据，并生成可否交易的矩阵
     def generate_if_tradable(self, *, file_name=['is_enlisted','is_delisted','is_suspended'],
                              item_name=['is_enlisted','is_delisted','is_suspended'],
-                             shift = False):
+                             shift=False):
         if 'is_enlisted' not in self.if_tradable.items or 'is_delisted' not in self.if_tradable.items or \
                 'is_suspended' not in self.if_tradable.items:
             # 读取上市、退市、停牌数据

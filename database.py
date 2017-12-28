@@ -113,33 +113,40 @@ class database(object):
 
     # 取PrevClosePrice, 可用来算涨跌停价格, 也可用来算日收益率(后复权)
     def get_PrevClosePrice(self):
-        PrevClosePrice = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='PrevClosePrice')
+        PrevClosePrice = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                                  values='PrevClosePrice', aggfunc='first')
         self.data.stock_price['PrevClosePrice'] = PrevClosePrice
 
     # 取volumne
     def get_Volume(self):
-        Volume = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='Volume')
+        Volume = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                          values='Volume', aggfunc='first')
         self.data.stock_price['Volume'] = Volume
 
     # 取turnover value以及vwap
     def get_value_and_vwap(self):
-        TurnoverValue = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='TurnoverValue')
+        TurnoverValue = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                                 values='TurnoverValue', aggfunc='first')
         self.data.stock_price['TurnoverValue'] = TurnoverValue
         vwap = self.data.stock_price['TurnoverValue'].div(self.data.stock_price['Volume'])
         self.data.stock_price['vwap'] = vwap
 
     # 取total shares和free shares
     def get_total_and_free_shares(self):
-        Shares = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='Shares')
+        Shares = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                          values='Shares', aggfunc='first')
         self.data.stock_price['Shares'] = Shares
-        FreeShares = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='FreeShares')
+        FreeShares = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                              values='FreeShares', aggfunc='first')
         self.data.stock_price['FreeShares'] = FreeShares
 
     # 取total mv和free mv
     def get_total_and_free_mv(self):
-        MarketValue = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='MarketValue')
+        MarketValue = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                               values='MarketValue', aggfunc='first')
         self.data.stock_price['MarketValue'] = MarketValue
-        FreeMarketValue = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode', values='FreeMarketValue')
+        FreeMarketValue = self.sq_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                                   values='FreeMarketValue', aggfunc='first')
         self.data.stock_price['FreeMarketValue'] = FreeMarketValue
 
     # 取行业标签
@@ -350,7 +357,10 @@ class database(object):
 
     # 计算pb
     def get_pb(self):
-        pb = self.data.stock_price.ix['MarketValue']/self.data.raw_data.ix['TotalEquity']
+        # TotalEquity有可能是0, 因此为了不让pb成为inf, 将0改为nan, 即book value为0的股票, pb设为nan
+        # 还有一些book value为负的情况, 就不做更改了, 这些股票如果比较bp, 将是最差的股票, 因此不会有影响
+        # 特别注意, 由于有这些为负的情况出现, pb和pe一样, 最好都不要直接排序pb或pe, 而是排bp和ep
+        pb = self.data.stock_price.ix['MarketValue'].div(self.data.raw_data.ix['TotalEquity'].replace(0, np.nan))
         self.data.raw_data['PB'] = pb
 
     # 取一致预期净利润
@@ -364,8 +374,8 @@ class database(object):
         grouped_data = forecast_ni.groupby(['CON_DATE', 'STOCK_CODE'], as_index=False)
         fy1_data = grouped_data.nth(0)
         fy2_data = grouped_data.nth(1)
-        ni_fy1 = fy1_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='NI')
-        ni_fy2 = fy2_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='NI')
+        ni_fy1 = fy1_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='NI', aggfunc='first')
+        ni_fy2 = fy2_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='NI', aggfunc='first')
         ni_fy1 = ni_fy1.fillna(method='ffill').reindex(self.data.stock_price.major_axis, method='ffill')
         ni_fy2 = ni_fy2.fillna(method='ffill').reindex(self.data.stock_price.major_axis, method='ffill')
 
@@ -383,8 +393,8 @@ class database(object):
         grouped_data = forecast_eps.groupby(['CON_DATE', 'STOCK_CODE'], as_index=False)
         fy1_data = grouped_data.nth(0)
         fy2_data = grouped_data.nth(1)
-        eps_fy1 = fy1_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='EPS')
-        eps_fy2 = fy2_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='EPS')
+        eps_fy1 = fy1_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='EPS', aggfunc='first')
+        eps_fy2 = fy2_data.pivot_table(index='CON_DATE', columns='STOCK_CODE', values='EPS', aggfunc='first')
         eps_fy1 = eps_fy1.fillna(method='ffill').reindex(self.data.stock_price.major_axis, method='ffill')
         eps_fy2 = eps_fy2.fillna(method='ffill').reindex(self.data.stock_price.major_axis, method='ffill')
 
@@ -402,11 +412,13 @@ class database(object):
                     "' and DataDate<='" + str(self.trading_days.iloc[-1]) + "') b " \
                     "on a.InnerCode=b.InnerCode order by DataDate, SecuCode"
         ttm_data = self.sq_engine.get_original_data(sql_query)
-        cash_earnings_ttm = ttm_data.pivot_table(index='DataDate', columns='SecuCode', values='cash_earnings_ttm')
+        cash_earnings_ttm = ttm_data.pivot_table(index='DataDate', columns='SecuCode',
+                                                 values='cash_earnings_ttm', aggfunc='first')
         cash_earnings_ttm = cash_earnings_ttm.fillna(method='ffill').reindex(self.data.stock_price.major_axis,
                                                                              method='ffill')
         self.data.raw_data['CashEarnings_ttm'] = cash_earnings_ttm
-        cfo_ttm = ttm_data.pivot_table(index='DataDate', columns='SecuCode', values='cfo_ttm')
+        cfo_ttm = ttm_data.pivot_table(index='DataDate', columns='SecuCode',
+                                       values='cfo_ttm', aggfunc='first')
         cfo_ttm = cfo_ttm.fillna(method='ffill').reindex(self.data.stock_price.major_axis, method='ffill')
         self.data.raw_data['CFO_ttm'] = cfo_ttm
 
@@ -420,14 +432,15 @@ class database(object):
                     str(self.trading_days.iloc[-1]) + "') b on a.InnerCode=b.InnerCode " \
                     "order by DataDate, SecuCode"
         ttm_data = self.sq_engine.get_original_data(sql_query)
-        ni_ttm = ttm_data.pivot_table(index='DataDate', columns='SecuCode', values='ni_ttm')
+        ni_ttm = ttm_data.pivot_table(index='DataDate', columns='SecuCode',
+                                      values='ni_ttm', aggfunc='first')
         ni_ttm = ni_ttm.fillna(method='ffill').reindex(self.data.stock_price.major_axis,
                                                                              method='ffill')
         self.data.raw_data['NetIncome_ttm'] = ni_ttm
 
     # 计算pe ttm
     def get_pe_ttm(self):
-        pe_ttm = self.data.stock_price.ix['MarketValue']/self.data.raw_data.ix['NetIncome_ttm']
+        pe_ttm = self.data.stock_price.ix['MarketValue'].div(self.data.raw_data.ix['NetIncome_ttm'])
         self.data.raw_data['PE_ttm'] = pe_ttm
 
     # 取ni ttm, revenue ttm, eps_ttm的两年增长率
@@ -456,15 +469,18 @@ class database(object):
         time_index = growth_data.index.get_level_values(0)
         stock_index = growth_data.index.get_level_values(1)
 
-        ni_ttm_growth_8q = growth_data.pivot_table(index=time_index, columns=stock_index, values='ni_ttm')
-        ni_ttm_growth_8q = ni_ttm_growth_8q.fillna(method='ffill').reindex(self.data.stock_price.major_axis,
-                                                                           method='ffill').replace(np.inf, np.nan)
-        revenue_ttm_growth_8q = growth_data.pivot_table(index=time_index, columns=stock_index, values='revenue_ttm')
-        revenue_ttm_growth_8q = revenue_ttm_growth_8q.fillna(method='ffill').reindex(self.data.stock_price.major_axis,
-                                                                           method='ffill').replace(np.inf, np.nan)
-        eps_ttm_growth_8q = growth_data.pivot_table(index=time_index, columns=stock_index, values='eps_ttm')
-        eps_ttm_growth_8q = eps_ttm_growth_8q.fillna(method='ffill').reindex(self.data.stock_price.major_axis,
-                                                                           method='ffill').replace(np.inf, np.nan)
+        ni_ttm_growth_8q = growth_data.pivot_table(index=time_index, columns=stock_index,
+                                                   values='ni_ttm', aggfunc='first')
+        ni_ttm_growth_8q = ni_ttm_growth_8q.fillna(method='ffill').\
+            reindex(self.data.stock_price.major_axis, method='ffill').replace(np.inf, np.nan)
+        revenue_ttm_growth_8q = growth_data.pivot_table(index=time_index, columns=stock_index,
+                                                        values='revenue_ttm', aggfunc='first')
+        revenue_ttm_growth_8q = revenue_ttm_growth_8q.fillna(method='ffill').\
+            reindex(self.data.stock_price.major_axis, method='ffill').replace(np.inf, np.nan)
+        eps_ttm_growth_8q = growth_data.pivot_table(index=time_index, columns=stock_index,
+                                                    values='eps_ttm', aggfunc='first')
+        eps_ttm_growth_8q = eps_ttm_growth_8q.fillna(method='ffill').\
+            reindex(self.data.stock_price.major_axis, method='ffill').replace(np.inf, np.nan)
         self.data.raw_data['NetIncome_ttm_growth_8q'] = ni_ttm_growth_8q
         self.data.raw_data['Revenue_ttm_growth_8q'] = revenue_ttm_growth_8q
 
@@ -481,9 +497,11 @@ class database(object):
                     str(self.trading_days.iloc[-1]) + "') b "\
                     "on a.InnerCode=b.InnerCode order by TradingDay, SecuCode"
         index_data = self.jydb_engine.get_original_data(sql_query)
-        index_close_price = index_data.pivot_table(index='TradingDay', columns='SecuCode', values='ClosePrice')
+        index_close_price = index_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                                   values='ClosePrice', aggfunc='first')
         index_close_price = index_close_price.reindex(self.data.stock_price.major_axis)
-        index_open_price = index_data.pivot_table(index='TradingDay', columns='SecuCode', values='OpenPrice')
+        index_open_price = index_data.pivot_table(index='TradingDay', columns='SecuCode',
+                                                  values='OpenPrice', aggfunc='first')
         index_open_price = index_open_price.reindex(self.data.stock_price.major_axis)
         # 鉴于指数行情的特殊性，将指数行情都存在benchmark price中的每个item的第一列
         index_name = {'000016': 'sz50', '000300': 'hs300', '000902': 'zzlt',
@@ -550,7 +568,7 @@ class database(object):
                     reindex(self.data.stock_price.major_axis, method='ffill')
             # 无论是否更新, 都对指数权重做归一化处理, 更新的时候那些某一天全是nan的, 做完归一化处理后也是nan,
             # 因此没有问题, 这些数据会在更新的时候被ffill, 因此同样也是归一化后的, 因为久的数据都是已经被归一化的
-            curr_weight = curr_weight.div(curr_weight.sum(1), axis=0)
+            curr_weight = curr_weight.div(curr_weight.sum(1).replace(0, np.nan), axis=0)
             self.data.benchmark_price['Weight_'+index_name[i]] = curr_weight
             # # 将权重数据的nan填上0
             # # 如果为更新数据，则一行全是nan的情况不填，一行有数据的情况才将nan填成0
@@ -594,26 +612,26 @@ class database(object):
         self.get_AdjustFactor(first_date=update_time)
         self.get_ochl_vwap_adj()
         print('get sq data has been completed...\n')
-        # self.get_list_status(first_date=update_time)
-        # print('get list status has been completed...\n')
-        # self.get_asset_liability_equity(first_date=update_time)
-        # print('get balancesheet data has been completed...\n')
-        # self.get_pb()
-        # print('get pb has been completed...\n')
-        # self.get_ni_fy1_fy2()
-        # self.get_eps_fy1_fy2()
-        # print('get forecast data has been completed...\n')
-        # self.get_cash_related_ttm()
-        # print('get cash related ttm has been completed...\n')
-        # self.get_ni_ttm()
-        # print('get netincome ttm has been completed...\n')
-        # self.get_pe_ttm()
-        # print('get pe_ttm has been completed...\n')
-        # self.get_ni_revenue_eps_growth()
-        # print('get growth ttm has been completed...\n')
-        # self.get_index_price()
-        # self.get_index_weight(first_date=update_time)
-        # print('get index data has been completed...\n')
+        self.get_list_status(first_date=update_time)
+        print('get list status has been completed...\n')
+        self.get_asset_liability_equity(first_date=update_time)
+        print('get balancesheet data has been completed...\n')
+        self.get_pb()
+        print('get pb has been completed...\n')
+        self.get_ni_fy1_fy2()
+        self.get_eps_fy1_fy2()
+        print('get forecast data has been completed...\n')
+        self.get_cash_related_ttm()
+        print('get cash related ttm has been completed...\n')
+        self.get_ni_ttm()
+        print('get netincome ttm has been completed...\n')
+        self.get_pe_ttm()
+        print('get pe_ttm has been completed...\n')
+        self.get_ni_revenue_eps_growth()
+        print('get growth ttm has been completed...\n')
+        self.get_index_price()
+        self.get_index_weight(first_date=update_time)
+        print('get index data has been completed...\n')
 
         # 更新数据的情况先不能储存数据，只有非更新的情况才能储存
         if not self.is_update:
@@ -739,7 +757,7 @@ if __name__ == '__main__':
     start_time = time.time()
     db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-12-14'))
     # db.is_update=False
-    db.get_data_from_db()
+    # db.get_data_from_db()
     # db.update_data_from_db(end_date=pd.Timestamp('2017-11-14'))
     # db.get_trading_days()
     # db.get_labels()

@@ -1081,7 +1081,7 @@ class single_factor_strategy(strategy):
             if select_method == 3:
                 if self.strategy_data.stock_pool == 'all':
                     temp_weight = data.read_data(['Weight_zz500'], ['Weight_zz500'], shift=True)
-                    temp_weight = temp_weight['Weight_zz500']
+                    temp_weight = temp_weight['Weight_zz500'].fillna(0.0)
                 else:
                     # 注意股票池为非全市场时，基准的权重数据已经shift过了
                     temp_weight = self.strategy_data.benchmark_price.ix['Weight_' + self.strategy_data.stock_pool]
@@ -1128,10 +1128,10 @@ class single_factor_strategy(strategy):
                     # 因此用于超额归因的benchmark weight数据需要重新读取
                     pa_benchmark_weight = data.read_data(['Weight_' + self.strategy_data.stock_pool],
                                                          ['Weight_' + self.strategy_data.stock_pool])
-                    pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool]
+                    pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool].fillna(0.0)
                 else:
                     temp_weight = data.read_data(['Weight_hs300'], ['Weight_hs300'])
-                    pa_benchmark_weight = temp_weight['Weight_hs300']
+                    pa_benchmark_weight = temp_weight['Weight_hs300'].fillna(0.0)
 
             # base_obj在这里不用进行深拷贝, 因为归因的股票池=base_obj中base_data的股票池=策略的股票池,
             # 只要是一个股票池之间的计算, 就不会出现数据的丢失. 注意base_obj中的数据是没有shift过的, 专供归因所用

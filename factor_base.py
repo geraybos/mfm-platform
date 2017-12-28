@@ -29,6 +29,10 @@ class factor_base(object):
         self.specific_return = pd.DataFrame()
         # 提示factor base的股票池
         self.base_data.stock_pool = stock_pool
+        # 提示是否为数据更新
+        self.is_update = False
+        # 提示数据计算中是否尝试读取现有文件
+        self.try_to_read = True
 
     def read_original_data(self):
         pass
@@ -70,7 +74,7 @@ class factor_base(object):
 
     # 对原始的协方差矩阵进行估计
     def get_initial_cov_mat(self, *, sample_size=504, var_half_life=84, corr_half_life=504,
-                            var_nw_lag=5, corr_nw_lag=2, forecast_steps=21):
+                            var_nw_lag=5, corr_nw_lag=2, forecast_steps=252):
 
         # 初始化储存原始协方差矩阵的panel
         self.initial_cov_mat = pd.Panel(np.nan, items=self.base_factor_return.index,
@@ -103,7 +107,7 @@ class factor_base(object):
 
     # 估计原始协方差矩阵的并行版本
     def get_initial_cov_mat_parallel(self, *, sample_size=504, var_half_life=84, corr_half_life=504,
-                            var_nw_lag=5, corr_nw_lag=2, forecast_steps=21):
+                            var_nw_lag=5, corr_nw_lag=2, forecast_steps=252):
         base_factor_return = self.base_factor_return
 
         # 定义单次计算的函数
@@ -118,21 +122,23 @@ class factor_base(object):
 
         ncpus = 20
         p = mp.ProcessPool(ncpus)
-        data_size = np.arange(base_factor_return.shape[0])
+        # 从第sample_size项开始计算
+        data_size = np.arange(sample_size-1, base_factor_return.shape[0])
         chunksize = int(len(data_size)/ncpus)
         results = p.map(one_time_func, data_size, chunksize=chunksize)
-        self.initial_cov_mat = pd.Panel({i: v[0] for i, v in zip(base_factor_return.index, results)})
-        self.daily_var_forecast = pd.DataFrame({i: v[1] for i, v  in zip(base_factor_return.index, results)}).T
+        self.initial_cov_mat = pd.Panel({i: v[0] for i, v in zip(base_factor_return.index[sample_size-1:], results)})
+        self.daily_var_forecast = pd.DataFrame({i: v[1] for i, v  in
+                                                zip(base_factor_return.index[sample_size-1:], results)}).T
         # 将因子的排序改为习惯的排序, 而不是按照字母顺序
-        self.initial_cov_mat = self.initial_cov_mat.reindex(major_axis=self.base_data.factor_expo.items,
-                                                            minor_axis=self.base_data.factor_expo.items)
-        self.daily_var_forecast = self.daily_var_forecast.reindex(columns=self.base_data.factor_expo.items)
+        self.initial_cov_mat = self.initial_cov_mat.reindex(major_axis=self.base_factor_return.columns,
+                                                            minor_axis=self.base_factor_return.columns)
+        self.daily_var_forecast = self.daily_var_forecast.reindex(columns=self.base_factor_return.columns)
 
     # 原始协方差矩阵的估计量函数, 采用statsmodels里面的函数改进性能
     @staticmethod
     def initial_cov_estimator(cursor, complete_factor_return_data, *, sample_size=504,
                               var_half_life=84, corr_half_life=504, var_nw_lag=5, corr_nw_lag=2,
-                              forecast_steps=21):
+                              forecast_steps=252):
         # 首先创建指数权重序列
         var_weight = strategy_data.construct_expo_weights(var_half_life, sample_size)
         corr_weight = strategy_data.construct_expo_weights(corr_half_life, sample_size)
@@ -202,21 +208,22 @@ class factor_base(object):
         # 初始化储存vra后的协方差矩阵的panel
         self.vra_cov_mat = self.initial_cov_mat * np.nan
         # 计算标准化的因子收益率, 即用每天实现的因子收益, 除以之前预测的当天的因子波动率
-        standardized_fac_ret = self.base_factor_return.div(np.sqrt(self.daily_var_forecast.shift(1))).\
-            replace([np.inf, -np.inf], np.nan)
+        # 之所以要对初始日度的factor vol做一次reindex, 一是考虑在更新的时候, 由于shift的存在
+        # 初始的日度估计值要多取一天, 导致两者的index不同, 二是正常计算的时候日度估计数据依然会比
+        # factor return的时间要少(sample_size-1)的时间段, 即最开始那一段时间的index是没有的
+        standardized_fac_ret = self.base_factor_return.div(np.sqrt(self.daily_var_forecast.shift(1).\
+            reindex(index=self.base_factor_return.index))).replace([np.inf, -np.inf], np.nan)
         # 计算factor cross-sectional bias statistic
         factor_cs_bias = standardized_fac_ret.pow(2).mean(1).pow(0.5)
 
         # 初始化储存vra multiplier的seires
-        self.vra_multiplier = pd.Series(np.nan, index=self.initial_cov_mat.items)
-
+        self.vra_multiplier = pd.Series(np.nan, index=self.base_factor_return.index)
         # 开始循环计算vra后的协方差矩阵
         for cursor, time in enumerate(self.base_factor_return.index):
-            # 根据sample size来决定从第几期开始计算
             # 注意, 因为用来进行调整的factor volatility multiplier(vra multiplier)的计算
             # 要用到预测的因子方差的时间序列, 所以, 最开始的几期的计算会只有很少的时间序列上的点
-            if time < pd.Timestamp('2011-05-03'):
-            # if cursor < sample_size - 1:
+            # if time < pd.Timestamp('2011-05-03'):
+            if cursor < sample_size - 1:
                 continue
 
             vra_multiplier = factor_base.vra_multiplier_estimator(cursor, factor_cs_bias,
@@ -224,6 +231,7 @@ class factor_base(object):
             self.vra_multiplier.ix[time] = vra_multiplier
 
         # 循环结束后, 计算vra_cov_mat, 事实上只需要将vra multiplier的平方乘在每个时间对应的协方差矩阵上即可
+        self.vra_multiplier = self.vra_multiplier.reindex(index=self.initial_cov_mat.items)
         self.vra_cov_mat = self.initial_cov_mat.apply(lambda x: x*self.vra_multiplier.pow(2), axis=0)
 
         # self.vra_cov_mat.to_hdf('bb_factor_vracovmat_all', '123')
@@ -369,7 +377,7 @@ class factor_base(object):
         return [adjusted_cov_mat, bias, scaled_bias]
 
     # 对原始的specific vol进行估计的函数
-    def get_initial_spec_vol(self, *, sample_size=360, spec_var_half_life=84, nw_lag=5, forecast_steps=21):
+    def get_initial_spec_vol(self, *, sample_size=360, spec_var_half_life=84, nw_lag=5, forecast_steps=252):
         # # 首先将从来就没有数据的那些股票丢掉
         # valid_data = self.specific_return.dropna(axis=1, how='all')
         valid_data = self.specific_return
@@ -387,8 +395,8 @@ class factor_base(object):
 
         # 开始循环计算
         for cursor, time in enumerate(valid_data.index):
-            # if cursor < sample_size - 1:
-            if time < pd.Timestamp('2013-06-13'):
+            if cursor < sample_size - 1:
+            # if time < pd.Timestamp('2013-06-13'):
                 continue
 
             # 在每一次计算开始的时候, 只取那些当期可投资, 且有specific return的股票
@@ -426,22 +434,21 @@ class factor_base(object):
         # ts_daily_spec_vol.to_hdf('bb_factor_dailyspecvol_all', '123')
 
     # 估计原始spec vol的函数的并行版本
-    def get_initial_spec_vol_parallel(self, *, sample_size=360, spec_var_half_life=84, nw_lag=5, forecast_steps=21):
-        specific_return = self.specific_return.dropna(axis=0, how='all')
-        self.base_data.generate_if_tradable()
-        self.base_data.handle_stock_pool()
-        if_tradable = self.base_data.if_tradable
-        global factor_expo
-        factor_expo = self.base_data.factor_expo
-        mv = self.base_data.stock_price.ix['FreeMarketValue']
+    def get_initial_spec_vol_parallel(self, *, sample_size=360, spec_var_half_life=84, nw_lag=5, forecast_steps=252):
+        # specific_return = self.specific_return.dropna(axis=0, how='all')
+        global factor_expo_g, specific_return_g, if_tradable_g, mv_g
+        specific_return_g = self.specific_return
+        # 更新的时候, specific return和if tradable的股票索引会不一样, specific return会少一些, 需要reindex
+        if_tradable_g = self.base_data.if_tradable.reindex(minor_axis=self.specific_return.columns)
+        factor_expo_g = self.base_data.factor_expo
+        mv_g = self.base_data.stock_price.ix['FreeMarketValue']
 
         def one_time_estimator_func(cursor):
-            time = specific_return.index[cursor]
+            time = specific_return_g.index[cursor]
             # 在每一次计算开始的时候, 只取那些当期可投资, 且有specific return的股票
-            curr_inv_stks = np.logical_and(if_tradable['if_inv', time, :],
-                                           specific_return.ix[time, :].notnull())
-            valid_data = specific_return.ix[:, curr_inv_stks]
-
+            curr_inv_stks = np.logical_and(if_tradable_g['if_inv', time, :],
+                                           specific_return_g.ix[time, :].notnull())
+            valid_data = specific_return_g.ix[:, curr_inv_stks]
 
             # 取当期的数据, 由于acovf函数不能接受全是nan的股票, 因此将这里全是nan的股票再次剔除
             curr_data = valid_data.iloc[cursor + 1 - sample_size:cursor + 1, :].dropna(axis=1, how='all')
@@ -457,23 +464,28 @@ class factor_base(object):
             ts_weight = factor_base.get_ts_weight(curr_data, Zu)
 
             # 通过时间序列的spec risk, 用回归计算结构化的spec risk
-            reg_base = factor_expo.ix[:, time, valid_data.columns]
+            reg_base = factor_expo_g.ix[:, time, valid_data.columns]
             # # reg_base = reg_base.drop(['lncap', 'beta', 'nls', 'bp', 'ey', 'growth', 'leverage'], axis=1)
             str_outcome = factor_base.str_spec_vol_estimator(ts_outcome[0], ts_outcome[1], ts_weight,
-                reg_base, n_style=10, n_indus=28, reg_weight=np.sqrt(mv.ix[time, valid_data.columns]))
+                reg_base, n_style=10, n_indus=28, reg_weight=np.sqrt(mv_g.ix[time, valid_data.columns]))
 
             return [ts_outcome[0], ts_outcome[1], str_outcome[0], str_outcome[1], ts_weight]
 
-        ncpus = 20
+        ncpus = 1
         p = mp.ProcessPool(ncpus)
-        data_size = np.arange(specific_return.shape[0])
+        data_size = np.arange(sample_size - 1, specific_return_g.shape[0])
         chunksize = int(len(data_size)/ncpus)
         results = p.map(one_time_estimator_func, data_size, chunksize=chunksize)
-        ts_spec_vol = pd.DataFrame({i: v[0] for i, v in zip(specific_return.index, results)}).T
-        ts_daily_spec_vol = pd.DataFrame({i: v[1] for i, v in zip(specific_return.index, results)}).T
-        str_spec_vol = pd.DataFrame({i: v[2] for i, v in zip(specific_return.index, results)}).T
-        str_daily_spec_vol = pd.DataFrame({i: v[3] for i, v in zip(specific_return.index, results)}).T
-        ts_weight = pd.DataFrame({i: v[4] for i, v in zip(specific_return.index, results)}).T
+        ts_spec_vol = pd.DataFrame({i: v[0] for i, v in zip(
+            specific_return_g.index[sample_size-1:specific_return_g.shape[0]], results)}).T
+        ts_daily_spec_vol = pd.DataFrame({i: v[1] for i, v in zip(
+            specific_return_g.index[sample_size-1:specific_return_g.shape[0]], results)}).T
+        str_spec_vol = pd.DataFrame({i: v[2] for i, v in zip(
+            specific_return_g.index[sample_size-1:specific_return_g.shape[0]], results)}).T
+        str_daily_spec_vol = pd.DataFrame({i: v[3] for i, v in zip(
+            specific_return_g.index[sample_size-1:specific_return_g.shape[0]], results)}).T
+        ts_weight = pd.DataFrame({i: v[4] for i, v in zip(
+            specific_return_g.index[sample_size-1:specific_return_g.shape[0]], results)}).T
 
         ts_spec_vol = ts_spec_vol.reindex(columns=self.base_data.stock_price.minor_axis)
         ts_daily_spec_vol = ts_daily_spec_vol.reindex(columns=self.base_data.stock_price.minor_axis)
@@ -481,17 +493,11 @@ class factor_base(object):
         str_daily_spec_vol = str_daily_spec_vol.reindex(columns=self.base_data.stock_price.minor_axis)
         ts_weight = ts_weight.reindex(columns=self.base_data.stock_price.minor_axis)
 
-
-        # ts_spec_vol.to_hdf('bb_factor_tsspecvol_all', '123')
-        # ts_daily_spec_vol.to_hdf('bb_factor_tsdailyspecvol_all', '123')
-        # str_spec_vol.to_hdf('bb_factor_strspecvol_all', '123')
-        # str_daily_spec_vol.to_hdf('bb_factor_strdailyspecvol_all', '123')
-        # ts_weight.to_hdf('ts_weight_all', '123')
-
         weighted_spec_vol = ts_spec_vol*ts_weight + str_spec_vol*(1-ts_weight)
         weighted_daily_spec_vol = ts_daily_spec_vol*ts_weight + str_daily_spec_vol*(1-ts_weight)
-        # weighted_spec_vol.to_hdf('bb_factor_weightedspecvol_hs300', '123')
-        # weighted_daily_spec_vol.to_hdf('bb_factor_weighteddailyspecvol_hs300', '123')
+        # 如果str spec vol是nan, 但ts不是nan, 则spec vol使用ts, 如果ts也是nan, 则就是nan
+        weighted_spec_vol = weighted_spec_vol.where(str_spec_vol.notnull(), ts_spec_vol)
+        weighted_daily_spec_vol = weighted_daily_spec_vol.where(str_daily_spec_vol.notnull(), ts_daily_spec_vol)
 
         self.initial_spec_vol = weighted_spec_vol
         self.initial_daily_spec_vol = weighted_daily_spec_vol
@@ -502,7 +508,7 @@ class factor_base(object):
     # 计算时间序列预测法的spec vol
     @staticmethod
     def ts_spec_vol_estimator(curr_data, *, sample_size=360, spec_var_half_life=84,
-                               nw_lag=5, forecast_steps=21):
+                               nw_lag=5, forecast_steps=252):
         # 首先创建指数权重序列
         spec_var_weight = strategy_data.construct_expo_weights(spec_var_half_life, sample_size)
 
@@ -567,7 +573,7 @@ class factor_base(object):
     # 计算structured specific vol的函数
     # 注意, daily的spec vol也需要计算str_vol
     @staticmethod
-    def str_spec_vol_estimator(ts_spec_vol, ts_daily_spec_vol, ts_weight, base_expo, *, n_style,
+    def str_spec_vol_estimator(ts_spec_vol, ts_daily_spec_vol, ts_weight, base_expo, *, n_style=10,
                                n_indus=28, reg_weight=1):
         if isinstance(reg_weight, int):
             reg_weight = pd.Series(1, index=ts_spec_vol.index)
@@ -577,7 +583,8 @@ class factor_base(object):
         valid_ts_daily_spec_vol = ts_daily_spec_vol.ix[valid_stocks]
         valid_base_expo = base_expo.ix[valid_stocks, :]
         valid_reg_weight = reg_weight.ix[valid_stocks]
-        if valid_base_expo.iloc[:, :10].isnull().all().all():
+        if valid_base_expo.iloc[:, :10].isnull().all().all() or \
+                valid_stocks.sum() <= n_style + n_indus + 1:
             return [pd.Series(), pd.Series()]
 
         # 先算str_spec_vol
@@ -588,13 +595,15 @@ class factor_base(object):
                     indus_ret_weights=valid_reg_weight**2, n_style=n_style, n_indus=n_indus)[0]
         # 计算模型拟合部分, 这一部分的时候要将所有股票都算进去
         fitted_part = base_expo.dot(params)
-        str_sepc_vol = np.exp(fitted_part)
+        str_spec_vol = np.exp(fitted_part)
+        if str_spec_vol.isnull().all():
+            return [pd.Series(), pd.Series()]
 
         # 计算E0, E0是reg weighted average of ratio between ts vol and str vol
         # 暂时只计算valid stocks的均值
-        ratio = valid_ts_spec_vol.div(str_sepc_vol.reindex(index=valid_ts_spec_vol.index)).dropna()
+        ratio = valid_ts_spec_vol.div(str_spec_vol.reindex(index=valid_ts_spec_vol.index)).dropna()
         E0 = np.average(ratio, weights=valid_reg_weight.reindex(index=ratio.index))
-        str_sepc_vol = str_sepc_vol.mul(E0)
+        str_spec_vol = str_spec_vol.mul(E0)
 
         # 还需要计算daily_str_spec_vol
         ln_ts_daily_vol = np.log(valid_ts_daily_spec_vol)
@@ -610,15 +619,16 @@ class factor_base(object):
         E0_daily = np.average(ratio_daily, weights=valid_reg_weight.reindex(index=ratio_daily.index))
         str_daily_spec_vol = str_daily_spec_vol.mul(E0_daily)
 
-        return [str_sepc_vol, str_daily_spec_vol]
+        return [str_spec_vol, str_daily_spec_vol]
 
     # 对spec vol做volatility regime adjustment
     def get_vra_spec_vol(self, *, sample_size=252, vra_half_life=42):
-        # spec_vol = pd.read_hdf('bb_factor_weightedspecvol_hs300', '123')
-        # daily_spec_vol = pd.read_hdf('bb_factor_weighteddailyspecvol_hs300', '123')
-
         # 标准化的spec return, 用每天的实现残余收益除以之前预测的当天的残余波动率
-        standardized_spec_ret = self.specific_return.div(self.initial_daily_spec_vol.shift(1))
+        # 之所以要对初始日度的spec vol做一次reindex, 一是考虑在更新的时候, 由于shift的存在
+        # 初始的日度估计值要多取一天, 导致两者的index不同, 二是正常计算的时候日度估计数据依然会比
+        # specific return的时间要少(sample_size-1)的时间段, 即最开始那一段时间的index是没有的
+        standardized_spec_ret = self.specific_return.div(self.initial_daily_spec_vol.
+            shift(1).reindex(index=self.specific_return.index)).replace([np.inf, -np.inf], np.nan)
         # 由于个股的标准化收益容易出现极值, 因此, 在截面上对标准化收益进行去极值处理
         standardized_spec_ret = strategy_data.winsorization(standardized_spec_ret)
 
@@ -633,7 +643,8 @@ class factor_base(object):
         self.vra_multiplier_spec = pd.Series(np.nan, index=self.specific_return.index)
         # 循环计算vra multiplier
         for cursor, time in enumerate(self.specific_return.index):
-            if time < pd.Timestamp('2011-05-03'):
+            if cursor < sample_size - 1:
+            # if time < pd.Timestamp('2011-05-03'):
                 continue
 
             # 使用与算因子vra乘数时候一样的函数来进行计算, 两者的算法是一致的
@@ -642,6 +653,7 @@ class factor_base(object):
             self.vra_multiplier_spec.ix[time] = vra_multiplier
 
         # 循环结束后, 计算vra_spec_vol, 只需将原本的vol乘以vra multiplier即可
+        self.vra_multiplier_spec = self.vra_multiplier_spec.reindex(index=self.initial_spec_vol.index)
         self.vra_spec_vol = self.initial_spec_vol.mul(self.vra_multiplier_spec, axis=0)
 
         # self.vra_spec_vol.to_hdf('bb_factor_vraspecvol_hs300', '123')
@@ -660,6 +672,11 @@ class factor_base(object):
                 continue
             valid_spec_vol = curr_spec_vol.dropna()
             curr_mv = self.base_data.stock_price.ix['FreeMarketValue', time, valid_spec_vol.index]
+            # 市值全是0的时候一般出现在更新的时候, 为了使得SpecVar中有这一天的日期, 因此将这一天可投资的股票填成0
+            if curr_mv.isnull().all():
+                bs_spec_vol.ix[time, :] = np.where(self.base_data.if_tradable.ix['if_inv', time, :],
+                                                   0, np.nan)
+                continue
             # 按照市值将股票分位10分位
             mv_decile = pd.qcut(curr_mv, 10, labels=False)
             # 按照市值加权, 计算每个市值分位数内的预测风险的均值
@@ -680,13 +697,16 @@ class factor_base(object):
         self.bs_spec_vol = bs_spec_vol
 
     # 构建风险预测的函数
-    def construct_risk_forecast_parallel(self, *, freq='m', covmat_sample_size=504, var_half_life=84,
+    def construct_risk_forecast_parallel(self, *, freq='a', covmat_sample_size=504, var_half_life=84,
             corr_half_life=504, var_nw_lag=5, corr_nw_lag=2, vra_sample_size=252, vra_half_life=42,
             eigen_adj_sims=1000, scaling_factor=1.4, specvol_sample_size=360, specvol_half_life=84,
             specvol_nw_lag=5, shrinkage_parameter=0.1):
         # 将freq转到forecast_step
-        freq_map = {'m': 21, 'w': 5}
+        freq_map = {'a':252, 'm': 21, 'w': 5}
         forecast_steps = freq_map[freq]
+
+        self.base_data.generate_if_tradable()
+        self.base_data.handle_stock_pool()
 
         # 估计原始的特征收益波动率
         self.get_initial_spec_vol_parallel(sample_size=specvol_sample_size, spec_var_half_life=specvol_half_life,
@@ -699,7 +719,7 @@ class factor_base(object):
         self.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=shrinkage_parameter)
 
         # 将spec vol改成spec var
-        self.spec_var = self.bs_spec_vol ** 2
+        self.spec_var = self.bs_spec_vol.pow(2)
 
         # 估计原始协方差矩阵
         self.get_initial_cov_mat_parallel(sample_size=covmat_sample_size, var_half_life=var_half_life,
@@ -713,11 +733,21 @@ class factor_base(object):
         self.get_eigen_adjusted_cov_mat_parallel(n_of_sims=eigen_adj_sims, scaling_factor=scaling_factor,
                                                  simed_sample_size=covmat_sample_size)
 
+        # 为了和更新数据兼容, 此时算出的协方差矩阵和特定风险的时间段都是只有更新时间段的
+        # 由于更新时间段不会调用这个函数, 这个函数是研究的时候算全时间段使用的, 因此此时这里只有从
+        # 第一个超过sample_size的那天开始的索引, 且一般协方差矩阵和特定风险的时间段还不一样(因为sample_size不同)
+        # 因此为了在研究中方便使用, 要把其统一reindex成factor return的时间
+        self.spec_var = self.spec_var.reindex(index=self.specific_return.index)
+        self.eigen_adjusted_cov_mat = self.eigen_adjusted_cov_mat.reindex(items=self.base_factor_return.index)
+
         # 储存数据
-        self.eigen_adjusted_cov_mat.to_hdf('bb_riskmodel_covmat_'+self.base_data.stock_pool, '123')
-        self.spec_var.to_hdf('bb_riskmodel_specvar_'+self.base_data.stock_pool, '123')
-        # self.eigen_adjusted_cov_mat.to_hdf('barra_riskmodel_covmat_all_facret', '123')
-        # self.spec_var.to_hdf('barra_riskmodel_specvar_all_facret', '123')
+        self.eigen_adjusted_cov_mat.to_hdf('RiskModelData/bb_riskmodel_covmat_'+self.base_data.stock_pool, '123')
+        self.spec_var.to_hdf('RiskModelData/bb_riskmodel_specvar_'+self.base_data.stock_pool, '123')
+
+        self.initial_daily_spec_vol.pow(2).reindex(index=self.specific_return.index). \
+            to_hdf('RiskModelData/bb_riskmodel_dailyspecvar_'+self.base_data.stock_pool, '123')
+        self.daily_var_forecast.reindex(index=self.base_factor_return.index). \
+            to_hdf('RiskModelData/bb_riskmodel_dailyfacvar_' + self.base_data.stock_pool, '123')
 
     # 根据barra的bias statistics来测试风险预测能力的函数
     def risk_forecast_performance(self, *, no_of_sims=10000, freq='m', test_type='random'):
@@ -1299,12 +1329,6 @@ class factor_base(object):
         forecasted_spec_var.to_hdf('barra_fore_spec_var', '123')
         factor_expo.transpose(2, 0, 1).to_hdf('barra_factor_expo', '123')
         pass
-
-
-
-
-
-
 
 
 

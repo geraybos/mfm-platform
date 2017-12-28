@@ -12,7 +12,12 @@ from strategy import strategy
 # 优化器类
 class optimizer(object):
     def __init__(self):
-        pass
+        # 储存优化组合权重的series
+        self.optimized_weight = pd.Series()
+        # 储存优化器返回的sicpy OptimizeResult对象
+        self.opt_result = None
+        # 最优化组合的预测风险
+        self.forecasted_vol = None
 
     # 目标函数
     def objective(self, w, add_params):
@@ -57,101 +62,49 @@ class optimizer(object):
 
         import time
         start_time = time.time()
-        opt_results = optimize.minimize(self.objective, w, args=(obj_func_params, ), bounds=bounds,
+        opt_result = optimize.minimize(self.objective, w, args=(obj_func_params, ), bounds=bounds,
                                         constraints=cons, method='SLSQP',
                                         options={'disp':True, 'maxiter':1000})
+        self.opt_result = opt_result
         print("time: {0} seconds\n".format(time.time() - start_time))
-        return opt_results
 
-    # 计算手续费的函数
-    @staticmethod
-    def trans_cost(w, *, old_w, buy_cost=1.5/1000, sell_cost=1.5/1000):
-        # 买入的手续费
-        trans_cost_buy = np.sum(np.maximum(w - old_w, 0)) * buy_cost
-        trans_cost_sell = np.sum(np.maximum(old_w - w, 0)) * sell_cost
-        total_trans_cost = trans_cost_buy + trans_cost_sell
-        return total_trans_cost
 
-    # # 添加换手率限制条件的函数,
-    # @staticmethod
-    # def turnover_cons(w, *, old_w, turnover_cap=1.0):
-    #     # turnover = np.sum(np.abs(w - old_w))/2
-    #     # turnover = np.sum(np.where(w>old_w, w-old_w, 0))
-    #     turnover = np.sum((w-old_w)**2)
-    #     # 根据设置的限制条件, 减去设置的上限
-    #     turnover_cons = turnover - turnover_cap
-    #     # 因为scipy.optimize.minimize函数的条件的形式是大于0, 因此要取负号
-    #     # 暂时不支持现金, 等添加了现金功能之后再来修改
-    #     return - turnover_cons
-
-    # 添加换手率限制条件的一系列函数
-    # 首先是split plus + split minus <= 换手率的限制条件
-    @staticmethod
-    def turnover_cons_ineq(w, *, n_assets, turnover_cap=1.0):
-        turnover_cons = np.sum(w[n_assets:]) / 2 - turnover_cap
-        # 因为scipy.optimize.minimize函数的条件的形式是大于0, 因此要取负号
-        return - turnover_cons
-
-    # 然后是w(i) = SplitPlus(i) - SplitMinus(i)的等式条件
-    # 注意这个等式条件返回的是一个为n_asset的向量, 代表有个n_asset个限制条件
-    @staticmethod
-    def turnover_cons_eq(w, *, old_w, n_assets):
-        equality = w[0:n_assets] - old_w[0:n_assets] - w[n_assets:(2*n_assets)] + w[(2*n_assets):]
-        return equality
-
-    # 添加因子暴露值的限制条件
-    @staticmethod
-    def factor_expo_cons(w, *, factor, lower_bound=True, limit=0, bench_weight=None):
-        # 如果有bench_weight, 则是对active部分的因子暴露做限制
-        if isinstance(bench_weight, pd.Series):
-            w = w - bench_weight
-        # 根据选择的因子暴露和限制, 减去限制
-        factor_expo = factor.dot(w) - limit
-        # 因为函数的条件形式是大于0, 因此如果是下限, 则不管, 上限则取负号
-        # 如果是希望设置等式条件, 则取不取负号都是一样的
-        if not lower_bound:
-            factor_expo = -factor_expo
-        return factor_expo
-
-    # 设置持仓之和的条件函数, 在不支持现金资产的时候, 总是限制持仓之和为1
-    @staticmethod
-    def full_inv_cons(w, *, n_assets, cash_ratio=0):
-        total_weight = np.sum(w[:n_assets])
-        # 减去设置的限制
-        full_inv_cons = total_weight - (1 - cash_ratio)
-        return full_inv_cons
 
     # 建立优化问题的函数, 这个函数可以作为和外界的接口来使用
     # 注意, 这里输入的变量是pd.DataFrame或者pd.Series, 但是要将其做成np.ndarray的类型
-    def solve_optimization(self, bench_weight, factor_expo, factor_ret, factor_cov, *,
-                            specific_var=None, residual_return=None, old_w=None, enable_trans_cost=False,
-                            buy_cost=1.5/1000, sell_cost=1.5/1000, enable_turnover_cons=False,
-                            turnover_cap=1.0, enable_full_inv_cons=True, cash_ratio=0, long_only=True,
-                            asset_cap=None, factor_expo_cons=None):
+    def solve_optimization(self, bench_weight, factor_expo, factor_cov, *, factor_ret=None,
+                           residual_return=None, specific_var=None, old_w=None, enable_trans_cost=False,
+                           buy_cost=1.5/1000, sell_cost=1.5/1000, enable_turnover_cons=False,
+                           turnover_cap=1.0, enable_full_inv_cons=True, cash_ratio=0, long_only=True,
+                           asset_cap=None, factor_expo_cons=None):
+        # 因子收益或股票的alpha收益, 必须要有一个, 否则报错
+        assert np.logical_or(factor_ret is not None, residual_return is not None), 'Factor return and ' \
+            'residual return of stocks cannot both be None, please specify at least one of them!\n'
 
         if enable_turnover_cons:
-            optimized_weight = self.solve_opt_with_turnover_cons(bench_weight, factor_expo, factor_ret, factor_cov,
-                specific_var=specific_var, residual_return=residual_return, old_w=old_w,
-                enable_trans_cost=enable_trans_cost, buy_cost=buy_cost, sell_cost=sell_cost,
-                turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
+            self.solve_opt_with_turnover_cons(bench_weight, factor_expo, factor_cov,
+                factor_ret=factor_ret, residual_return=residual_return, specific_var=specific_var,
+                old_w=old_w, enable_trans_cost=enable_trans_cost, buy_cost=buy_cost,
+                sell_cost=sell_cost, turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
                 cash_ratio=cash_ratio, long_only=long_only, asset_cap=asset_cap,
                 factor_expo_cons=factor_expo_cons)
         else:
-            optimized_weight = self.solve_ordinary_opt(bench_weight, factor_expo, factor_ret, factor_cov,
-                specific_var=specific_var, residual_return=residual_return, old_w=old_w,
-                enable_trans_cost=enable_trans_cost, buy_cost=buy_cost, sell_cost=sell_cost,
-                turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
+            self.solve_ordinary_opt(bench_weight, factor_expo, factor_cov,
+                factor_ret=factor_ret, residual_return=residual_return, specific_var=specific_var,
+                old_w=old_w, enable_trans_cost=enable_trans_cost, buy_cost=buy_cost,
+                sell_cost=sell_cost, turnover_cap=turnover_cap, enable_full_inv_cons=enable_full_inv_cons,
                 cash_ratio=cash_ratio, long_only=long_only, asset_cap=asset_cap,
                 factor_expo_cons=factor_expo_cons)
 
-        return optimized_weight
+        # 计算最优化结果的预测波动
+        self.get_forecasted_vol(bench_weight, factor_expo, factor_cov, specific_var=specific_var)
 
     # 在没有换手率限制条件下的问题, 按照常规方法来解
-    def solve_ordinary_opt(self, bench_weight, factor_expo, factor_ret, factor_cov, *,
-                              specific_var=None, residual_return=None, old_w=None, enable_trans_cost=False,
-                              buy_cost=1.5/1000, sell_cost=1.5/1000, turnover_cap=1.0,
-                              enable_full_inv_cons=True, cash_ratio=0, long_only=True,
-                              asset_cap=None, factor_expo_cons=None):
+    def solve_ordinary_opt(self, bench_weight, factor_expo, factor_cov, *, factor_ret=None,
+                           residual_return=None, specific_var=None, old_w=None, enable_trans_cost=False,
+                           buy_cost=1.5/1000, sell_cost=1.5/1000, turnover_cap=1.0,
+                           enable_full_inv_cons=True, cash_ratio=0, long_only=True,
+                           asset_cap=None, factor_expo_cons=None):
         # 注意要把dataframe的变量做成ndarray的格式, 主要是不能有nan
         # 因此规则是, 只要股票的某一因子暴露是nan, 则填为0
         # 因此, 如果这里有投资域的问题, 则需要注意, 要在传入此函数之前, 就将投资域外的股票全部去掉,
@@ -161,8 +114,9 @@ class optimizer(object):
         # 第一步, 设置传入目标函数作为参数的字典
         obj_func_params['factor_expo'] = factor_expo.fillna(0.0).values
         obj_func_params['bench_weight'] = bench_weight.fillna(0.0).values
-        obj_func_params['factor_ret'] = factor_ret.fillna(0.0).values
         obj_func_params['factor_cov'] = factor_cov.fillna(0.0).values
+        if isinstance(factor_ret, pd.Series):
+            obj_func_params['factor_ret'] = factor_ret.fillna(0.0).values
         if isinstance(specific_var, pd.Series):
             obj_func_params['specific_var'] = specific_var.fillna(0.0).values
         if isinstance(residual_return, pd.Series):
@@ -185,10 +139,6 @@ class optimizer(object):
         # 第二步, 设置限制条件
         # 不等式的限制条件
         ineq_cons_funcs = {}
-        # # 首先是换手率的限制条件
-        # if enable_turnover_cons:
-        #     ineq_cons_funcs['turnover_cons'] = functools.partial(optimizer.turnover_cons, old_w=old_w,
-        #                                                        turnover_cap=turnover_cap)
 
         # 等式的限制条件
         eq_cons_funcs = {}
@@ -217,13 +167,6 @@ class optimizer(object):
                         factor_expo.ix[curr_con['factor'], :].fillna(method='bfill'), limit=curr_limit,
                         bench_weight=bench_weight)
 
-        # if isinstance(factor_expo_cons, pd.DataFrame):
-        #     def indus_func(x):
-        #         active_x = x - bench_weight
-        #         expo = factor_expo.ix[factor_expo_cons['factor']].dot(active_x)
-        #         return expo
-        #     eq_cons_funcs['indus'] = indus_func
-
         # 第三步, 设置变量的边界条件
         # 注意, 这里对变量的边界条件是对所有变量都是一样的,
         # 如果需要设置对某几个变量的条件, 则需要在上面的限制条件中单独设置
@@ -233,21 +176,19 @@ class optimizer(object):
             asset_bounds = (None, asset_cap, )
 
         # 条件设置完成, 开始调用对应的IR优化器来求解
-        opt_results = self.optimizer(obj_func_params, asset_bounds=asset_bounds,
-                                     eq_cons_funcs=eq_cons_funcs, ineq_cons_funcs=ineq_cons_funcs)
+        self.optimizer(obj_func_params, asset_bounds=asset_bounds,
+                       eq_cons_funcs=eq_cons_funcs, ineq_cons_funcs=ineq_cons_funcs)
 
         # 取优化的权重结果, 将其设置为series的格式
-        optimized_weight = pd.Series(opt_results.x, index=factor_expo.columns)
-
-        return optimized_weight
+        self.optimized_weight = pd.Series(self.opt_result.x, index=factor_expo.columns)
 
     # 在有换手率限制条件下, 解优化问题, 此时涉及到要将换手率的绝对值限制条件进行改写,
     # 因此要用一个新的函数来建立优化问题
-    def solve_opt_with_turnover_cons(self, bench_weight, factor_expo, factor_ret, factor_cov, *,
-                              specific_var=None, residual_return=None, old_w=None, enable_trans_cost=False,
-                              buy_cost=1.5/1000, sell_cost=1.5/1000, turnover_cap=1.0,
-                              enable_full_inv_cons=True, cash_ratio=0, long_only=True,
-                              asset_cap=None, factor_expo_cons=None):
+    def solve_opt_with_turnover_cons(self, bench_weight, factor_expo, factor_cov, *, factor_ret=None,
+                                     specific_var=None, residual_return=None, old_w=None,
+                                     enable_trans_cost=False, buy_cost=1.5/1000, sell_cost=1.5/1000,
+                                     turnover_cap=1.0, enable_full_inv_cons=True, cash_ratio=0,
+                                     long_only=True, asset_cap=None, factor_expo_cons=None):
         n_factors = factor_expo.shape[0]
         n_assets = factor_expo.shape[1]
         # split variable的数量, 为资产数量的2倍
@@ -265,10 +206,10 @@ class optimizer(object):
                                                        np.zeros((n_factors, n_split))), axis=1)
         obj_func_params['bench_weight'] = np.concatenate((bench_weight.fillna(0.0).values,
                                                           np.zeros(n_split)), axis=0)
-        # 这里暂时需要加上split variable, 因为现在给的是股票收益, 而不是因子收益
-        obj_func_params['factor_ret'] = np.concatenate((factor_ret.fillna(0.0).values,
-                                                        np.zeros(n_split)), axis=0)
         obj_func_params['factor_cov'] = factor_cov.fillna(0.0).values
+        if isinstance(factor_ret, pd.Series):
+            # 因子收益不需要加split variable
+            obj_func_params['factor_ret'] = factor_ret.fillna(0.0).values
         if isinstance(specific_var, pd.Series):
             obj_func_params['specific_var'] = np.concatenate((specific_var.fillna(0.0).values,
                                                               np.zeros(n_split)), axis=0)
@@ -332,20 +273,81 @@ class optimizer(object):
             asset_bounds = (None, asset_cap,)
 
         # 条件设置完成, 开始调用对应的IR优化器来求解
-        opt_results = self.optimizer(obj_func_params, asset_bounds=asset_bounds,
-                                        eq_cons_funcs=eq_cons_funcs, ineq_cons_funcs=ineq_cons_funcs,
-                                        n_split=n_split)
+        self.optimizer(obj_func_params, asset_bounds=asset_bounds, eq_cons_funcs=eq_cons_funcs,
+                       ineq_cons_funcs=ineq_cons_funcs, n_split=n_split)
 
         # 取优化的权重结果, 将其设置为series的格式
-        optimized_weight = pd.Series(opt_results.x[0:n_assets], index=factor_expo.columns)
+        self.optimized_weight = pd.Series(self.opt_result.x[0:n_assets], index=factor_expo.columns)
 
-        return optimized_weight
+    # 根据最优化持仓结果计算出的预期波动
+    def get_forecasted_vol(self, bench_weight, factor_expo, factor_cov, *, specific_var=None):
+        var_common_factor = factor_expo.fillna(0).dot(self.optimized_weight.sub(bench_weight).fillna(0)).\
+            T.dot(factor_cov.fillna(0)).dot(factor_expo.fillna(0).dot(
+            self.optimized_weight.sub(bench_weight).fillna(0)))
+        if specific_var is None:
+            specific_var = pd.Series(0.0, self.optimized_weight.index)
+        var_specific = self.optimized_weight.sub(bench_weight).fillna(0).dot(
+            specific_var.mul(self.optimized_weight.sub(bench_weight).fillna(0)).fillna(0))
 
+        self.forecasted_vol = np.sqrt(var_common_factor + var_specific)
 
+    # 计算手续费的函数
+    @staticmethod
+    def trans_cost(w, *, old_w, buy_cost=1.5/1000, sell_cost=1.5/1000):
+        # 买入的手续费
+        trans_cost_buy = np.sum(np.maximum(w - old_w, 0)) * buy_cost
+        trans_cost_sell = np.sum(np.maximum(old_w - w, 0)) * sell_cost
+        total_trans_cost = trans_cost_buy + trans_cost_sell
+        return total_trans_cost
 
+    # # 添加换手率限制条件的函数,
+    # @staticmethod
+    # def turnover_cons(w, *, old_w, turnover_cap=1.0):
+    #     # turnover = np.sum(np.abs(w - old_w))/2
+    #     # turnover = np.sum(np.where(w>old_w, w-old_w, 0))
+    #     turnover = np.sum((w-old_w)**2)
+    #     # 根据设置的限制条件, 减去设置的上限
+    #     turnover_cons = turnover - turnover_cap
+    #     # 因为scipy.optimize.minimize函数的条件的形式是大于0, 因此要取负号
+    #     # 暂时不支持现金, 等添加了现金功能之后再来修改
+    #     return - turnover_cons
 
+    # 添加换手率限制条件的一系列函数
+    # 首先是split plus + split minus <= 换手率的限制条件
+    @staticmethod
+    def turnover_cons_ineq(w, *, n_assets, turnover_cap=1.0):
+        turnover_cons = np.sum(w[n_assets:]) / 2 - turnover_cap
+        # 因为scipy.optimize.minimize函数的条件的形式是大于0, 因此要取负号
+        return - turnover_cons
 
+    # 然后是w(i) = SplitPlus(i) - SplitMinus(i)的等式条件
+    # 注意这个等式条件返回的是一个为n_asset的向量, 代表有个n_asset个限制条件
+    @staticmethod
+    def turnover_cons_eq(w, *, old_w, n_assets):
+        equality = w[0:n_assets] - old_w[0:n_assets] - w[n_assets:(2*n_assets)] + w[(2*n_assets):]
+        return equality
 
+    # 添加因子暴露值的限制条件
+    @staticmethod
+    def factor_expo_cons(w, *, factor, lower_bound=True, limit=0, bench_weight=None):
+        # 如果有bench_weight, 则是对active部分的因子暴露做限制
+        if isinstance(bench_weight, pd.Series):
+            w = w - bench_weight
+        # 根据选择的因子暴露和限制, 减去限制
+        factor_expo = factor.dot(w) - limit
+        # 因为函数的条件形式是大于0, 因此如果是下限, 则不管, 上限则取负号
+        # 如果是希望设置等式条件, 则取不取负号都是一样的
+        if not lower_bound:
+            factor_expo = -factor_expo
+        return factor_expo
+
+    # 设置持仓之和的条件函数, 在不支持现金资产的时候, 总是限制持仓之和为1
+    @staticmethod
+    def full_inv_cons(w, *, n_assets, cash_ratio=0):
+        total_weight = np.sum(w[:n_assets])
+        # 减去设置的限制
+        full_inv_cons = total_weight - (1 - cash_ratio)
+        return full_inv_cons
 
 
 

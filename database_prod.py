@@ -55,9 +55,10 @@ class database_prod(database):
     # 将dataframe储存到raw data表中的函数
     def save_to_sql(self, item, df):
         # 将标准数据格式转化为sql数据格式
-        sql_df = pd.melt(df.reset_index(level=0), id_vars='trading_days', var_name='SecuCode').dropna()
+        sql_df = pd.melt(df.reset_index(level=0), id_vars='trading_days', var_name='SecuCode',
+                         value_name='Value').dropna()
         # 列名命名为数据库中的名字
-        sql_df = sql_df.rename(columns={'trading_days': 'DataDate', 'SecuCode': 'SecuCode', 'value': 'Value'})
+        sql_df = sql_df.rename(columns={'trading_days': 'DataDate'})
         sql_df['DataName'] = item
 
         # 储存到数据库中
@@ -68,8 +69,8 @@ class database_prod(database):
     # 将行业数据储存到industry mark表中去
     def save_industry_mark_to_sql(self):
         sql_df = pd.melt(self.data.raw_data['Industry'].reset_index(level=0), id_vars='trading_days',
-                         var_name='SecuCode').dropna()
-        sql_df = sql_df.rename(columns={'trading_days': 'DataDate', 'SecuCode': 'SecuCode', 'value': 'Value'})
+                         var_name='SecuCode', value_name='Value').dropna()
+        sql_df = sql_df.rename(columns={'trading_days': 'DataDate'})
         sql_df.to_sql('IndustryMark', self.rm_engine.engine, if_exists='append', index=False)
         print('Industry mark has been successfully saved into sql database!\n')
 
@@ -115,7 +116,7 @@ class database_prod(database):
 
     # 删除数据库中数据的函数, 用于更新的时候, 需要更新的数据已经在数据库中, 则要把这些数据删除掉
     def delete_from_sql_table(self, *, table_name='RawData', data_name=None, data_date=None):
-        sql_delete = 'delete from ' + table_name + ' '
+        sql_delete = "delete from " + table_name + " "
         # 将list的参数改写为sql中的形式
         if data_name is not None:
             sql_data_name = "DataName in ("
@@ -155,12 +156,15 @@ class database_prod(database):
         # 当衔接新旧数据的时候, 需要丢弃的数据是从开始更新的那一天, 一直到last_day
         sql_dropped_time = "select distinct DataDate from RawData where DataDate >= '" + \
             str(self.start_date) + "' and DataDate <= '" + str(last_day) + "' order by DataDate"
-        dropped_time = self.rm_engine.get_original_data(sql_dropped_time).squeeze().tolist()
+        dropped_time = self.rm_engine.get_original_data(sql_dropped_time).iloc[:, 0].tolist()
         # 可以设置更新数据的更新截止日，默认为更新到当天
         if isinstance(end_date, pd.Timestamp):
             self.end_date = end_date
             assert self.end_date >= self.start_date, 'Please make sure that end date is not earlier than ' \
                                                      'start date!\n'
+        # 打印更新起始日作为参考
+        print('Database update starts from {0} to {1}!\n'.format(self.start_date, self.end_date))
+
         # 删除需要删除的数据
         self.delete_from_sql_table(table_name='RawData', data_date=dropped_time)
         self.delete_from_sql_table(table_name='IndustryMark', data_date=dropped_time)
@@ -236,8 +240,9 @@ class database_prod(database):
         # 将数据储存到数据库去, 这里因为都在一个大数据whole data中, 因此无法使用save data函数
         for item, df in whole_data.iteritems():
             if item == 'Industry':
-                sql_df = pd.melt(df.reset_index(level=0), id_vars='trading_days', var_name='SecuCode').dropna()
-                sql_df = sql_df.rename(columns={'trading_days': 'DataDate', 'SecuCode': 'SecuCode', 'value': 'Value'})
+                sql_df = pd.melt(df.reset_index(level=0), id_vars='trading_days', var_name='SecuCode',
+                                 value_name='Value').dropna()
+                sql_df = sql_df.rename(columns={'trading_days': 'DataDate'})
                 sql_df.to_sql('IndustryMark', self.rm_engine.engine, if_exists='append', index=False)
                 print('Industry mark has been successfully saved into sql database!\n')
             else:
@@ -250,15 +255,17 @@ class database_prod(database):
             sql_df.to_sql('ConstData', self.rm_engine.engine, if_exists='append', index=False)
             print('const data has been successfully saved into sql databse!\n')
 
+        self.is_update = False
+
 
 
 
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    dbp = database_prod(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-12-14'))
+    dbp = database_prod()
     # dbp.get_data_from_db()
-    # dbp.update_data_from_db(start_date=pd.Timestamp('2017-12-01'))
+    dbp.update_data_from_db()
     # dbp.create_rawdata_table()
     # dbp.create_industry_mark_table()
     # dbp.data.raw_data = data.read_data(['RiskModelData/Industry'], ['Industry'])
@@ -270,22 +277,23 @@ if __name__ == '__main__':
     # df = pd.DataFrame(index=dbp.trading_days)
     # dbp.save_to_sql('test', df)
 
-    name_list = ['LowPrice_adj', 'vwap', 'OpenPrice',
-                 'ClosePrice', 'HighPrice', 'LowPrice', 'vwap_adj', 'PrevClosePrice', 'AdjustFactor',
-                 'Volume', 'TurnoverValue', 'Shares', 'FreeShares', 'MarketValue', 'FreeMarketValue']
-    name_list += ['TotalAssets', 'TotalLiability', 'TotalEquity', 'PB', 'NetIncome_fy1',
-                  'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'CFO_ttm', 'NetIncome_ttm',
-                  'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
-    name_list += ['is_suspended', 'is_enlisted', 'is_delisted']
-    benchmark_index_name = ['sz50', 'hs300', 'zzlt', 'zz500', 'zz800', 'zxb', 'cyb']
-    benchmark_data_type = ['ClosePrice', 'OpenPrice', 'Weight', 'ClosePrice_adj']
-    benchmark_price_name_list = [a + '_' + b for a in benchmark_data_type for b in benchmark_index_name]
-    benchmark_price_name_list.remove('ClosePrice_adj_zzlt')
-    name_list += benchmark_price_name_list
+    # name_list = ['LowPrice_adj', 'vwap', 'OpenPrice',
+    #              'ClosePrice', 'HighPrice', 'LowPrice', 'vwap_adj', 'PrevClosePrice', 'AdjustFactor',
+    #              'Volume', 'TurnoverValue', 'Shares', 'FreeShares', 'MarketValue', 'FreeMarketValue']
+    # name_list += ['TotalAssets', 'TotalLiability', 'TotalEquity', 'PB', 'NetIncome_fy1',
+    #               'NetIncome_fy2', 'EPS_fy1', 'EPS_fy2', 'CashEarnings_ttm', 'CFO_ttm', 'NetIncome_ttm',
+    #               'PE_ttm', 'NetIncome_ttm_growth_8q', 'Revenue_ttm_growth_8q', 'EPS_ttm_growth_8q']
+    # name_list += ['is_suspended', 'is_enlisted', 'is_delisted']
+    # benchmark_index_name = ['sz50', 'hs300', 'zzlt', 'zz500', 'zz800', 'zxb', 'cyb']
+    # benchmark_data_type = ['ClosePrice', 'OpenPrice', 'Weight', 'ClosePrice_adj']
+    # benchmark_price_name_list = [a + '_' + b for a in benchmark_data_type for b in benchmark_index_name]
+    # benchmark_price_name_list.remove('ClosePrice_adj_zzlt')
+    # name_list += benchmark_price_name_list
 
-    for curr_name in name_list:
-        assert curr_name != 'Industry', 'Error: No Industry Data!\n'
-        curr_data = data.read_data(['RiskModelData/'+curr_name], [curr_name]).iloc[0]
-        curr_data.index.rename('trading_days', inplace=True)
-        dbp.save_to_sql(curr_name, curr_data)
-        print('Time: {0}\n'.format(time.time() - start_time))
+    # name_list = ['PB']
+    # for curr_name in name_list:
+    #     assert curr_name != 'Industry', 'Error: No Industry Data!\n'
+    #     curr_data = data.read_data(['RiskModelData/'+curr_name], [curr_name]).iloc[0]
+    #     curr_data.index.rename('trading_days', inplace=True)
+    #     dbp.save_to_sql(curr_name, curr_data)
+    #     print('Time: {0}\n'.format(time.time() - start_time))
