@@ -1,4 +1,4 @@
-import sys, os
+import os
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -15,7 +15,8 @@ class opt_portfolio_prod(object):
     foo
     """
     def __init__(self, *, date=datetime.now().date().strftime('%Y-%m-%d'), benchmark=None,
-                 stock_pool=None, read_json=None, output_dir=os.path.abspath('.')):
+                 stock_pool=None, read_json=None, output_dir=os.path.abspath('.'),
+                 read_opt_config=None):
         # 首先初始化当前日期, 这个日期会作为最后解出的优化组合的日期存入数据库, 作为这一天的目标持仓
         try:
             pd.Timestamp(date)
@@ -54,14 +55,16 @@ class opt_portfolio_prod(object):
         self.spec_var = None
 
         # 优化器的条件
-        self.opt_config = {}
+        self.opt_config = pd.Series()
+        # 需要读取的优化条件的配置文件
+        self.read_opt_conig = read_opt_config
 
     # 读取json文件, 建立读取alpha的数据库引擎
     def initialize_alpha_engine(self):
         json = pd.read_json(self.read_json, orient='index')
         # json的数据库连接信息里面必须要有取alpha的smart quant数据库的连接信息
-        assert 'SmartQuant' in json.index, 'SmartQuant database is not in the json file!\n'
-        sq = json.ix['SmartQuant', :]
+        assert 'Alpha' in json.index, 'Alpha database is not in the json file!\n'
+        sq = json.ix['Alpha', :]
         # 初始化数据库
         self.alpha_engine = db_engine(server_type=sq['serverType'], driver=self.driver_map[sq['serverType']],
             username=sq['user'], password=sq['password'], server_ip=sq['host'], port=str(sq['port']),
@@ -136,13 +139,18 @@ class opt_portfolio_prod(object):
 
     # 读取alpha数据的函数
     def read_alpha(self):
+        # alpha数据是根据alpha的名字来匹配, 默认是Signal_Main
+        if 'alpha_name' not in self.opt_config.index:
+            self.opt_config['alpha_name'] = 'Signal_Main'
         sql_alpha = "select runnerdate as DataDate, stockticker as SecuCode, value as Value " \
                     "from RunnerValue where runnerdate = '" + str(self.former_date) + "' and " \
-                    "runnerid = 63 order by DataDate, SecuCode "
+                    "runnerid in (select distinct runnerid from RunnerInfo where runnername = '" + \
+                    str(self.opt_config['alpha_name']) + "') order by DataDate, SecuCode "
         alpha = self.alpha_engine.get_original_data(sql_alpha)
         alpha = alpha.pivot_table(index='DataDate', columns='SecuCode', values='Value',
                                   aggfunc='first').squeeze()
-        self.alpha = alpha
+        # 将alpha除以标准差, 使得其是一个标准差为1的series, 暂时不对其均值做处理
+        self.alpha = alpha.div(alpha.std())
 
     # 处理数据
     def prepare_data(self):
@@ -168,31 +176,79 @@ class opt_portfolio_prod(object):
         self.cov_mat = self.cov_mat.reindex(index=self.data.factor_expo.items,
                                             columns=self.data.factor_expo.items)
 
+    # 设置优化的限制条件
+    def set_opt_config(self):
+        # 如果有配置文件, 读取配置文件
+        if self.read_opt_conig is not None:
+            self.opt_config = pd.read_json(self.read_opt_conig, orient='index', typ='series')
+
+        # 首先看是否有风险厌恶系数的设置, 没有的话, 就用优化器的默认设置
+        if 'cov_risk_aversion' in self.opt_config.index:
+            self.optimizer.set_risk_aversion(cov_risk_aversion=self.opt_config['cov_risk_aversion'])
+        else:
+            self.opt_config['cov_risk_aversion'] = self.optimizer.cov_risk_aversion / 100
+        if 'spec_risk_aversion' in self.opt_config.index:
+            self.optimizer.set_risk_aversion(spec_risk_aversion=self.opt_config['spec_risk_aversion'])
+        else:
+            self.opt_config['spec_risk_aversion'] = self.optimizer.spec_risk_aversion / 100
+
+        # 看是否有行业中性的限制条件, 默认行业中性=True
+        if 'indus_neutral' not in self.opt_config.index:
+            self.opt_config['indus_neutral'] = True
+
+        # 全投资的限制条件, 默认为True, 注意如果有行业中性, 全投资的限制条件会被改成False
+        if 'enable_full_inv_cons' not in self.opt_config.index:
+            self.opt_config['enable_full_inv_cons'] = True
+
+        # 股票的上下限, 下限只能选择是否为0, 上限有一个asset cap, 还有现金比例限制
+        if 'long_only' not in self.opt_config.index:
+            self.opt_config['long_only'] = True
+        if 'asset_cap' not in self.opt_config.index:
+            self.opt_config['asset_cap'] = None
+        if 'cash_ratio' not in self.opt_config.index:
+            self.opt_config['cash_ratio'] = 0
+
+        # 因子暴露限制条件
+        if 'factor_expo_cons' not in self.opt_config.index:
+            self.opt_config['factor_expo_cons'] = None
+
+        # 上期持仓
+        if 'old_w' not in self.opt_config.index:
+            self.opt_config['old_w'] = None
+
+        # 交易费用的限制条件
+        if 'enable_trans_cost' not in self.opt_config.index:
+            self.opt_config['enable_trans_cost'] = False
+        if 'buy_cost' not in self.opt_config.index:
+            self.opt_config['buy_cost'] = 1.5/1000
+        if 'sell_cost' not in self.opt_config.index:
+            self.opt_config['sell_cost'] = 1.5/1000
+
+        # 换手率限制条件
+        if 'enable_turnover_cons' not in self.opt_config.index:
+            self.opt_config['enable_turnover_cons'] = False
+        if 'turnover_cap' not in self.opt_config.index:
+            self.opt_config['turnover_cap'] = 1.0
+
     # 解优化
     def solve_opt_portfolio(self):
         # 从panel中取数据, 将数据变成dataframe, 注意factor expo是行为因子, 列为股票
         curr_benchmark_weight = self.data.benchmark_price.ix['Weight_'+self.benchmark, 0, :]
         curr_factor_expo = self.data.factor_expo.ix[:, 0, :].T
 
-        # 首先看是否有风险厌恶系数的设置
-        if 'cov_risk_aversion' in self.opt_config.keys():
-            self.optimizer.set_risk_aversion(cov_risk_aversion=self.opt_config['cov_risk_aversion'])
-        if 'spec_risk_aversion' in self.opt_config.keys():
-            self.optimizer.set_risk_aversion(spec_risk_aversion=self.opt_config['spec_risk_aversion'])
+        ################################################################################################
+        # 交易费用, 换手率, 现金比率, 单个资产上限的限制条件暂时不加
+        ################################################################################################
 
-        # 看是否有行业中性的限制条件, 默认行业中性=True
-        if 'indus_neutral' in self.opt_config.keys():
-            indus_neutral = self.opt_config['indus_neutral']
+        # 首先考虑因子暴露限制条件, 注意, 如果有行业中性, 行业中性的限制条件不要写在这里
+        if self.opt_config['factor_expo_cons'] is not None:
+            # 从json读入的限制条件多半是dict, 将其转为dataframe
+            factor_expo_cons = pd.DataFrame(self.opt_config['factor_expo_cons']).T
         else:
-            indus_neutral = True
-
-
-        ################################################################################################
-        # 因子暴露, 交易费用, 换手率, 全投资, 现金比率, 单个资产上下限的限制条件暂时不加
-        ################################################################################################
+            factor_expo_cons = None
 
         # 如果进行行业中性
-        if indus_neutral:
+        if self.opt_config['indus_neutral']:
             # 首先判断风格因子和行业因子的个数
             industry = self.data.factor_expo.items.str.startswith('Industry')
             n_indus = industry[industry].size
@@ -206,33 +262,95 @@ class opt_portfolio_prod(object):
             # 如果这一期, 某个行业的所有股票都是0暴露, 则在行业限制中去除这个行业
             empty_indus = curr_factor_expo[n_styles:(n_styles+n_indus)].sum(1) == 0
             indus_cons = indus_cons[np.logical_not(empty_indus.values)]
-            enable_full_inv_cons = False
-        else:
-            indus_cons = None
-            enable_full_inv_cons = True
+            # 将indus_cons和factor_expo_cons拼到一起, 形成完整的因子暴露限制条件
+            if factor_expo_cons is not None:
+                factor_expo_cons = pd.concat([factor_expo_cons, indus_cons], axis=0).drop_duplicates()
+            else:
+                factor_expo_cons = indus_cons
+            self.opt_config['enable_full_inv_cons'] = False
 
         # 解优化组合
         self.optimizer.solve_optimization(curr_benchmark_weight, curr_factor_expo, self.cov_mat,
-            residual_return=self.alpha, specific_var=self.spec_var, factor_expo_cons=indus_cons,
-            enable_full_inv_cons=enable_full_inv_cons)
+            residual_return=self.alpha, specific_var=self.spec_var, factor_expo_cons=factor_expo_cons,
+            enable_full_inv_cons=self.opt_config['enable_full_inv_cons'],
+            long_only=self.opt_config['long_only'], asset_cap=self.opt_config['asset_cap'],
+            cash_ratio=self.opt_config['cash_ratio'], old_w=self.opt_config['old_w'],
+            enable_trans_cost=self.opt_config['enable_trans_cost'], buy_cost=self.opt_config['buy_cost'],
+            sell_cost=self.opt_config['sell_cost'], turnover_cap=self.opt_config['turnover_cap'],
+            enable_turnover_cons=self.opt_config['enable_turnover_cons'])
 
         pass
 
+    # 储存优化结果
+    def save_opt_outcome(self):
+        # 输出的优化持仓时间, 以及所用数据的时间
+        self.opt_config['ValueDate'] = str(self.date)
+        self.opt_config['DataDate'] = str(self.former_date)
+        # 优化的投资域和基准
+        self.opt_config['benchmark'] = self.benchmark
+        self.opt_config['stock_pool'] = self.stock_pool
+        # 优化结果的输出信息
+        self.opt_config['OptResult_success'] = self.optimizer.opt_result.success
+        self.opt_config['OptResult_status'] = self.optimizer.opt_result.status
+        self.opt_config['OptResult_message'] = self.optimizer.opt_result.message
+        self.opt_config['obj_func_value'] = self.optimizer.opt_result.fun
+        self.opt_config['forecasted_vol'] = self.optimizer.forecasted_vol
+
+        # 由于数据库没有bool类型, 因此将true false替换成1 0来储存
+        self.opt_config = self.opt_config.replace(True, 1).replace(False, 0)
+        self.opt_config.to_json(self.output_dir + '/OptimizationProfile.json')
+
+        # 判断优化器结果是否成功
+        if self.optimizer.opt_result.success and self.optimizer.opt_result.status == 0:
+            # 持仓绝对值小于1e-4的股票都不要
+            output_holding = self.optimizer.optimized_weight.mask(
+                self.optimizer.optimized_weight.abs() < 1e-4, np.nan).dropna()
+            # 按照要求的格式, 股票代码叫StockTicker, 持仓是Value
+            output_holding = output_holding.reset_index().rename(
+                columns={'SecuCode': 'StockTicker', 0: 'Value'})
+            output_holding.to_json(self.output_dir + '/Value.json', orient='records')
+        else:
+            raise ValueError('The optimization is not terminated successfully, portfolio holding '
+                             'shall not be written!\n')
+        pass
+
+    # 执行优化系统的函数, 即把流程都走一遍得到结果的函数
+    def execute_opt(self):
+        self.initialize_alpha_engine()
+        print('Alpha database engines has been initialized...\n')
+        self.initialize_rm_engine()
+        print('RiskModel database engines has been initialized...\n')
+        self.get_former_day()
+        self.read_alpha()
+        print('Alpha data has been successfully read...\n')
+        self.read_rm_data()
+        print('RiskModel data has been successfully read...\n')
+        self.prepare_data()
+        print('Data preparation for optimization has been completed...\n')
+        self.set_opt_config()
+        print('Optimization configuration has been set, try to solve optimization...\n')
+        self.solve_opt_portfolio()
+        print('Optimization has been solved...\n')
+        self.save_opt_outcome()
+        print('Optimization outcome has been successfully saved!\n')
 
 
-if __name__ == '__main__':
-    test = opt_portfolio_prod(benchmark='zz500', stock_pool='zz500',
-                              read_json=os.path.abspath('.')+'/dbuser.txt')
-    test.initialize_alpha_engine()
-    test.initialize_rm_engine()
-    test.get_former_day()
-    test.read_rm_data()
-    test.read_alpha()
-    test.prepare_data()
-    import time
-    start_time = time.time()
-    test.solve_opt_portfolio()
-    print("time: {0} seconds\n".format(time.time()-start_time))
+# if __name__ == '__main__':
+#     test = opt_portfolio_prod(benchmark='zz500', stock_pool='zz500',
+#                               read_json=os.path.abspath('.')+'/dbuser.txt')
+#     test.initialize_alpha_engine()
+#     test.initialize_rm_engine()
+#     test.get_former_day()
+#     test.read_rm_data()
+#     test.read_alpha()
+#     test.prepare_data()
+#     test.opt_config['indus_neutral'] = True
+#     test.set_opt_config()
+#     import time
+#     start_time = time.time()
+#     test.solve_opt_portfolio()
+#     print("time: {0} seconds\n".format(time.time()-start_time))
+#     test.save_opt_outcome()
 
 
 

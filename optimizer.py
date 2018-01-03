@@ -5,10 +5,6 @@ import os
 from scipy import optimize
 import functools
 
-from strategy_data import strategy_data
-from position import position
-from strategy import strategy
-
 # 优化器类
 class optimizer(object):
     def __init__(self):
@@ -29,14 +25,14 @@ class optimizer(object):
         # 去因子暴露矩阵来做参照物, 以得到资产数和因子数
         n_factors = obj_func_params['factor_expo'].shape[0]
         n_varaibles = obj_func_params['factor_expo'].shape[1]
-        # 初始的w点为0
-        # w = np.zeros(n_assets)
+        # 初始的w点为benchmark weight
         if isinstance(n_split, int):
             n_assets = int(n_split / 2)
-            w = np.concatenate((np.full(n_assets, 1/n_assets), np.zeros(2*n_assets)), axis=0)
+            w = np.concatenate((obj_func_params['bench_weight'], np.zeros(2*n_assets)), axis=0)
         else:
             n_assets = n_varaibles
-            w = np.full(n_assets, 1/n_assets)
+            # w = np.full(n_assets, 1/n_assets)
+            w = obj_func_params['bench_weight']
             # w = np.random.uniform(0, 1, n_assets)
             # w = w/np.sum(w)
 
@@ -60,13 +56,13 @@ class optimizer(object):
                 cons.append({'type': 'ineq',
                              'fun': value})
 
-        import time
-        start_time = time.time()
+        # import time
+        # start_time = time.time()
         opt_result = optimize.minimize(self.objective, w, args=(obj_func_params, ), bounds=bounds,
                                         constraints=cons, method='SLSQP',
-                                        options={'disp':True, 'maxiter':1000})
+                                        options={'disp':False, 'maxiter':10000})
         self.opt_result = opt_result
-        print("time: {0} seconds\n".format(time.time() - start_time))
+        # print("time: {0} seconds\n".format(time.time() - start_time))
 
 
 
@@ -158,14 +154,14 @@ class optimizer(object):
                     if_lower_bound = curr_con['if_lower_bound']
                     cons_name = curr_con['factor'] + '_ineq_' + ('lower' if if_lower_bound else 'upper') + '_cons'
                     ineq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
-                        factor_expo.ix[curr_con['factor'], :].fillna(method='bfill'), lower_bound=if_lower_bound,
-                        limit=curr_limit, bench_weight=bench_weight)
+                        factor_expo.ix[curr_con['factor'], :].fillna(0.0), lower_bound=if_lower_bound,
+                        limit=curr_limit, bench_weight=bench_weight.fillna(0.0))
                 else:
                     # 等式条件就不需要判断上下限的问题
                     cons_name = curr_con['factor'] + '_eq_cons'
                     eq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
-                        factor_expo.ix[curr_con['factor'], :].fillna(method='bfill'), limit=curr_limit,
-                        bench_weight=bench_weight)
+                        factor_expo.ix[curr_con['factor'], :].fillna(0.0), limit=curr_limit,
+                        bench_weight=bench_weight.fillna(0.0))
 
         # 第三步, 设置变量的边界条件
         # 注意, 这里对变量的边界条件是对所有变量都是一样的,
@@ -256,13 +252,14 @@ class optimizer(object):
                     if_lower_bound = curr_con['if_lower_bound']
                     cons_name = curr_con['factor'] + '_ineq_' + ('lower' if if_lower_bound else 'upper') + '_cons'
                     ineq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
-                        factor_expo.ix[curr_con['factor'], :], lower_bound=if_lower_bound, limit=curr_limit,
-                        bench_weight=bench_weight)
+                        factor_expo.ix[curr_con['factor'], :].fillna(0.0), lower_bound=if_lower_bound,
+                        limit=curr_limit, bench_weight=bench_weight.fillna(0.0))
                 else:
                     # 等式条件就不需要判断上下限的问题
                     cons_name = curr_con['factor'] + '_eq_cons'
                     eq_cons_funcs[cons_name] = functools.partial(optimizer.factor_expo_cons, factor=
-                        factor_expo.ix[curr_con['factor'], :], limit=curr_limit, bench_weight=bench_weight)
+                        factor_expo.ix[curr_con['factor'], :].fillna(0.0), limit=curr_limit,
+                        bench_weight=bench_weight.fillna(0.0))
 
         # 第三步, 设置变量的边界条件
         # 注意, 这里对变量的边界条件是对所有变量都是一样的,

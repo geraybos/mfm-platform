@@ -5,9 +5,6 @@ import os
 from scipy import optimize
 import functools
 
-from strategy_data import strategy_data
-from position import position
-from strategy import strategy
 from optimizer import optimizer
 
 

@@ -165,13 +165,13 @@ class database_prod(database):
         # 打印更新起始日作为参考
         print('Database update starts from {0} to {1}!\n'.format(self.start_date, self.end_date))
 
+        # 更新数据, 注意这里更新数据时不会删除原来的表并新建表, 而且暂时不会储存数据
+        self.get_data_from_db(update_time=self.start_date)
+
         # 删除需要删除的数据
         self.delete_from_sql_table(table_name='RawData', data_date=dropped_time)
         self.delete_from_sql_table(table_name='IndustryMark', data_date=dropped_time)
         self.delete_from_sql_table(table_name='ConstData', data_date=dropped_time)
-
-        # 更新数据, 注意这里更新数据时不会删除原来的表并新建表, 而且暂时不会储存数据
-        self.get_data_from_db(update_time=self.start_date)
 
         # 需要取旧数据, 这里和研究中不一样, 不能把所有旧数据都读进来, 只能读一部分旧数据,
         # 因此旧数据读取的时间选为更新开始时间的前一天, 即只用一天的旧数据, 这样还是能够完成新旧数据的衔接
