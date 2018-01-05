@@ -41,7 +41,7 @@ class single_factor_strategy(strategy):
         # 每个因子策略都需要用到是否可交易的数据
         self.strategy_data.generate_if_tradable(shift=True)
         # 读取市值数据以进行市值加权
-        self.strategy_data.stock_price = data.read_data(['FreeMarketValue'],['FreeMarketValue'],shift = True)
+        self.strategy_data.stock_price = data.read_data(['FreeMarketValue'], shift=True)
         # 用来储存输出的文字或图片信息的文件夹位置
         self.folder_name = None
         # 用来画图的pdf对象
@@ -123,8 +123,7 @@ class single_factor_strategy(strategy):
     # 等于3为行业内市值加权, 行业间按基准加权
     def select_stocks_within_indus(self, *, select_ratio=(0.8, 1), direction='+', weight=0):
         # 读取行业数据：
-        industry = data.read_data(['Industry'], ['Industry'], shift=True)
-        industry = industry['Industry']
+        industry = data.read_data('Industry', shift=True)
         # 定义选股的函数
         def get_stks(factor_data, *, select_ratio=(0.8, 1), direction='+'):
             holding = pd.Series(0, index=factor_data.index)
@@ -172,27 +171,29 @@ class single_factor_strategy(strategy):
         # 选择加权的方式
         self.position.to_percentage()
 
-        # 使用strategy_data.benchmark_price里的指数权重, 指数权重是从handle_stock_pool里读入的
-        # 在handle_stock_pool中, 做了归一化处理, 并且在之后用filter_uninv过滤了不可交易的成分股
+        # 使用strategy_data.benchmark_price里的基准指数权重,
+        # 指数权重是从handle_stock_pool(或benchmark)里读入的, 在handle_stock_pool(或benchmark)中,
+        # 做了归一化处理, 并且在之后用filter_uninv过滤了不可交易的成分股
         if weight == 1:
             self.position.weighted_holding(self.strategy_data.stock_price.ix['FreeMarketValue',
                                            self.position.holding_matrix.index, :])
-        elif weight == 2 and self.strategy_data.stock_pool == 'all':
+        elif weight == 2 and self.strategy_data.benchmark == 'all':
             pass
-        elif weight == 2 and self.strategy_data.stock_pool != 'all':
-            self.position.weighted_holding_indus(industry, inner_weights=0, outter_weights=self.strategy_data. \
-                benchmark_price.ix['Weight_' + self.strategy_data.stock_pool, self.position.holding_matrix.index, :])
-        elif weight == 3 and self.strategy_data.stock_pool == 'all':
+        elif weight == 2 and self.strategy_data.benchmark != 'all':
+            self.position.weighted_holding_indus(industry, inner_weights=0, outter_weights=
+                self.strategy_data.benchmark_price.ix['Weight_' + self.strategy_data.benchmark,
+                self.position.holding_matrix.index, :].fillna(0.0))
+        elif weight == 3 and self.strategy_data.benchmark == 'all':
             self.position.weighted_holding(self.strategy_data.stock_price.ix['FreeMarketValue',
                                            self.position.holding_matrix.index, :])
-        elif weight == 3 and self.strategy_data.stock_pool != 'all':
+        elif weight == 3 and self.strategy_data.benchmark != 'all':
             self.position.weighted_holding_indus(industry, inner_weights=self.strategy_data.stock_price.ix \
                 ['FreeMarketValue', self.position.holding_matrix.index, :], outter_weights= \
-                self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.stock_pool,
-                self.position.holding_matrix.index, :])
+                self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.benchmark,
+                self.position.holding_matrix.index, :].fillna(0.0))
 
         # benchmark的权重之和少于1的部分, 就是那些在指数中停牌的股票, 这些股票应当当做现金持有
-        self.position.cash = 1 - self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.stock_pool,
+        self.position.cash = 1 - self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.benchmark,
                 self.position.holding_matrix.index, :].sum(1)
         pass
 
@@ -405,9 +406,8 @@ class single_factor_strategy(strategy):
         # 如果没有price的数据，读入price数据，注意要shift，
         # 即本来的实现收益率应当是调仓日当天的开盘价，但这里计算调仓日前一个交易日的收盘价。
         if 'ClosePrice_adj' not in self.strategy_data.stock_price.items:
-             temp_panel = data.read_data(['ClosePrice_adj'], ['ClosePrice_adj'], 
-                                                            shift = True)
-             self.strategy_data.stock_price['ClosePrice_adj'] = temp_panel.ix['ClosePrice_adj']
+             temp_df = data.read_data('ClosePrice_adj', shift = True)
+             self.strategy_data.stock_price['ClosePrice_adj'] = temp_df
         # 计算因子收益的频率
         holding_days = strategy.resample_tradingdays(self.strategy_data.stock_price.\
                                                      ix['FreeMarketValue', :, 0], freq=holding_freq)
@@ -463,7 +463,7 @@ class single_factor_strategy(strategy):
 
         # 循环结束，输出结果
         print(target_str)
-        with open(str(os.path.abspath('.'))+'/'+self.strategy_data.stock_pool+'/performance.txt',
+        with open(str(os.path.abspath('.'))+'/'+self.folder_name+'/performance.txt',
                   'a', encoding='GB18030') as text_file:
             text_file.write(target_str)
 
@@ -503,9 +503,8 @@ class single_factor_strategy(strategy):
         # 如果没有price的数据，读入price数据，注意要shift，
         # 即本来的实现收益率应当是调仓日当天的开盘价，但这里计算调仓日前一个交易日的收盘价。
         if 'ClosePrice_adj' not in self.strategy_data.stock_price.items:
-             temp_panel = data.read_data(['ClosePrice_adj'], ['ClosePrice_adj'], 
-                                                            shift = True)
-             self.strategy_data.stock_price['ClosePrice_adj'] = temp_panel.ix['ClosePrice_adj']
+             temp_df = data.read_data('ClosePrice_adj', shift = True)
+             self.strategy_data.stock_price['ClosePrice_adj'] = temp_df
         # 计算ic的频率
         holding_days = strategy.resample_tradingdays(self.strategy_data.stock_price. \
                                                      ix['FreeMarketValue', :, 0], freq=holding_freq)
@@ -544,7 +543,7 @@ class single_factor_strategy(strategy):
         # 输出结果
         target_str = 'The average IC of this factor: {0:.4f}\n'.format(self.ic_series.mean())
         print(target_str)
-        with open(str(os.path.abspath('.'))+'/'+self.strategy_data.stock_pool+'/performance.txt',
+        with open(str(os.path.abspath('.'))+'/'+self.folder_name+'/performance.txt',
                   'a', encoding='GB18030') as text_file:
             text_file.write(target_str)
         
@@ -880,13 +879,14 @@ class single_factor_strategy(strategy):
     # 根据一个股票池进行一次完整的单因子测试的函数
     # select method为单因子测试策略的选股方式，0为按比例选股，1为分行业按比例选股
     def single_factor_test(self, *, loc=-1, factor=None, direction='+', bkt_obj=None, base_obj=None,
-                           folder_name=None, discard_factor=(), bkt_start=None, bkt_end=None, stock_pool='all',
-                           select_method=0, do_pa=True, do_active_pa=False, do_base_pure_factor=False,
-                           holding_freq='w', do_data_description=False, do_factor_corr_test=False):
+                           folder_name=None, discard_factor=(), bkt_start=None, bkt_end=None,
+                           stock_pool='all', benchmark=None, select_method=0, do_pa=True,
+                           do_active_pa=False, do_base_pure_factor=False, holding_freq='w',
+                           do_data_description=False, do_factor_corr_test=False):
         ###################################################################################################
-        # 第一部分是生成调仓日, 股票池, 及可投资标记
+        # 第一部分是生成调仓日, 股票池, 策略基准, 及可投资标记
         # 生成调仓日和生成可投资标记是第一件事, 因为之后包括因子构建的函数都要用到它
-        self.sft_part_1(loc=loc, stock_pool=stock_pool, holding_freq=holding_freq)
+        self.sft_part_1(loc=loc, stock_pool=stock_pool, benchmark=benchmark, holding_freq=holding_freq)
 
         ###################################################################################################
         # 第二部分是读取或生成要研究的因子
@@ -936,7 +936,7 @@ class single_factor_strategy(strategy):
         # 单因子测试函数结束
         ###################################################################################################
 
-    def sft_part_1(self, *, loc=-1, stock_pool='all', holding_freq='w'):
+    def sft_part_1(self, *, loc=-1, stock_pool='all', benchmark=None, holding_freq='w'):
         # 第一部分是生成调仓日, 股票池, 及可投资标记
         # 生成调仓日和生成可投资标记是第一件事, 因为之后包括因子构建的函数都要用到它
 
@@ -948,6 +948,21 @@ class single_factor_strategy(strategy):
         self.strategy_data.stock_pool = stock_pool
         # 根据股票池生成标记
         self.strategy_data.handle_stock_pool(shift=True)
+        # 设置策略的基准, 如果没有主动传入, 且stock pool不是all, 则设置为和stock pool一样
+        if benchmark is not None and benchmark != 'all':
+            self.strategy_data.benchmark = benchmark
+        elif benchmark is None and stock_pool != 'all':
+            self.strategy_data.benchmark = stock_pool
+        else:
+            # 此时要么传入的benchmark是all, 或者没传入benchmark且stock_pool是all
+            # 无论哪种情况, benchmark都一定会是all, 因此输出警告提示
+            self.strategy_data.benchmark = benchmark
+            print('Warning: Based on your arguments passed, the benchmark of strategy is all, which '
+                  'is not usual, be aware of possible error caused when using benchmark data!\n')
+        # 读取benchmark
+        self.strategy_data.read_benchmark(shift=True)
+        # 检查benchmark和stock pool之间的包含关系
+        self.strategy_data.validate_benchmark_stockpool()
 
     def sft_part_2(self, *, factor=None):
         # 第二部分是读取或生成要研究的因子
@@ -1011,8 +1026,7 @@ class single_factor_strategy(strategy):
                 base_obj.construct_factor_base()
         # 没有外来传入的base对象, 则自己建立base对象
         else:
-            base_obj = barra_base()
-            base_obj.base_data.stock_pool = self.strategy_data.stock_pool
+            base_obj = barra_base(stock_pool=self.strategy_data.stock_pool)
             base_obj.construct_factor_base()
 
         # 将base对象进行深拷贝, 然后将其赋给自己
@@ -1073,23 +1087,20 @@ class single_factor_strategy(strategy):
             # 初始化temp weight为'Empty'，即如果选股方法是2，则传入默认的benchmark weight
             temp_weight = 'Empty'
             if select_method == 2:
-                # self.select_stocks_pure_factor_base(base_expo=lag_base_expo_no_cf, reg_weight=np.sqrt(
-                #     self.strategy_data.stock_price.ix['FreeMarketValue']), direction=direction)
                 self.select_stocks_pure_factor(base_expo=lag_base_expo_no_cf, reg_weight=np.sqrt(
                     self.strategy_data.stock_price.ix['FreeMarketValue']), direction=direction,
-                                               benchmark_weight=temp_weight, is_long_only=False)
+                    benchmark_weight=temp_weight, is_long_only=False)
             if select_method == 3:
-                if self.strategy_data.stock_pool == 'all':
-                    temp_weight = data.read_data(['Weight_zz500'], ['Weight_zz500'], shift=True)
-                    temp_weight = temp_weight['Weight_zz500'].fillna(0.0)
+                if self.strategy_data.benchmark == 'all':
+                    temp_weight = data.read_data('Weight_zz500', shift=True).fillna(0.0)
                 else:
                     # 注意股票池为非全市场时，基准的权重数据已经shift过了
-                    temp_weight = self.strategy_data.benchmark_price.ix['Weight_' + self.strategy_data.stock_pool]
-
+                    temp_weight = self.strategy_data.benchmark_price. \
+                        ix['Weight_' + self.strategy_data.benchmark]
                 self.select_stocks_pure_factor(base_expo=lag_base_expo_no_cf, reg_weight=np.sqrt(
                     self.strategy_data.stock_price.ix['FreeMarketValue']), direction=direction,
-                                               benchmark_weight=temp_weight, is_long_only=True,
-                                               use_factor_expo=not self.is_curr_factor_already_expo)
+                    benchmark_weight=temp_weight, is_long_only=True,
+                    use_factor_expo=not self.is_curr_factor_already_expo)
 
     def sft_part_6(self, *, bkt_obj=None, bkt_start=None, bkt_end=None, do_pa=True, do_active_pa=False,
                    discard_factor=()):
@@ -1101,9 +1112,9 @@ class single_factor_strategy(strategy):
             bkt_obj.reset_bkt_position(self.position)
         else:
             bkt_obj = backtest(self.position, bkt_start=bkt_start, bkt_end=bkt_end)
-        # 将回测的基准改为当前的股票池，若为all，则用默认的基准值
-        if self.strategy_data.stock_pool != 'all':
-            bkt_obj.reset_bkt_benchmark(['ClosePrice_adj_' + self.strategy_data.stock_pool])
+        # 将回测的基准改为当前的基准，若为all，则用默认的基准值
+        if self.strategy_data.benchmark != 'all':
+            bkt_obj.reset_bkt_benchmark(['ClosePrice_adj_' + self.strategy_data.benchmark])
 
         # 深拷贝一份回测对象, 赋给策略对象自己, 以方便查询回测, 画图, 归因等数据
         self.bkt_obj = copy.deepcopy(bkt_obj)
@@ -1122,23 +1133,19 @@ class single_factor_strategy(strategy):
             # 而股票池为全市场时的超额归因默认基准为中证500
             pa_benchmark_weight = None
             if do_active_pa:
-                if self.strategy_data.stock_pool != 'all':
+                if self.strategy_data.benchmark != 'all':
                     # 注意：策略里的strategy_data里的数据都是shift过后的，
                     # 而进行归因的数据和回测一样，不能用shift数据，要用当天最新数据
                     # 因此用于超额归因的benchmark weight数据需要重新读取
-                    pa_benchmark_weight = data.read_data(['Weight_' + self.strategy_data.stock_pool],
-                                                         ['Weight_' + self.strategy_data.stock_pool])
-                    pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool].fillna(0.0)
+                    pa_benchmark_weight = data.read_data('Weight_' + self.strategy_data.benchmark).fillna(0.0)
                 else:
-                    temp_weight = data.read_data(['Weight_hs300'], ['Weight_hs300'])
-                    pa_benchmark_weight = temp_weight['Weight_hs300'].fillna(0.0)
+                    pa_benchmark_weight = data.read_data('Weight_zz500').fillna(0.0)
 
             # base_obj在这里不用进行深拷贝, 因为归因的股票池=base_obj中base_data的股票池=策略的股票池,
             # 只要是一个股票池之间的计算, 就不会出现数据的丢失. 注意base_obj中的数据是没有shift过的, 专供归因所用
             self.bkt_obj.get_performance_attribution(outside_base=self.base_obj, benchmark_weight=pa_benchmark_weight,
                 discard_factor=discard_factor, show_warning=False, pdfs=self.pdfs, is_real_world=True,
-                foldername=self.folder_name, real_world_type=2, enable_read_base_expo=True,
-                enable_read_pa_return=True)
+                foldername=self.folder_name, real_world_type=2, enable_read_pa_return=True)
         
     def sft_part_7(self, *, direction='+', bkt_start=None, bkt_end=None):
         # 第七部分为, 1. 根据回归算单因子的纯因子组合收益率

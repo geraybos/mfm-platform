@@ -741,13 +741,13 @@ class factor_base(object):
         self.eigen_adjusted_cov_mat = self.eigen_adjusted_cov_mat.reindex(items=self.base_factor_return.index)
 
         # 储存数据
-        self.eigen_adjusted_cov_mat.to_hdf('RiskModelData/bb_riskmodel_covmat_'+self.base_data.stock_pool, '123')
-        self.spec_var.to_hdf('RiskModelData/bb_riskmodel_specvar_'+self.base_data.stock_pool, '123')
+        data.write_data(self.eigen_adjusted_cov_mat, file_name='bb_riskmodel_covmat_'+self.base_data.stock_pool)
+        data.write_data(self.spec_var, file_name='bb_riskmodel_specvar_'+self.base_data.stock_pool)
 
-        self.initial_daily_spec_vol.pow(2).reindex(index=self.specific_return.index). \
-            to_hdf('RiskModelData/bb_riskmodel_dailyspecvar_'+self.base_data.stock_pool, '123')
-        self.daily_var_forecast.reindex(index=self.base_factor_return.index). \
-            to_hdf('RiskModelData/bb_riskmodel_dailyfacvar_' + self.base_data.stock_pool, '123')
+        data.write_data(self.initial_daily_spec_vol.pow(2).reindex(index=self.specific_return.index),
+                        file_name='bb_riskmodel_dailyspecvar_'+self.base_data.stock_pool)
+        data.write_data(self.daily_var_forecast.reindex(index=self.base_factor_return.index),
+                        file_name='bb_riskmodel_dailyfacvar_'+self.base_data.stock_pool)
 
     # 根据barra的bias statistics来测试风险预测能力的函数
     def risk_forecast_performance(self, *, no_of_sims=10000, freq='m', test_type='random'):

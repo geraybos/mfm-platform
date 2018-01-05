@@ -596,11 +596,11 @@ class database(object):
 
     # 储存数据文件
     def save_data(self):
-        data.write_data(self.data.stock_price)
-        data.write_data(self.data.raw_data)
-        data.write_data(self.data.benchmark_price)
-        data.write_data(self.data.if_tradable)
-        self.data.const_data.to_csv('RiskModelData/const_data.csv', index_label='datetime', na_rep='NaN', encoding='GB18030')
+        data.write_data(self.data.stock_price, separate=True)
+        data.write_data(self.data.raw_data, separate=True)
+        data.write_data(self.data.benchmark_price, separate=True)
+        data.write_data(self.data.if_tradable, separate=True)
+        data.write_data(self.data.const_data, file_name='const_data')
 
     # 取数据的主函数
     # update_time为default时，则为首次取数据，需要更新数据时，传入更新的第一个交易日的时间给update_time即可
@@ -642,7 +642,7 @@ class database(object):
         # 更新标记
         self.is_update = True
         # 首先读取ClosePrice_adj数据，将其当作更新数据时的参照标签
-        data_mark = pd.read_csv('ClosePrice_adj.csv', parse_dates=True, index_col=0)
+        data_mark = data.read_data('ClosePrice_adj')
         # 更新的第一天为之前数据标签日期的最后一天
         # 因为有可能当时更新数据的时候，还没有得到那次的数据
         # 因此为了统一，更新的第一天都默认设置为那一天
@@ -677,12 +677,11 @@ class database(object):
         # 注意中证流通指数没有closeprice adj, 即全收益数据
         benchmark_price_name_list.remove('ClosePrice_adj_zzlt')
 
-        old_stock_price = data.read_data(stock_price_name_list, stock_price_name_list)
-        old_raw_data = data.read_data(raw_data_name_list, raw_data_name_list)
-        old_if_tradable = data.read_data(if_tradable_name_list, if_tradable_name_list)
-        old_benchmark_price = data.read_data(benchmark_price_name_list, benchmark_price_name_list)
-        old_const_data = data.read_data(['const_data'], ['const_data'])
-        old_const_data = old_const_data.ix['const_data']
+        old_stock_price = data.read_data(stock_price_name_list, item_name=stock_price_name_list)
+        old_raw_data = data.read_data(raw_data_name_list, item_name=raw_data_name_list)
+        old_if_tradable = data.read_data(if_tradable_name_list, item_name=if_tradable_name_list)
+        old_benchmark_price = data.read_data(benchmark_price_name_list, item_name=benchmark_price_name_list)
+        old_const_data = data.read_data('const_data')
 
         # 新数据中的股票数可能与旧数据已经不同，要将旧数据中的股票索引换成新数据的索引
         new_stock_index = self.data.stock_price.minor_axis
@@ -759,8 +758,8 @@ if __name__ == '__main__':
     # db.is_update=False
     # db.get_data_from_db()
     # db.update_data_from_db(end_date=pd.Timestamp('2017-11-14'))
-    # db.get_trading_days()
-    # db.get_labels()
+    db.get_trading_days()
+    db.get_labels()
     # db.get_list_status()
     # db.get_AdjustFactor()
     # db.get_sq_data()
@@ -768,9 +767,9 @@ if __name__ == '__main__':
     # db.get_index_weight()
     # data.write_data(db.data.benchmark_price)
     # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
-    # db.get_runner_value(63)
+    db.get_runner_value(63)
     # db.data.stock_price.to_hdf('runner_value', '123')
-    # data.write_data(db.data.stock_price, file_name=['runner_value_63'])
+    data.write_data(db.data.stock_price.ix['runner_value_63'], file_name='runner_value_63')
     print("time: {0} seconds\n".format(time.time()-start_time))
 
 

@@ -42,13 +42,12 @@ class barra_base(factor_base):
     def read_original_data(self):
         # 先读取流通市值
         if self.base_data.stock_price.empty:
-            self.base_data.stock_price = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
+            self.base_data.stock_price = data.read_data(['FreeMarketValue'])
         elif 'FreeMarketValue' not in self.base_data.stock_price.items:
-            fmv = data.read_data(['FreeMarketValue'], ['FreeMarketValue'])
-            self.base_data.stock_price['FreeMarketValue'] = fmv.ix['FreeMarketValue']
+            self.base_data.stock_price['FreeMarketValue'] = data.read_data('FreeMarketValue')
         # 初始化无风险利率序列
-        if os.path.isfile('const_data.csv'):
-            self.base_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True, encoding='GB18030')
+        if os.path.isfile('const_data'):
+            self.base_data.const_data = data.read_data('const_data')
             if 'RiskFreeRate' not in self.base_data.const_data.columns:
                 self.base_data.const_data['RiskFreeRate'] = 0
             else:
@@ -58,12 +57,10 @@ class barra_base(factor_base):
                                                    columns=['RiskFreeRate'])
         # 读取市值
         if 'MarketValue' not in self.base_data.stock_price.items:
-            temp_mv =data.read_data(['MarketValue'], ['MarketValue'])
-            self.base_data.stock_price['MarketValue'] = temp_mv.ix['MarketValue']
+            self.base_data.stock_price['MarketValue'] = data.read_data('MarketValue')
         # 读取价格数据
         if 'ClosePrice_adj' not in self.base_data.stock_price.items:
-            temp_closeprice = data.read_data(['ClosePrice_adj'], ['ClosePrice_adj'])
-            self.base_data.stock_price['ClosePrice_adj'] = temp_closeprice.ix['ClosePrice_adj']
+            self.base_data.stock_price['ClosePrice_adj'] = data.read_data('ClosePrice_adj')
         # 计算每只股票的日对数收益率
         if 'daily_log_return' not in self.base_data.stock_price.items:
             self.base_data.stock_price['daily_log_return'] = np.log(self.base_data.stock_price.ix['ClosePrice_adj'].div(
@@ -84,55 +81,43 @@ class barra_base(factor_base):
                 ix['daily_simple_return'].sub(self.base_data.const_data['RiskFreeRate_simple'], axis=0)
         # 读取交易量数据
         if 'Volume' not in self.base_data.stock_price.items:
-            volume = data.read_data(['Volume'], ['Volume'])
-            self.base_data.stock_price['Volume'] = volume.ix['Volume']
+            self.base_data.stock_price['Volume'] = data.read_data('Volume')
         # 读取流通股数数据
         if 'FreeShares' not in self.base_data.stock_price.items:
-            shares = data.read_data(['FreeShares'], ['FreeShares'])
-            self.base_data.stock_price['FreeShares'] = shares.ix['FreeShares']
+            self.base_data.stock_price['FreeShares'] = data.read_data('FreeShares')
         # 读取pb
         if self.base_data.raw_data.empty:
-            self.base_data.raw_data = data.read_data(['PB'],['PB'])
+            self.base_data.raw_data = data.read_data(['PB'])
             # 一切的数据标签都以stock_price为准
             self.base_data.raw_data = data.align_index(self.base_data.stock_price.ix[0], 
-                                                     self.base_data.raw_data, axis = 'both')
+                                                       self.base_data.raw_data, axis = 'both')
         elif 'PB' not in self.base_data.raw_data.items:
-            pb = data.read_data(['PB'], ['PB'])
-            self.base_data.raw_data['PB'] = pb.ix['PB']
+            self.base_data.raw_data['PB'] = data.read_data('PB')
         # 读取ni_fy1, ni_fy2
         if 'NetIncome_fy1' not in self.base_data.raw_data.items:
-            NetIncome_fy1 = data.read_data(['NetIncome_fy1'], ['NetIncome_fy1'])
-            self.base_data.raw_data['NetIncome_fy1'] = NetIncome_fy1.ix['NetIncome_fy1']
+            self.base_data.raw_data['NetIncome_fy1'] = data.read_data('NetIncome_fy1')
         if 'NetIncome_fy2' not in self.base_data.raw_data.items:
-            NetIncome_fy2 = data.read_data(['NetIncome_fy2'], ['NetIncome_fy2'])
-            self.base_data.raw_data['NetIncome_fy2'] = NetIncome_fy2.ix['NetIncome_fy2']
+            self.base_data.raw_data['NetIncome_fy2'] = data.read_data('NetIncome_fy2')
         # 读取cash_earnings_ttm，现金净流入的ttm
         if 'CashEarnings_ttm' not in self.base_data.raw_data.items:
-            CashEarnings_ttm = data.read_data(['CashEarnings_ttm'], ['CashEarnings_ttm'])
-            self.base_data.raw_data['CashEarnings_ttm'] = CashEarnings_ttm.ix['CashEarnings_ttm']
+            self.base_data.raw_data['CashEarnings_ttm'] = data.read_data('CashEarnings_ttm')
         # 读取pe_ttm
         if 'PE_ttm' not in self.base_data.raw_data.items:
-            pe_ttm = data.read_data(['PE_ttm'], ['PE_ttm'])
-            self.base_data.raw_data['PE_ttm'] = pe_ttm.ix['PE_ttm']
+            self.base_data.raw_data['PE_ttm'] = data.read_data('PE_ttm')
         # 读取净利润net income ttm
         if 'NetIncome_ttm' not in self.base_data.raw_data.items:
-            ni_ttm = data.read_data(['NetIncome_ttm'], ['NetIncome_ttm'])
-            self.base_data.raw_data['NetIncome_ttm'] = ni_ttm.ix['NetIncome_ttm']
+            self.base_data.raw_data['NetIncome_ttm'] = data.read_data('NetIncome_ttm')
         # 读取ni ttm的2年增长率，用ni增长率代替eps增长率，因为ni增长率的数据更全
         if 'NetIncome_ttm_growth_8q' not in self.base_data.raw_data.items:
-            ni_ttm_growth_8q = data.read_data(['NetIncome_ttm_growth_8q'], ['NetIncome_ttm_growth_8q'])
-            self.base_data.raw_data['NetIncome_ttm_growth_8q'] = ni_ttm_growth_8q.ix['NetIncome_ttm_growth_8q']
+            self.base_data.raw_data['NetIncome_ttm_growth_8q'] = data.read_data('NetIncome_ttm_growth_8q')
         # 读取revenue ttm的2年增长率
         if 'Revenue_ttm_growth_8q' not in self.base_data.raw_data.items:
-            Revenue_ttm_growth_8q = data.read_data(['Revenue_ttm_growth_8q'], ['Revenue_ttm_growth_8q'])
-            self.base_data.raw_data['Revenue_ttm_growth_8q'] = Revenue_ttm_growth_8q.ix['Revenue_ttm_growth_8q']
+            self.base_data.raw_data['Revenue_ttm_growth_8q'] = data.read_data('Revenue_ttm_growth_8q')
         # 读取总资产和总负债，用资产负债率代替复杂的leverage因子
         if 'TotalAssets' not in self.base_data.raw_data.items:
-            TotalAssets = data.read_data(['TotalAssets'], ['TotalAssets'])
-            self.base_data.raw_data['TotalAssets'] = TotalAssets.ix['TotalAssets']
+            self.base_data.raw_data['TotalAssets'] = data.read_data('TotalAssets')
         if 'TotalLiability' not in self.base_data.raw_data.items:
-            TotalLiability = data.read_data(['TotalLiability'], ['TotalLiability'])
-            self.base_data.raw_data['TotalLiability'] = TotalLiability.ix['TotalLiability']
+            self.base_data.raw_data['TotalLiability'] = data.read_data('TotalLiability')
         # 生成可交易及可投资数据
         self.base_data.generate_if_tradable()
         self.base_data.handle_stock_pool()
@@ -155,9 +140,9 @@ class barra_base(factor_base):
     # 计算市值对数因子，市值需要第一个计算以确保各个panel有index和column
     def get_lncap(self):
         # 如果有文件，则直接读取
-        if os.path.isfile('lncap'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/lncap'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            self.base_data.factor = data.read_data(['lncap'+self.filename_appendix], ['lncap'])
+            self.base_data.factor = data.read_data(['lncap'+self.filename_appendix], item_name=['lncap'])
         # 没有就用市值进行计算
         else:
             self.base_data.factor = pd.Panel({'lncap':np.log(self.base_data.stock_price.ix['FreeMarketValue'])},
@@ -166,10 +151,9 @@ class barra_base(factor_base):
 
     # 计算beta因子
     def get_beta(self):
-        if os.path.isfile('beta'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/beta'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            beta = data.read_data(['beta'+self.filename_appendix+'.csv'], ['beta'])
-            self.base_data.factor['beta'] = beta.ix['beta']
+            self.base_data.factor['beta'] = data.read_data('beta'+self.filename_appendix)
         else:
             # 所有股票的日简单收益的市值加权，加权用前一交易日的市值数据进行加权
             cap_wgt_universe_return = self.base_data.stock_price.ix['daily_excess_simple_return'].mul(
@@ -219,10 +203,9 @@ class barra_base(factor_base):
 
     # beta parallel
     def get_beta_parallel(self):
-        if os.path.isfile('beta'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/beta'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            beta = data.read_data(['beta'+self.filename_appendix], ['beta'])
-            self.base_data.factor['beta'] = beta.ix['beta']
+            self.base_data.factor['beta'] = data.read_data('beta'+self.filename_appendix)
         else:
             # 所有股票的日简单收益的市值加权，加权用前一交易日的市值数据进行加权
             cap_wgt_universe_return = self.base_data.stock_price.ix['daily_excess_simple_return'].mul(
@@ -290,10 +273,9 @@ class barra_base(factor_base):
 
     # 计算momentum因子 
     def get_momentum(self):
-        if os.path.isfile('momentum'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/momentum'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            momentum = data.read_data(['momentum'+self.filename_appendix], ['momentum'])
-            self.base_data.factor['momentum'] = momentum.ix['momentum']
+            self.base_data.factor['momentum'] = data.read_data('momentum'+self.filename_appendix)
         else:
             # 计算momentum因子
             # 首先数据有一个21天的lag， 注意收益要用对数收益
@@ -324,10 +306,9 @@ class barra_base(factor_base):
         
      # 计算residual volatility中的dastd
     def get_rv_dastd(self):
-        if os.path.isfile('dastd'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/dastd'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            dastd = data.read_data(['dastd'+self.filename_appendix], ['dastd'])
-            dastd = dastd.ix['dastd']
+            dastd = data.read_data('dastd'+self.filename_appendix)
         else:
             # rolling后求std，252个交易日，42的半衰期
             exponential_weights = strategy_data.construct_expo_weights(42, 252)
@@ -352,10 +333,9 @@ class barra_base(factor_base):
     
     # 计算residual volatility中的cmra
     def get_rv_cmra(self):
-        if os.path.isfile('cmra'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/cmra'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            cmra = data.read_data(['cmra'+self.filename_appendix], ['cmra'])
-            cmra = cmra.ix['cmra']
+            cmra = data.read_data('cmra'+self.filename_appendix)
         else:
             # 定义需要cmra的函数，这个函数计算252个交易日中的cmra
             def func_cmra(df):
@@ -385,9 +365,9 @@ class barra_base(factor_base):
     
     # 计算residual volatility中的hsigma
     def get_rv_hsigma(self):
-        if os.path.isfile('hsigma'+self.filename_appendix+'.csv') and not self.is_update and self.try_to_read:
-            hsigma = data.read_data(['hsigma'+self.filename_appendix], ['hsigma'])
-            hsigma = hsigma.ix['hsigma']
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/hsigma'+self.filename_appendix) \
+                and not self.is_update and self.try_to_read:
+            hsigma = data.read_data('hsigma'+self.filename_appendix)
         elif hasattr(self, 'temp_hsigma'):
             hsigma = self.temp_hsigma
         else:
@@ -397,10 +377,9 @@ class barra_base(factor_base):
     
     # 计算residual volatility
     def get_residual_volatility(self):
-        if os.path.isfile('rv'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/rv'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            rv = data.read_data(['rv'+self.filename_appendix], ['rv'])
-            self.base_data.factor['rv'] = rv.ix['rv']
+            self.base_data.factor['rv'] = data.read_data('rv'+self.filename_appendix)
         else:
             self.get_rv_dastd()
             self.get_rv_cmra()
@@ -432,14 +411,13 @@ class barra_base(factor_base):
                            
     # 计算nonlinear size
     def get_nonlinear_size(self):
-        if os.path.isfile('nls'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/nls'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            nls = data.read_data(['nls'+self.filename_appendix], ['nls'])
-            self.base_data.factor['nls'] = nls.ix['nls']
+            self.base_data.factor['nls'] = data.read_data('nls'+self.filename_appendix)
         else:
             # 计算市值因子的暴露，注意解释变量需要为一个panel
             x = pd.Panel({'lncap_expo': strategy_data.get_cap_wgt_exposure(self.base_data.factor.ix['lncap'],
-                                                                           self.base_data.stock_price.ix['FreeMarketValue'])})
+                         self.base_data.stock_price.ix['FreeMarketValue'])})
             # 将市值因子暴露取3次方, 得到size cube
             y = x['lncap_expo'] ** 3
             # 将size cube对市值因子做正交化
@@ -448,20 +426,18 @@ class barra_base(factor_base):
 
     # 计算bp
     def get_bp(self):
-        if os.path.isfile('bp'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/bp'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            bp = data.read_data(['bp'+self.filename_appendix], ['bp'])
-            self.base_data.factor['bp'] = bp.ix['bp']
+            self.base_data.factor['bp'] = data.read_data('bp'+self.filename_appendix)
         else:
             self.base_data.factor['bp'] = 1/self.base_data.raw_data.ix['PB']
 
     
     # 计算liquidity中的stom
     def get_liq_stom(self):
-        if os.path.isfile('stom'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/stom'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            stom = data.read_data(['stom'+self.filename_appendix], ['stom'])
-            stom = stom.ix['stom']
+            stom = data.read_data('stom'+self.filename_appendix)
         else:
             # 注意, 这里的股票交易数据因为要用过去一段时间的数据, 因此要用完整的数据
             v2s = self.complete_base_data.stock_price.ix['Volume'].div(
@@ -471,10 +447,9 @@ class barra_base(factor_base):
         
     # 计算liquidity中的stoq
     def get_liq_stoq(self):
-        if os.path.isfile('stoq'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/stoq'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            stoq = data.read_data(['stoq'+self.filename_appendix], ['stoq'])
-            stoq = stoq.ix['stoq']
+            stoq = data.read_data('stoq'+self.filename_appendix)
         else:
             # 定义stoq的函数
             def func_stoq(df):
@@ -494,10 +469,9 @@ class barra_base(factor_base):
 
     # 计算liquidity中的stoa
     def get_liq_stoa(self):
-        if os.path.isfile('stoa'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/stoa'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            stoa = data.read_data(['stoa'+self.filename_appendix], ['stoa'])
-            stoa = stoa.ix['stoa']
+            stoa = data.read_data('stoa'+self.filename_appendix)
         else:
             # 定义stoa的函数
             def func_stoa(df):
@@ -517,10 +491,9 @@ class barra_base(factor_base):
 
     # 计算liquidity
     def get_liquidity(self):
-        if os.path.isfile('liquidity'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/liquidity'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            liquidity = data.read_data(['liquidity'+self.filename_appendix], ['liquidity'])
-            self.base_data.factor['liquidity'] = liquidity.ix['liquidity']
+            self.base_data.factor['liquidity'] = data.read_data('liquidity'+self.filename_appendix)
         else:
             self.get_liq_stom()
             self.get_liq_stoq()
@@ -548,10 +521,9 @@ class barra_base(factor_base):
 
     # 计算earnings yield中的epfwd
     def get_ey_epfwd(self):
-        if os.path.isfile('epfwd'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/epfwd'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            epfwd = data.read_data(['epfwd'+self.filename_appendix], ['epfwd'])
-            epfwd = epfwd.ix['epfwd']
+            epfwd = data.read_data('epfwd'+self.filename_appendix)
         else:
             # 定义计算epfwd的函数
             def epfwd_func(fy1_data, fy2_data):
@@ -576,10 +548,9 @@ class barra_base(factor_base):
             
     # 计算earnings yield中的cetop
     def get_ey_cetop(self):
-        if os.path.isfile('cetop'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/cetop'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            cetop = data.read_data(['cetop'+self.filename_appendix], ['cetop'])
-            cetop = cetop.ix['cetop']
+            cetop = data.read_data('cetop'+self.filename_appendix)
         else:
             # 用cash earnings ttm 除以市值
             cetop = self.base_data.raw_data.ix['CashEarnings_ttm']/self.base_data.stock_price.ix['MarketValue']
@@ -587,10 +558,9 @@ class barra_base(factor_base):
         
     # 计算earnings yield中的etop
     def get_ey_etop(self):
-        if os.path.isfile('etop'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/etop'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            etop = data.read_data(['etop'+self.filename_appendix], ['etop'])
-            etop = etop.ix['etop']
+            etop = data.read_data('etop'+self.filename_appendix)
         else:
             # 用pe_ttm的倒数来计算etop
             etop = 1/self.base_data.raw_data.ix['PE_ttm']
@@ -598,10 +568,9 @@ class barra_base(factor_base):
 
     # 计算earnings yield
     def get_earnings_yeild(self):
-        if os.path.isfile('ey'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/ey'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            EarningsYield = data.read_data(['ey'+self.filename_appendix], ['ey'])
-            self.base_data.factor['ey'] = EarningsYield.ix['ey']
+            self.base_data.factor['ey'] = data.read_data('ey'+self.filename_appendix)
         else:
             self.get_ey_epfwd()
             self.get_ey_cetop()
@@ -622,10 +591,9 @@ class barra_base(factor_base):
 
     # 计算growth中的egrlf
     def get_g_egrlf(self):
-        if os.path.isfile('egrlf'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/egrlf'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            egrlf = data.read_data(['egrlf'+self.filename_appendix], ['egrlf'])
-            egrlf = egrlf.ix['egrlf']
+            egrlf = data.read_data('egrlf'+self.filename_appendix)
         else:
             # 用ni_fy2来代替长期预测的净利润
             egrlf = (self.base_data.raw_data.ix['NetIncome_fy2']/self.base_data.raw_data.ix['NetIncome_ttm'])**(1/2) - 1
@@ -633,10 +601,9 @@ class barra_base(factor_base):
 
     # 计算growth中的egrsf
     def get_g_egrsf(self):
-        if os.path.isfile('egrsf'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/egrsf'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            egrsf = data.read_data(['egrsf'+self.filename_appendix], ['egrsf'])
-            egrsf = egrsf.ix['egrsf']
+            egrsf = data.read_data('egrsf'+self.filename_appendix)
         else:
             # 用ni_fy1来代替短期预测净利润
             egrsf = self.base_data.raw_data.ix['NetIncome_fy1'] / self.base_data.raw_data.ix['NetIncome_ttm'] - 1
@@ -644,10 +611,9 @@ class barra_base(factor_base):
 
     # 计算growth中的egro
     def get_g_egro(self):
-        if os.path.isfile('egro'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/egro'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            egro = data.read_data(['egro'+self.filename_appendix], ['egro'])
-            egro = egro.ix['egro']
+            egro = data.read_data('egro'+self.filename_appendix)
         else:
             # 用ni ttm的两年增长率代替ni ttm的5年增长率
             egro = self.base_data.raw_data.ix['NetIncome_ttm_growth_8q']
@@ -655,10 +621,9 @@ class barra_base(factor_base):
 
     # 计算growth中的sgro
     def get_g_sgro(self):
-        if os.path.isfile('sgro'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/sgro'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            sgro = data.read_data(['sgro'+self.filename_appendix], ['sgro'])
-            sgro = sgro.ix['sgro']
+            sgro = data.read_data('sgro'+self.filename_appendix)
         else:
             # 用历史营业收入代替历史sales per share
             sgro = self.base_data.raw_data.ix['Revenue_ttm_growth_8q']
@@ -666,10 +631,9 @@ class barra_base(factor_base):
 
     # 计算growth
     def get_growth(self):
-        if os.path.isfile('growth'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/growth'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            growth = data.read_data(['growth'+self.filename_appendix], ['growth'])
-            self.base_data.factor['growth'] = growth.ix['growth']
+            self.base_data.factor['growth'] = data.read_data('growth'+self.filename_appendix)
         else:
             self.get_g_egrlf()
             self.get_g_egrsf()
@@ -693,10 +657,9 @@ class barra_base(factor_base):
 
     # 计算leverage
     def get_leverage(self):
-        if os.path.isfile('leverage'+self.filename_appendix+'.csv') \
+        if os.path.isfile(os.path.abspath('.')+'/ResearchData/leverage'+self.filename_appendix) \
                 and not self.is_update and self.try_to_read:
-            leverage = data.read_data(['leverage'+self.filename_appendix], ['leverage'])
-            self.base_data.factor['leverage'] = leverage.ix['leverage']
+            self.base_data.factor['leverage'] = data.read_data('leverage'+self.filename_appendix)
         else:
             # 用简单的资产负债率计算leverage
             leverage = self.base_data.raw_data.ix['TotalLiability']/self.base_data.raw_data.ix['TotalAssets']
@@ -721,8 +684,7 @@ class barra_base(factor_base):
     def get_industry_factor(self):
         # 读取行业信息数据
         if self.industry.empty:
-            industry = data.read_data(['Industry'],['Industry'])
-            self.industry = industry.ix['Industry']
+            self.industry = data.read_data('Industry')
         # 对第一个拥有所有行业的日期取虚拟变量，以建立储存数据的panel
         industry_num = self.industry.apply(lambda x:x.drop_duplicates().dropna().size, axis=1)
         # 注意在dropna之后, 所有行业28个，
@@ -733,7 +695,7 @@ class barra_base(factor_base):
         for time, ind_data in self.industry.iterrows():
             industry_dummies[time] = pd.get_dummies(ind_data, prefix='Industry')
         # 转置
-        industry_dummies = industry_dummies.transpose(2,0,1)
+        industry_dummies = industry_dummies.transpose(2, 0, 1)
         # 将行业因子暴露与风格因子暴露的索引对其
         industry_dummies = data.align_index(self.base_data.factor_expo.ix[0], industry_dummies)
         # 将nan填成0，主要是有些行业在某一时间点，没有一只股票属于它，这会造成在这个行业上的暴露是nan
@@ -788,39 +750,46 @@ class barra_base(factor_base):
             self.read_original_data()
         # 构建风格因子前, 要设置读取文件的名称, 有可能会使用不同股票池下的因子定义
         self.construct_reading_file_appendix()
-        # 创建风格因子
-        self.get_lncap()
-        print('get lncap completed...\n')
-        self.get_beta_parallel()
-        print('get beta completed...\n')
-        self.get_momentum()
-        print('get momentum completed...\n')
-        self.get_residual_volatility()
-        print('get rv completed...\n')
-        self.get_nonlinear_size()
-        print('get nls completed...\n')
-        self.get_bp()
-        print('get bp completed...\n')
-        self.get_liquidity()
-        print('get liquidity completed...\n')
-        self.get_earnings_yeild()
-        print('get ey completed...\n')
-        self.get_growth()
-        print('get growth completed...\n')
-        self.get_leverage()
-        print('get leverage completed...\n')
-        # 计算风格因子暴露之前再过滤一次
-        self.base_data.discard_uninv_data()
-        # 计算风格因子暴露
-        self.get_style_factor_exposure()
-        print('get style factor expo completed...\n')
-        # 加入行业暴露
-        self.get_industry_factor()
-        print('get indus factor expo completed...\n')
-        # 添加国家因子
-        self.add_country_factor()
-        # 计算的最后，过滤数据
-        self.base_data.discard_uninv_data()
+
+        # 首先检验是否有现成的本地的暴露文件可以读取
+        if os.path.isfile(os.path.abspath('.') + '/ResearchData/bb_factor_expo' + self.filename_appendix) \
+                and not self.is_update and self.try_to_read:
+            self.base_data.factor_expo = data.read_data('bb_factor_expo'+self.filename_appendix)
+            print('Barra base factor exposure data has been successfully read from local file!\n')
+        else:
+            # 创建风格因子
+            self.get_lncap()
+            print('get lncap completed...\n')
+            self.get_beta_parallel()
+            print('get beta completed...\n')
+            self.get_momentum()
+            print('get momentum completed...\n')
+            self.get_residual_volatility()
+            print('get rv completed...\n')
+            self.get_nonlinear_size()
+            print('get nls completed...\n')
+            self.get_bp()
+            print('get bp completed...\n')
+            self.get_liquidity()
+            print('get liquidity completed...\n')
+            self.get_earnings_yeild()
+            print('get ey completed...\n')
+            self.get_growth()
+            print('get growth completed...\n')
+            self.get_leverage()
+            print('get leverage completed...\n')
+            # 计算风格因子暴露之前再过滤一次
+            self.base_data.discard_uninv_data()
+            # 计算风格因子暴露
+            self.get_style_factor_exposure()
+            print('get style factor expo completed...\n')
+            # 加入行业暴露
+            self.get_industry_factor()
+            print('get indus factor expo completed...\n')
+            # 添加国家因子
+            self.add_country_factor()
+            # 计算的最后，过滤数据
+            self.base_data.discard_uninv_data()
 
         # 判定风格因子和行业因子的数量
         self.get_factor_group_count()
@@ -835,10 +804,10 @@ class barra_base(factor_base):
             written_filename = []
             for i in self.base_data.factor.items:
                 written_filename.append(i+self.filename_appendix)
-            data.write_data(self.base_data.factor, file_name=written_filename)
+            data.write_data(self.base_data.factor, file_name=written_filename, separate=True)
             print('Style factor data have been saved!\n')
             # 储存因子暴露
-            self.base_data.factor_expo.to_hdf('RiskModelData/bb_factor_expo' + self.filename_appendix, '123')
+            data.write_data(self.base_data.factor_expo, file_name='bb_factor_expo'+self.filename_appendix)
             print('factor exposure data has been saved!\n')
 
     # # 仅计算barra base的因子值，主要用于对于不同股票池，可以率先建立一个只有因子值而没有暴露的bb对象
@@ -908,14 +877,8 @@ class barra_base(factor_base):
             'pool of base is different from filename appendix, in order to avoid possible ' \
             'data loss, the saving procedure has been terminated! \n'
 
-            self.base_factor_return.to_csv('RiskModelData/bb_factor_return_'+self.base_data.stock_pool+'.csv',
-                                         index_label='datetime', na_rep='NaN', encoding='GB18030')
-            self.specific_return.to_csv('RiskModelData/bb_specific_return_'+self.base_data.stock_pool+'.csv',
-                                        index_label='datetime', na_rep='NaN', encoding='GB18030')
-            # self.base_factor_return.to_csv('barra_factor_return_'+self.base_data.stock_pool+'.csv',
-            #                              index_label='datetime', na_rep='NaN', encoding='GB18030')
-            # self.specific_return.to_csv('barra_specific_return_'+self.base_data.stock_pool+'.csv',
-            #                             index_label='datetime', na_rep='NaN', encoding='GB18030')
+            data.write_data(self.base_factor_return, file_name='bb_factor_return'+self.filename_appendix)
+            data.write_data(self.specific_return, file_name='bb_specific_return' + self.filename_appendix)
             print('The bb factor return has been saved! \n')
 
 
@@ -935,11 +898,11 @@ class barra_base(factor_base):
         old_base_factor_names = []
         for i in original_old_base_factor_names:
             old_base_factor_names.append(i+self.filename_appendix)
-        old_base_factors = data.read_data(old_base_factor_names, original_old_base_factor_names)
+        old_base_factors = data.read_data(old_base_factor_names, item_name=original_old_base_factor_names)
         # 读取旧的因子暴露数据和因子收益数据
-        old_factor_expo = pd.read_hdf('bb_factor_expo'+self.filename_appendix, '123')
-        old_factor_return = data.read_data(['bb_factor_return'+self.filename_appendix]).iloc[0]
-        old_specific_return = data.read_data(['bb_specific_return'+self.filename_appendix]).iloc[0]
+        old_factor_expo = data.read_data('bb_factor_expo'+self.filename_appendix)
+        old_factor_return = data.read_data('bb_factor_return'+self.filename_appendix)
+        old_specific_return = data.read_data('bb_specific_return'+self.filename_appendix)
 
         # 更新与否取决于原始数据和因子数据，若因子数据的时间轴早于原始数据，则进行更新
         # 这里对比的数据实际是free mv和lncap，因为barra base的计算是以这两个为基准的
@@ -991,12 +954,10 @@ class barra_base(factor_base):
         self.specific_return = new_specific_return.groupby(new_specific_return.index).first()
         # 储存因子值数据, 因为这里的因子顺序与定义的排序不一样, 因此要将items的数据转化为手动定义的顺序, 再进行储存
         self.base_data.factor = self.base_data.factor[original_old_base_factor_names]
-        data.write_data(self.base_data.factor, file_name=old_base_factor_names)
-        self.base_data.factor_expo.to_hdf('bb_factor_expo'+self.filename_appendix, '123')
-        self.base_factor_return.to_csv('bb_factor_return_' + self.base_data.stock_pool + '.csv',
-                                       index_label='datetime', na_rep='NaN', encoding='GB18030')
-        self.specific_return.to_csv('bb_specific_return_' + self.base_data.stock_pool + '.csv',
-                                    index_label='datetime', na_rep='NaN', encoding='GB18030')
+        data.write_data(self.base_data.factor, file_name=old_base_factor_names, separate=True)
+        data.write_data(self.base_data.factor_expo, file_name='bb_factor_expo'+self.filename_appendix)
+        data.write_data(self.base_factor_return, file_name='bb_factor_return' + self.filename_appendix)
+        data.write_data(self.specific_return, file_name='bb_specific_return' + self.filename_appendix)
 
         self.is_update = False
         self.try_to_read = True
@@ -1012,7 +973,7 @@ if __name__ == '__main__':
     # bb.base_data.stock_pool = i
     # bb.read_original_data()
     # bb.construct_factor_base(if_save=False)
-        bb.base_data.factor_expo = pd.read_hdf('RiskModelData/bb_factor_expo_'+i, '123')
+        bb.base_data.factor_expo = data.read_data('bb_factor_expo_'+i)
     # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
     #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
     #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
@@ -1038,9 +999,9 @@ if __name__ == '__main__':
     #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
     # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
     # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-        bb.base_factor_return = data.read_data(['bb_factor_return_'+i]).iloc[0]
+        bb.base_factor_return = data.read_data('bb_factor_return_'+i)
     # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
-        bb.specific_return = data.read_data(['bb_specific_return_'+i]).iloc[0]
+        bb.specific_return = data.read_data('bb_specific_return_'+i)
     # bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
     # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
     # bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')

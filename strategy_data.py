@@ -32,7 +32,8 @@ class strategy_data(data):
                          data and raw_data
     factor (pd.Panel): final factors calculated which is used during process of stock selection
     factor_expo(pd.Pnael): factor exposure after standardization
-    stock_pool(pd.DataFrame): stock pool to select stocks from
+    stock_pool(string): stock pool to select stocks from
+    benchmark(string): benchmark for specific uses, such as construct portfolio in strategy class
     """
     def __init__(self):
         data.__init__(self)
@@ -41,10 +42,19 @@ class strategy_data(data):
         # 股票池，即策略选取的股票池，或各因子数据计算时用到的股票池
         # 目前对股票池的处理方法是将其归为不可交易，用discard_untradable_data来将股票池外的数据设为nan
         self.stock_pool = 'all'
+        # 基准, 即一些策略类或策略相关类(函数)中, 要用到基准来构建组合, 或者用某一组合来和基准进行对比
+        # 将benchmark放在strategy data中, 主要是为了方便, 在不是策略类的地方也会用到benchmark,
+        # 因此放在策略类中不合适, 而一般用到组合构建的地方都会用到strategy data, 因此很合适放在这里
+        # 默认情况下的benchmark是None, 因为对于strategy data本身, 没有什么可以对比的基准
+        self.benchmark = None
 
     # 设置strategy data的投资域
     def set_stock_pool(self, stock_pool):
         self.stock_pool = stock_pool
+
+    # 设置strategy data的基准
+    def set_benchmark(self, benchmark):
+        self.benchmark = benchmark
 
     # 新建一个dataframe储存股票是否在股票池内，再建一个dataframe和if_tradable取交集
     def handle_stock_pool(self, *, shift=False):
@@ -59,8 +69,7 @@ class strategy_data(data):
             self.if_tradable['if_inpool'] = self.benchmark_price.ix['Weight_'+self.stock_pool]>0
         # 若不在，则读取weight数据，文件名即为stock_pool
         else:
-            temp_weights = data.read_data(['Weight_'+self.stock_pool],['Weight_'+self.stock_pool],
-                                          shift=shift).fillna(0.0)
+            temp_weights = data.read_data(['Weight_'+self.stock_pool], shift=shift).fillna(0.0)
             if self.benchmark_price.empty:
                 self.benchmark_price = temp_weights
             else:
@@ -78,6 +87,38 @@ class strategy_data(data):
         # 新建一个if_inv，表明在股票池中，且可以交易
         # 在if_tradable中为true，且在if_inpool中为true，才可投资，即在if_inv中为true
         self.if_tradable['if_inv'] = np.logical_and(self.if_tradable.ix['if_tradable'], self.if_tradable.ix['if_inpool'])
+
+    # 根据benchmark, 读取benchmark权重数据
+    def read_benchmark(self, *, shift=False):
+        if self.benchmark is None:
+            raise ValueError('Please specify a valid benchmark before call handle_benchmark function!\n')
+        # 如果已经存在, 则直接使用, 若不存在, 才选择读取
+        if 'Weight_'+self.benchmark not in self.benchmark_price.items:
+            temp_weights = data.read_data(['Weight_'+self.benchmark], shift=shift).fillna(0.0)
+            if self.benchmark_price.empty:
+                self.benchmark_price = temp_weights
+            else:
+                self.benchmark_price['Weight_' + self.benchmark] = temp_weights['Weight_' + self.benchmark]
+            # 做归一化
+            self.benchmark_price['Weight_'+self.benchmark] = self.benchmark_price['Weight_'+self.benchmark]. \
+                apply(position.to_percentage_func, axis=1)
+
+    # 检查benchmark和stock pool的合理性, 原则上说, benchmark不允许在stock pool之外, 因此如果出现这种情况
+    # 会给出提示, 但是不会报错, 因为这种情况可能不会影响后续计算, 但是从逻辑上来说非常不合理
+    def validate_benchmark_stockpool(self):
+        if self.stock_pool == self.benchmark or self.stock_pool == 'all':
+            return
+        bench_weight = self.benchmark_price.ix['Weight_'+self.benchmark]
+        sp_weight = self.benchmark_price.ix['Weight_'+self.stock_pool]
+        # 每一时刻, 每支股票是否满足条件:在benchmark里, 却不在stockpool里
+        abnormal = np.logical_and(bench_weight > 0, sp_weight == 0)
+        # 如果有一只这样的股票, 都要发出提示警告
+        if abnormal.any().any():
+            print('Warning: At least for one day, there are some stock(s) in benchmark but not in '
+                  'stock pool. Note that this is very unreasonable, it is strongly recommended that you '
+                  'revise your benchmark or stock pool. Besides, any active choices about stock pool '
+                  'should be included in strategy itself, stock pool argument shall only reflect passive'
+                  'choices except you change benchmark accordingly.')
 
     # 对数据进行winsorization
     @staticmethod

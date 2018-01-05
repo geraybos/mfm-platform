@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('PDF')  # Do this BEFORE importing matplotlib.pyplot
@@ -9,15 +9,11 @@ import os
 import statsmodels.api as sm
 import copy
 from matplotlib.backends.backend_pdf import PdfPages
-from cvxopt import solvers, matrix
 
 from data import data
 from strategy_data import strategy_data
 from position import position
-from strategy import strategy
-from backtest import backtest
 from barra_base import barra_base
-from optimizer import optimizer
 from performance_attribution import performance_attribution
 from pa_report_db import pa_report_db
 
@@ -41,10 +37,6 @@ class pa_report_generator:
         for i in ['all', 'hs300', 'zz500', 'sz50']:
             base = barra_base(stock_pool=i)
             base.update_factor_base_data()
-            # 储存因子暴露数据
-            base.base_data.factor_expo.to_hdf('bb_factorexpo'+base.filename_appendix, '123')
-            # 回归计算因子收益, 并进行储存
-            base.get_base_factor_return(if_save=True)
 
         print('base data has been updated!\n')
 
@@ -62,7 +54,8 @@ class pa_report_generator:
         self.tar_position = self.tar_holding_vol * np.nan
         for strg, holding in holding_value.iteritems():
             self.tar_position[strg] = holding.div(holding.sum(1), axis=0)
-        self.tar_position.fillna(0.0)
+        self.tar_position = self.tar_position.fillna(0.0)
+        pass
 
     # 生成策略投资域和benchmark
     def get_strategy_config(self):
@@ -102,18 +95,18 @@ class pa_report_generator:
 
     # 准备benchmark
     def prepare_benchmark(self):
-        self.benchmarks = data.read_data(['Weihgt_sz50', 'Weight_hs300', 'Weight_zz500'])
+        self.benchmarks = data.read_data(['Weight_sz50', 'Weight_hs300', 'Weight_zz500'])
         # 归一化
         for i, df in self.benchmarks.iteritems():
             self.benchmarks[i] = df.div(df.sum(1), axis=0)
-        self.benchmarks.fillna(0.0)
+        self.benchmarks = self.benchmarks.fillna(0.0)
 
     # 计算组合暴露
     def get_strg_tar_expo(self):
         strategy_expo = {}
         for strg, pos in self.tar_position.iteritems():
             curr_pool = self.strg_pools[strg]
-            curr_bench_weight= self.benchmarks[self.strg_benchmark[strg]]
+            curr_bench_weight= self.benchmarks['Weight_'+self.strg_benchmark[strg]]
             curr_base = self.bases[curr_pool]
 
             # 计算相对benchmark的超额持仓
@@ -123,38 +116,50 @@ class pa_report_generator:
             # 也就是说, 其实这个东西昨天收盘的时候我们就可以做出来, 但是是今天早上才做,
             # 因此, factor expo和if tradable的数据都需要lag一天, 使用昨天的数据
             lagged_expo = curr_base.base_data.factor_expo.shift(1).reindex(major_axis=pos.index)
-            lagged_tradable = curr_base.base_data.if_tradable.shift(1).reindex(major_axis=pos.index)
+            lagged_tradable = curr_base.base_data.if_tradable.shift(1). \
+                reindex(major_axis=pos.index).fillna(0).astype(np.bool)
 
             # 计算组合暴露
             strategy_expo[strg] = strategy_data.get_port_expo(active_position, lagged_expo, lagged_tradable)
 
         # 将结果转成一个panel
         self.strategy_expo = pd.Panel(strategy_expo)
+        self.strategy_expo.to_hdf('strategy_expo', '123')
 
     # 对暴露进行画图
     def plot_strg_tar_expo(self, date=None, *, folder_name=None):
+        if not hasattr(self, 'strategy_expo'):
+            self.strategy_expo = pd.read_hdf('strategy_expo', '123')
+
         # 取要画图的暴露数据
         if isinstance(date, pd.Timestamp):
             plot_data = self.strategy_expo.ix[:, date, :]
         else:
             date = self.strategy_expo.major_axis[-1]
-            plot_data = self.strategy_expo.iloc[:, date, :]
+            plot_data = self.strategy_expo.ix[:, date, :]
 
         # 文件名
         if folder_name is None:
             folder_name = date.strftime('%Y%m%d') + '_expo'
-        if not os.path.exists(folder_name):
-            os.makedirs(folder_name)
-        pdfs = PdfPages(folder_name + '/expo_pdf.pdf')
+        if not os.path.exists(str(os.path.abspath('.')) + '/' + folder_name):
+            os.makedirs(str(os.path.abspath('.')) + '/' + folder_name)
+        pdfs = PdfPages(str(os.path.abspath('.')) + '/' + folder_name + '/expo_pdf.pdf')
 
         # 循环画图
+        # make the sort of factors is from top(lncap)  to bottom(leverage)
+        factor_order = np.arange(9, -1, -1)
         for strg, curr_expo in plot_data.iteritems():
             f = plt.figure()
             ax = f.add_subplot(1, 1, 1)
-            plt.bar(np.arange(10), curr_expo.iloc[:10], tick_label=curr_expo.index[:10])
+            plt.barh(np.arange(10), curr_expo.iloc[factor_order], tick_label=curr_expo.index[factor_order])
             ax.set_xlabel('Factors')
             ax.set_ylabel('Factor Exposures')
-            ax.set_title('Factor Exposures of Strategy:' + strg)
+            appendix = ''
+            if strg[-2:] == '套保':
+                strg_appendix = 'hedge'
+            elif strg[-2:] == '投机':
+                strg_appendix = 'speculate'
+            ax.set_title('Factor Exposures of Strategy: ' + strg[:-2] + ' ' + strg_appendix)
             plt.xticks(rotation=30)
             plt.grid()
             ax.legend(loc='best')
@@ -173,8 +178,17 @@ class pa_report_generator:
 
 
 if __name__ == '__main__':
+    import time
+    start = time.time()
     pa_generator = pa_report_generator()
+    # print("time: {0} seconds\n".format(time.time() - start))
+    # pa_generator.update_base_data()
+    # print("time: {0} seconds\n".format(time.time() - start))
+    pa_generator.update_tar_holding_data()
+    print("time: {0} seconds\n".format(time.time() - start))
     pa_generator.generate_strg_expo_report()
+    print("time: {0} seconds\n".format(time.time() - start))
+
     pass
 
 

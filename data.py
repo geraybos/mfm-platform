@@ -39,8 +39,8 @@ class data(object):
 
     # 读取数据的函数
     @staticmethod
-    def read_data(file_name, item_name=None, *, shift = False):
-        """ Get the data from csv file.
+    def read_data(file_name, *, item_name=None, folder_name='ResearchData/', shift=False):
+        """ Get the data from file.
         
         file_name: name of the file.
         item_name: name of the data in the panel.
@@ -50,37 +50,56 @@ class data(object):
         data, we don't need this lag. The default option will not condunct the lag, you can set shift to True
         to create the lag for strategy data.)
         """
-        # 从文件中读取数据
-        obj = {}
-        for i, s in enumerate(file_name):
-            temp_df = pd.read_csv(str(os.path.abspath('.'))+'/RiskModelData/'+s+'.csv',
-                                   index_col=0, parse_dates=True, encoding='GB18030')
+        # 从文件中读取数据, 如果file_name是一个string, 则不进行操作, 如果file_name是list或tuple
+        # 则把每个文件根据item_name, 做成一个panel返回
+        if isinstance(file_name, str):
+            obj = pd.read_hdf(str(os.path.abspath('.')) + '/' + folder_name + file_name, '123')
             if shift:
-                temp_df = temp_df.shift(1)
-            if item_name is None:
-                obj[file_name[i]] = temp_df
-            else:
-                obj[item_name[i]] = temp_df
-        obj = pd.Panel.from_dict(obj)
+                # 由于单个读取有可能obj是panel, panel.shift会损失major_axis上被shift掉的索引, 因此要多做一步
+                if isinstance(obj, pd.Panel):
+                    obj = obj.shift(1).reindex(major_axis=obj.major_axis)
+                else:
+                    obj = obj.shift(1)
+        else:
+            obj = {}
+            for i, s in enumerate(file_name):
+                temp_df = pd.read_hdf(str(os.path.abspath('.')) + '/' + folder_name + s, '123')
+                # 批量读取必须是dataframe
+                if not isinstance(temp_df, pd.DataFrame):
+                    raise IOError('When more than 2 files are read, each file must be dataframe!\n')
+                if shift:
+                    temp_df = temp_df.shift(1)
+                if item_name is None:
+                    obj[file_name[i]] = temp_df
+                else:
+                    obj[item_name[i]] = temp_df
+            obj = pd.Panel.from_dict(obj)
+
         return obj
 
     # 写数据的函数
     @staticmethod
-    def write_data(written_data, *, file_name=None):
+    def write_data(written_data, *, file_name=None, folder_name='ResearchData/', separate=False):
         """ Write the data to csv file
 
-        :param written_data: (pd.Panel) name of data to be written to csv file
+        :param written_data: data to be written to file
         :param file_name: (list) list of strings containing names of csv files, note it has to be the same length of
         items in written_data, if it sets to default, the file name will be the name of items of the written data
         """
-        if file_name is None:
-            for cursor, item_name in enumerate(written_data.items):
-                written_data.ix[cursor].to_csv('RiskModelData/'+str(item_name)+'.csv', index_label='datetime', na_rep='NaN',
-                                               encoding='GB18030')
+        # 是否要分开储存, 分开储存会把一个panel存成很多dataframe
+        if separate:
+            if file_name is None:
+                for cursor, item_name in enumerate(written_data.items):
+                    written_data.ix[cursor].to_hdf(str(os.path.abspath('.')) + '/' + folder_name +
+                                                   str(item_name), '123')
+            else:
+                for cursor, item_name in enumerate(written_data.items):
+                    written_data.ix[cursor].to_hdf(str(os.path.abspath('.')) + '/' + folder_name +
+                                                   file_name[cursor], '123')
         else:
-            for cursor, item_name in enumerate(written_data.items):
-                written_data.ix[cursor].to_csv('RiskModelData/'+file_name[cursor]+'.csv', index_label='datetime', na_rep='NaN',
-                                               encoding='GB18030')
+            if file_name is None:
+                raise ValueError('Please specify a file name for your data!\n')
+            written_data.to_hdf(str(os.path.abspath('.')) + '/' + folder_name + file_name, '123')
         
     # 重新对齐索引的函数
     @staticmethod
@@ -91,12 +110,12 @@ class data(object):
         raw_data (pd.Panel): data to be aligned
         """
         if axis is 'both':
-            aligned_data = raw_data.reindex(major_axis = standard.index, 
-                                            minor_axis = standard.columns)
+            aligned_data = raw_data.reindex(major_axis=standard.index, minor_axis=standard.columns)
         elif axis is 'major':
-            aligned_data = raw_data.reindex(major_axis = standard.index)
+            aligned_data = raw_data.reindex(major_axis=standard.index)
         elif axis is 'minor':
-            aligned_data = raw_data.reindex(minor_axis = standard.columns)
+            aligned_data = raw_data.reindex(minor_axis=standard.columns)
+
         return aligned_data
     
     # 读取上市、退市、停牌数据，并生成可否交易的矩阵
@@ -106,7 +125,7 @@ class data(object):
         if 'is_enlisted' not in self.if_tradable.items or 'is_delisted' not in self.if_tradable.items or \
                 'is_suspended' not in self.if_tradable.items:
             # 读取上市、退市、停牌数据
-            self.if_tradable = data.read_data(file_name, item_name, shift = shift)
+            self.if_tradable = data.read_data(file_name, item_name=item_name, shift = shift)
         # 将数据中的nan填成false, 即未上市的股票, is_delisted会变成False, 未上市或已退市的股票is_suspended会变成False
         # 这样其实没有关系, 因为1.有is_enlisted来控制这些股票 2. 这些股票本来也没有数据
         self.if_tradable = self.if_tradable.fillna(0)
@@ -127,6 +146,17 @@ class data(object):
         y = np.trunc(y/10)
         y = y / (10 ** decimal)
         return y * x_sign
+
+
+# if __name__ == '__main__':
+#     fname = os.listdir(str(os.path.abspath('.')) + '/RiskModelData/')
+#     for f in fname:
+#         if f[-4:] != '.csv':
+#             continue
+#         curr_f = pd.read_csv(str(os.path.abspath('.')) + '/RiskModelData/' + f,
+#                              index_col=0, parse_dates=True, encoding='GB18030')
+#         data.write_data(curr_f, file_name=f[:-4], folder_name='ResearchData')
+#     pass
         
             
             

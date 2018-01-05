@@ -48,6 +48,7 @@ class opt_portfolio_prod(object):
         # 用于储存数据的数据类
         self.data = strategy_data()
         self.data.set_stock_pool(stock_pool)
+        self.data.set_benchmark(benchmark)
         # 储存股票的alpha值
         self.alpha = None
         # 储存风险预测
@@ -95,6 +96,9 @@ class opt_portfolio_prod(object):
         # 首先取raw data中的数据
         # 需要用到的数据为if tradable相关的标记数据, benchmark权重数据
         data_needed = ('is_enlisted', 'is_delisted', 'is_suspended', 'Weight_'+self.benchmark)
+        # 如果stock pool与benchmark不同, 且stock pool不是all, 则也要去stock pool的权重数据
+        if self.stock_pool != self.benchmark and self.stock_pool != 'all':
+            data_needed = data_needed + ('Weight_'+self.stock_pool, )
         sql_raw_data = "select * from RawData where DataDate = '" + str(self.former_date) + "' and " \
                        "DataName in " + str(data_needed)
         raw_data = self.rm_engine.get_original_data(sql_raw_data)
@@ -102,10 +106,14 @@ class opt_portfolio_prod(object):
             values='Value', aggfunc='first').to_panel().transpose(2, 1, 0)
         # 分配数据
         self.data.if_tradable = raw_data.ix[['is_enlisted', 'is_delisted', 'is_suspended']]
-        self.data.benchmark_price = raw_data.ix[['Weight_'+self.benchmark]]
+        if self.stock_pool != self.benchmark and self.stock_pool != 'all':
+            self.data.benchmark_price = raw_data.ix[['Weight_'+self.benchmark, 'Weight_'+self.stock_pool]]
+        else:
+            self.data.benchmark_price = raw_data.ix[['Weight_'+self.benchmark]]
         # 生成可交易, 投资域相关的标记
         self.data.generate_if_tradable()
         self.data.handle_stock_pool()
+        self.data.validate_benchmark_stockpool()
 
         # 取因子暴露数据
         sql_expo = "select * from BarraBaseFactorExpo where DataDate = '" + str(self.former_date) + \
@@ -334,7 +342,7 @@ class opt_portfolio_prod(object):
         self.save_opt_outcome()
         print('Optimization outcome has been successfully saved!\n')
 
-
+#
 # if __name__ == '__main__':
 #     test = opt_portfolio_prod(benchmark='zz500', stock_pool='zz500',
 #                               read_json=os.path.abspath('.')+'/dbuser.txt')

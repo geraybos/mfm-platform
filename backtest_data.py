@@ -35,10 +35,10 @@ class backtest_data(data):
     # 默认使用收盘价来判断这只股票今天是否已经涨停, 回测中, 尽管用vwap调仓, 但是此时已经知道了是否涨停
     # 注意这里并没有用未来数据, 因为尽管调仓时还不知道收盘价, 但是这里只是用收盘价来判断这只股票今天是否盘中涨跌停
     # 如果因为要使用其他的数据进行调仓, 从而要用其他的数据来进行判断, 则可自行传入
-    def generate_if_buyable_sellable(self, *, file_name=['PrevClosePrice', 'ClosePrice'],
-                                     item_name=['PrevClosePrice', 'ClosePrice']):
+    def generate_if_buyable_sellable(self, *, file_name=('PrevClosePrice', 'ClosePrice'),
+                                     item_name=('PrevClosePrice', 'ClosePrice')):
         # 读取入收盘价数据
-        price_data = data.read_data(file_name, item_name)
+        price_data = data.read_data(file_name, item_name=item_name)
         ClosePrice = price_data['ClosePrice']
         PrevClosePrice = price_data['PrevClosePrice']
 

@@ -117,7 +117,6 @@ class multi_factor_strategy(single_factor_strategy):
         self.strategy_data.handle_stock_pool()
         # 读取行业数据
         industry = data.read_data(['Industry'])
-        industry = industry['Industry']
         runner_value = runner_value.reindex(major_axis=industry.index, minor_axis=industry.columns)
         # 过滤沪深300外的数据
         runner_value = runner_value.apply(lambda x: pd.DataFrame(np.where(

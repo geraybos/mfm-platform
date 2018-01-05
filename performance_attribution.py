@@ -92,32 +92,17 @@ class performance_attribution(object):
         self.show_warning = show_warning
 
     # 建立barra因子库，有些时候可以直接用在其他地方（如策略中）已计算出的barra因子库，就可以不必计算了
-    def construct_base(self, *, outside_base=None, base_stock_pool='all', enable_read_base_expo=False):
+    def construct_base(self, *, outside_base=None, base_stock_pool='all'):
         if isinstance(outside_base, factor_base):
             self.base = outside_base
             print('PA system has successfully got base from outside! Please note that the base from '
                   'outside should at least contain basic data.\n')
             # 外部的base，如果没有factor expo则需要读取或再次计算, 股票池则用外部base的股票池
             if self.base.base_data.factor_expo.empty:
-                if enable_read_base_expo:
-                    self.base.base_data.factor_expo = pd.read_hdf('bb_factor_expo_'+
-                                                                  self.base.base_data.stock_pool, '123')
-                    self.base.get_factor_group_count()
-                    print('PA system has successfully read base expo from local files!\n')
-                else:
                     self.base.construct_factor_base()
-            pass
         else:
             self.base.base_data.stock_pool = base_stock_pool
-            if enable_read_base_expo:
-                # 如果选择读取本地储存的暴露值, 在读取之前, 还需要先读取original data, 因为这些数据在之后的归因中会用到
-                self.base.read_original_data()
-                self.base.base_data.factor_expo = pd.read_hdf('bb_factor_expo_' +
-                                                              self.base.base_data.stock_pool, '123')
-                self.base.get_factor_group_count()
-                print('PA system has successfully read base expo from local files!\n')
-            else:
-                self.base.construct_factor_base()
+            self.base.construct_factor_base()
 
     # 进行业绩归因
     # 用discard_factor可以定制用来归因的因子，将不需要的因子的名字或序号以list写入即可
@@ -126,8 +111,7 @@ class performance_attribution(object):
         # 如果有储存的因子收益, 且没有被丢弃的因子, 则读取储存在本地的因子
         if os.path.isfile('bb_factor_return_'+self.base.base_data.stock_pool+'.csv') and \
                         len(discard_factor) == 0 and enable_read_pa_return:
-            base_factor_return = data.read_data(['bb_factor_return_'+self.base.base_data.stock_pool], ['pa_returns'])
-            self.pa_returns = base_factor_return['pa_returns']
+            self.pa_returns = data.read_data('bb_factor_return_'+self.base.base_data.stock_pool)
             print('PA system has successfully read base return from local files! \n')
         else:
             # 将被删除的风格因子的暴露全部设置为0
@@ -136,7 +120,7 @@ class performance_attribution(object):
             self.base.base_data.discard_uninv_data()
             # 建立储存因子收益的dataframe
             self.pa_returns = pd.DataFrame(0, index=self.base.base_data.factor_expo.major_axis,
-                                           columns = self.base.base_data.factor_expo.items)
+                                           columns=self.base.base_data.factor_expo.items)
             # 计算barra base因子的因子收益
             self.base.get_base_factor_return()
             # barra base因子的因子收益即是归因的因子收益
@@ -617,10 +601,8 @@ class performance_attribution(object):
 
     # 进行业绩归因
     def execute_performance_attribution(self, *, outside_base=None, base_stock_pool='all', discard_factor=(),
-                                        foldername='', enbale_read_base_expo=False,
-                                        enable_read_pa_return=False):
-        self.construct_base(outside_base=outside_base, base_stock_pool= base_stock_pool,
-                            enable_read_base_expo=enbale_read_base_expo)
+                                        foldername='', enable_read_pa_return=False):
+        self.construct_base(outside_base=outside_base, base_stock_pool= base_stock_pool)
         self.get_pa_return(discard_factor=discard_factor, enable_read_pa_return=enable_read_pa_return)
         self.analyze_pa_return_outcome()
         self.analyze_pa_risk_outcome()
