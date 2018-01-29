@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import time
 
 from strategy_data import strategy_data
 from db_engine import db_engine
@@ -58,7 +59,7 @@ class opt_portfolio_prod(object):
         # 优化器的条件
         self.opt_config = pd.Series()
         # 需要读取的优化条件的配置文件
-        self.read_opt_conig = read_opt_config
+        self.read_opt_config = read_opt_config
 
     # 读取json文件, 建立读取alpha的数据库引擎
     def initialize_alpha_engine(self):
@@ -96,7 +97,7 @@ class opt_portfolio_prod(object):
         # 首先取raw data中的数据
         # 需要用到的数据为if tradable相关的标记数据, benchmark权重数据
         data_needed = ('is_enlisted', 'is_delisted', 'is_suspended', 'Weight_'+self.benchmark)
-        # 如果stock pool与benchmark不同, 且stock pool不是all, 则也要去stock pool的权重数据
+        # 如果stock pool与benchmark不同, 且stock pool不是all, 则也要取stock pool的权重数据
         if self.stock_pool != self.benchmark and self.stock_pool != 'all':
             data_needed = data_needed + ('Weight_'+self.stock_pool, )
         sql_raw_data = "select * from RawData where DataDate = '" + str(self.former_date) + "' and " \
@@ -116,8 +117,11 @@ class opt_portfolio_prod(object):
         self.data.validate_benchmark_stockpool()
 
         # 取因子暴露数据
+        # sql_expo = "select * from BarraBaseFactorExpo where DataDate = '" + str(self.former_date) + \
+        #            "' and StockPool = '" + str(self.stock_pool) + "' "
+        # 无论是什么投资域, 都用全市场的数据
         sql_expo = "select * from BarraBaseFactorExpo where DataDate = '" + str(self.former_date) + \
-                   "' and StockPool = '" + str(self.stock_pool) + "' "
+                   "' and StockPool = '" + str('all') + "' "
         expo = self.rm_engine.get_original_data(sql_expo)
         expo = expo.pivot_table(index='SecuCode', columns='FactorName', values='Value', aggfunc='first')
         # 取行业标记数据
@@ -132,13 +136,19 @@ class opt_portfolio_prod(object):
         self.data.factor_expo = pd.Panel({self.former_date: total_expo}).transpose(2, 0, 1)
 
         # 取因子协方差矩阵和股票特定风险的数据
+        # sql_covmat = "select * from BarraBaseCovMat where DataDate = '" + str(self.former_date) + \
+        #              "' and StockPool = '" + str(self.stock_pool) + "' "
+        # 无论是什么投资域, 都用全市场的数据
         sql_covmat = "select * from BarraBaseCovMat where DataDate = '" + str(self.former_date) + \
-                     "' and StockPool = '" + str(self.stock_pool) + "' "
+                     "' and StockPool = '" + str('all') + "' "
         covmat = self.rm_engine.get_original_data(sql_covmat)
         covmat = covmat.pivot_table(index='FactorName1', columns='FactorName2', values='Value')
         self.cov_mat = covmat.reindex(index=self.data.factor_expo.items, columns=self.data.factor_expo.items)
+        # sql_specvar = "select * from BarraBaseSpecVar where DataDate = '" + str(self.former_date) + \
+        #               "' and StockPool = '" + str(self.stock_pool) + "' "
+        # 无论是什么投资域, 都用全市场的数据
         sql_specvar = "select * from BarraBaseSpecVar where DataDate = '" + str(self.former_date) + \
-                      "' and StockPool = '" + str(self.stock_pool) + "' "
+                      "' and StockPool = '" + str('all') + "' "
         specvar = self.rm_engine.get_original_data(sql_specvar)
         specvar = specvar.pivot_table(index='DataDate', columns='SecuCode', values='Value',
                                       aggfunc='first').squeeze()
@@ -150,10 +160,10 @@ class opt_portfolio_prod(object):
         # alpha数据是根据alpha的名字来匹配, 默认是Signal_Main
         if 'alpha_name' not in self.opt_config.index:
             self.opt_config['alpha_name'] = 'Signal_Main'
-        sql_alpha = "select runnerdate as DataDate, stockticker as SecuCode, value as Value " \
+        sql_alpha = "select runnerdate as \"DataDate\", stockticker as \"SecuCode\", value as \"Value\" " \
                     "from RunnerValue where runnerdate = '" + str(self.former_date) + "' and " \
                     "runnerid in (select distinct runnerid from RunnerInfo where runnername = '" + \
-                    str(self.opt_config['alpha_name']) + "') order by DataDate, SecuCode "
+                    str(self.opt_config['alpha_name']) + "') order by \"DataDate\", \"SecuCode\" "
         alpha = self.alpha_engine.get_original_data(sql_alpha)
         alpha = alpha.pivot_table(index='DataDate', columns='SecuCode', values='Value',
                                   aggfunc='first').squeeze()
@@ -187,8 +197,8 @@ class opt_portfolio_prod(object):
     # 设置优化的限制条件
     def set_opt_config(self):
         # 如果有配置文件, 读取配置文件
-        if self.read_opt_conig is not None:
-            self.opt_config = pd.read_json(self.read_opt_conig, orient='index', typ='series')
+        if self.read_opt_config is not None:
+            self.opt_config = pd.read_json(self.read_opt_config, orient='index', typ='series')
 
         # 首先看是否有风险厌恶系数的设置, 没有的话, 就用优化器的默认设置
         if 'cov_risk_aversion' in self.opt_config.index:
@@ -324,41 +334,53 @@ class opt_portfolio_prod(object):
 
     # 执行优化系统的函数, 即把流程都走一遍得到结果的函数
     def execute_opt(self):
+        start_time = time.time()
         self.initialize_alpha_engine()
-        print('Alpha database engines has been initialized...\n')
+        print('Alpha database engines has been initialized...\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
         self.initialize_rm_engine()
-        print('RiskModel database engines has been initialized...\n')
+        print('RiskModel database engines has been initialized...\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
         self.get_former_day()
         self.read_alpha()
-        print('Alpha data has been successfully read...\n')
+        print('Alpha data has been successfully read...\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
         self.read_rm_data()
-        print('RiskModel data has been successfully read...\n')
+        print('RiskModel data has been successfully read...\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
         self.prepare_data()
-        print('Data preparation for optimization has been completed...\n')
+        print('Data preparation for optimization has been completed...\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
         self.set_opt_config()
-        print('Optimization configuration has been set, try to solve optimization...\n')
+        print('Optimization configuration has been set, try to solve optimization...\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
         self.solve_opt_portfolio()
-        print('Optimization has been solved...\n')
-        self.save_opt_outcome()
-        print('Optimization outcome has been successfully saved!\n')
+        print('Optimization has been solved...\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
+        # self.save_opt_outcome()
+        # print('Optimization outcome has been successfully saved!\n', flush=True)
+        # print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
 
-#
-# if __name__ == '__main__':
-#     test = opt_portfolio_prod(benchmark='zz500', stock_pool='zz500',
-#                               read_json=os.path.abspath('.')+'/dbuser.txt')
-#     test.initialize_alpha_engine()
-#     test.initialize_rm_engine()
-#     test.get_former_day()
-#     test.read_rm_data()
-#     test.read_alpha()
-#     test.prepare_data()
-#     test.opt_config['indus_neutral'] = True
-#     test.set_opt_config()
-#     import time
-#     start_time = time.time()
-#     test.solve_opt_portfolio()
-#     print("time: {0} seconds\n".format(time.time()-start_time))
-#     test.save_opt_outcome()
+
+if __name__ == '__main__':
+    test = opt_portfolio_prod(benchmark='zz500', stock_pool='all',
+                              read_json=os.path.abspath('.')+'/dbuser.txt',
+                              date='2018-01-29',
+                              read_opt_config=os.path.abspath('.')+'/opt_config.txt')
+    # test.initialize_alpha_engine()
+    # test.initialize_rm_engine()
+    # test.get_former_day()
+    # test.read_rm_data()
+    # test.read_alpha()
+    # test.prepare_data()
+    # test.opt_config['indus_neutral'] = True
+    # test.set_opt_config()
+    import time
+    start_time = time.time()
+    # test.solve_opt_portfolio()
+    test.execute_opt()
+    print("time: {0} seconds\n".format(time.time()-start_time))
+    # test.save_opt_outcome()
 
 
 

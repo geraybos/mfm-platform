@@ -213,9 +213,11 @@ class database_prod(database):
         # 现在上市退市标记和指数权重数据只进行向前填充, 不再进行将所有nan填成0的步骤
         whole_data['is_enlisted'] = whole_data['is_enlisted'].fillna(method='ffill')
         whole_data['is_delisted'] = whole_data['is_delisted'].fillna(method='ffill')
+        # 权重数据稍有不同, 只能整行整行的fillna(), 而不能按个股fillna, 否则会把以前在指数中,
+        # 现在不在指数中的那些股票的权重填到现在来, 这样是不对的, 只有当一行全是nan是才按行对这一行进行fillna
         for item, df in whole_data.iteritems():
             if item.startswith('Weight_'):
-                whole_data[item] = df.fillna(method='ffill')
+                whole_data[item] = df.dropna(how='all', axis=0).reindex(index=df.index, method='ffill')
         # 同下面的复权因子一样, 在衔接了停牌标记后, 在此进行高开低收价格数据的计算
         ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice']
         for data_name in ochl:
@@ -237,6 +239,11 @@ class database_prod(database):
         # 因此为了正常储存, 将名字统一改为trading days
         whole_data.major_axis.rename('trading_days', inplace=True)
         whole_const_data.index.rename('trading_days', inplace=True)
+        # 由于whole data的日期中包含old_data_time, 而这一天实际上并没有从数据库中删除
+        # 因此如果直接储存, 会导致old_data_time这一天被再次储存, 就会拥有两个数据
+        # 因此, 在这里将whole data和whole const data的major_axis重索引为更新时间段, 以保证不会重复储存
+        whole_data = whole_data.reindex(major_axis=self.data.stock_price.major_axis)
+        whole_const_data = whole_const_data.reindex(index=self.data.const_data.index)
         # 将数据储存到数据库去, 这里因为都在一个大数据whole data中, 因此无法使用save data函数
         for item, df in whole_data.iteritems():
             if item == 'Industry':
@@ -260,12 +267,21 @@ class database_prod(database):
 
 
 
-if __name__ == '__main__':
-    import time
-    start_time = time.time()
-    dbp = database_prod()
+# if __name__ == '__main__':
+    # import time
+    # start_time = time.time()
+    # db = database_prod()
+    # db.is_update=False
+    # db.get_data_from_db()
+    # db.update_data_from_db(start_date=pd.Timestamp('2018-01-17'), end_date=pd.Timestamp('2018-01-18'))
+    # db.get_trading_days()
+    # db.get_labels()
+    # db.get_list_status()
+    # shyy_delisted = db.data.if_tradable.ix['is_delisted', :, ['600849']]
+    # db.save_to_sql('is_delisted', shyy_delisted)
+    # dbp = database_prod()
     # dbp.get_data_from_db()
-    dbp.update_data_from_db()
+    # dbp.update_data_from_db()
     # dbp.create_rawdata_table()
     # dbp.create_industry_mark_table()
     # dbp.data.raw_data = data.read_data(['RiskModelData/Industry'], ['Industry'])

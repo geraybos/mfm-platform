@@ -367,7 +367,11 @@ class performance(object):
 
 
         # 输出指标
-        target_str = 'Stats START ------------------------------------------------------------------------\n' \
+        target_str = 'Performance metrics are based on value series start from {0}, end on {1}.\n'. \
+            format(self.log_return.index[0], self.log_return.index[-1])
+
+        target_str = target_str + \
+                     'Stats START ------------------------------------------------------------------------\n' \
                      'The stats of the strategy (and its performance against benchmark) is as follows:\n' \
                      'Annual log return: {0:.2f}%\n' \
                      'Annual standard deviation of log return: {1:.2f}%\n' \

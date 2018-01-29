@@ -68,14 +68,16 @@ if __name__ == '__main__':
         bbp2.update_risk_forecast(start_date=update_start_time)
         print('StockPool {0} has been updated!\n'.format(p))
 
-    # 更新完成, 说明更新成功, 将UpdateIndicator中的latest valid day改成最近的有效更新日,
-    # 如果latest date不是今天, 则有效更新日是latest date, 此时对应每天第一次更新的情况,
-    # 或者在非交易日时运行程序的情况. 如果latest date是今天, 则有效更新日是sub latest date,
+    # 更新完成, 说明更新成功, 将UpdateIndicator中的latest valid date改成最近的有效更新日,
+    # 如果latest date不是今天, 则有效更新日是以下两种情况:
+    # 1. latest date, 此时对应每天第一次更新, 或者在非交易日时运行程序的情况.
+    # 2. 更新好的数据库里, 小于today的第一天, 此时对应一次性更新了2天及2天以上数据的情况
+    # 如果latest date是今天, 则有效更新日是sub latest date,
     # 此时对应的情况是, 同一天第二次(或以上)运行更新程序.
-    if latest_date < today:
-        latest_valid_date = latest_date
-    else:
-        latest_valid_date = sub_latest_date
+    # 无论是以上哪种情况, 最近有效更新日一定是数据库中小于today的第一天
+    latest_valid_date = rm_engine.get_original_data("select max(DataDate) from RawData where "
+                                                    "DataDate < '" + str(today) + "' ").iloc[0, 0]
+
     rm_engine.engine.execute("delete from UpdateIndicator where 1=1; insert into UpdateIndicator "
         "(latest_valid_date, update_date) values ('" + str(latest_valid_date) + "', '" + \
         str(pd.Timestamp(format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))) + "') ")

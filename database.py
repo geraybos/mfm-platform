@@ -264,6 +264,26 @@ class database(object):
                     str(self.trading_days.iloc[-1]) + "') b on a.InnerCode=b.InnerCode "\
                     " order by SecuCode, ChangeDate"
         list_status = self.jydb_engine.get_original_data(sql_query)
+
+        ################################################################################################
+        ######################## SPECIAL TREATMENT #####################################################
+        # A股历史上有两个更换股票代码的例子, 一个是上海医药, 一个是招商地产变成招商蛇口
+        # 后者由于InnerCode发生了变化, 因此在list status上有原先的InnerCode的退市标记
+        # 因为list status是根据InnerCode来做的, 而上海医药更改了股票代码, 但是未更改InnerCode
+        # 这就使得list status上没有这支股票原来代码的退市标记, 因此这支股票会被系统视为未退市
+        # 由于历史上只有这一支股票是这种情况, 因此将其在这里进行单独修改, 修改方式是, 如果数据库日期在
+        # 股票代码变更发生时间段, 将上海医药旧代码的那支股票手动加上退市标记. 注意, 不能通过InnerCode添加退市标记,
+        # 否则, 上海医药新代码的那支股票也会被标记为退市(因为使用了一样的InnerCode), 一定要通过股票代码来添加
+
+        # 判断取数据的时间段是否包含上海医药的代码变更期 2010年3月5号
+        if first_date <= pd.Timestamp('2010-03-05') and \
+            self.trading_days.iloc[-1] >= pd.Timestamp('2010-03-05'):
+            # 上海医药的老代码是600849, 变化时间是2010年3月5日, 退市的变化类型是4
+            list_status = list_status.append(pd.Series({'SecuCode': '600849',
+                'ChangeDate': pd.Timestamp('2010-03-05'), 'ChangeType': 4}), ignore_index=True)
+        ################################################################################################
+        ################################################################################################
+
         list_status = list_status.pivot_table(index='ChangeDate',columns='SecuCode',values='ChangeType',
                                               aggfunc='first')
         # 更新数据的时候可能出现更新时间段没有新数据的情况，要处理这种情况
@@ -728,9 +748,11 @@ class database(object):
             fillna(method='ffill')
         self.data.if_tradable['is_delisted'] = self.data.if_tradable['is_delisted'].\
             fillna(method='ffill')
+        # 权重数据稍有不同, 只能整行整行的fillna, 而不能按个股fillna, 否则会把以前在指数中,
+        # 现在不在指数中的那些股票的权重填到现在来, 这样是不对的, 只有当一行全是nan是才按行对这一行进行fillna
         for index_name in benchmark_index_name:
             self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
-                fillna(method='ffill')
+                dropna(how='all', axis=0).reindex(index=self.data.benchmark_price.major_axis, method='ffill')
         # 同下面的复权因子一样, 在衔接了停牌标记后, 在此进行高开低收价格数据的计算
         ochl = ['OpenPrice', 'ClosePrice', 'HighPrice', 'LowPrice']
         for data_name in ochl:
@@ -754,22 +776,22 @@ class database(object):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2017-12-14'))
+    db = database(start_date=pd.Timestamp('2017-01-01'), end_date=pd.Timestamp('2018-01-17'))
     # db.is_update=False
     # db.get_data_from_db()
-    # db.update_data_from_db(end_date=pd.Timestamp('2017-11-14'))
+    # db.update_data_from_db()
     db.get_trading_days()
     db.get_labels()
     # db.get_list_status()
     # db.get_AdjustFactor()
     # db.get_sq_data()
     # db.get_index_price()
-    # db.get_index_weight()
+    db.get_index_weight()
     # data.write_data(db.data.benchmark_price)
     # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
-    db.get_runner_value(63)
-    # db.data.stock_price.to_hdf('runner_value', '123')
-    data.write_data(db.data.stock_price.ix['runner_value_63'], file_name='runner_value_63')
+    # db.get_runner_value(63)
+    # data.write_data(db.data.stock_price.ix['runner_value_63'], file_name='runner_value_63')
+    # data.write_data(db.data.stock_price.ix['runner_value_63'], file_name='runner_value_63')
     print("time: {0} seconds\n".format(time.time()-start_time))
 
 

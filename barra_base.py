@@ -249,6 +249,8 @@ class barra_base(factor_base):
 
             ncpus = 20
             p = mp.ProcessPool(ncpus)
+            p.close()
+            p.restart()
             # 一般情况下, 是从252期开始计算beta因子
             # 注意, 在更新的时候, 为了节约时间, 不会算第252到第524个交易日的beta值
             # 因此在更新的时候, 会从第525期开始计算
@@ -262,6 +264,8 @@ class barra_base(factor_base):
             # 储存结果
             beta = pd.concat([i.ix['beta'] for i in results], axis=1).T
             hsigma = pd.concat([i.ix['hsigma'] for i in results], axis=1).T
+            p.close()
+            p.join()
             # 两个数据对应的日期，为原始数据的日期减去251，因为前251期的数据并没有计算
             # 在更新的时候, 则是原始数据日期减去524, 原因同理
             data_index = self.base_data.stock_price.iloc[:,
@@ -854,6 +858,7 @@ class barra_base(factor_base):
                                              columns=self.base_data.factor_expo.items)
         self.specific_return = pd.DataFrame(np.nan, index=self.base_data.factor_expo.major_axis,
                                             columns=self.base_data.factor_expo.minor_axis)
+        self.r_squared = pd.Series(np.nan, index=self.base_data.factor_expo.major_axis)
         # 因子暴露要用上一期的因子暴露，用来加权的市值要用上一期的市值
         lag_factor_expo = self.base_data.factor_expo.shift(1).reindex(
                           major_axis=self.base_data.factor_expo.major_axis)
@@ -868,6 +873,7 @@ class barra_base(factor_base):
                        n_style=self.n_style, n_indus=self.n_indus)
             self.base_factor_return.ix[time, :] = outcome[0]
             self.specific_return.ix[time, :] = outcome[1]
+            self.r_squared.ix[time] = outcome[2]
         print('get bb factor return completed...\n')
 
         # 如果需要储存, 则储存因子收益数据
@@ -972,7 +978,7 @@ if __name__ == '__main__':
     # bb.try_to_read = False
     # bb.base_data.stock_pool = i
     # bb.read_original_data()
-    # bb.construct_factor_base(if_save=False)
+    #     bb.construct_factor_base(if_save=True)
         bb.base_data.factor_expo = data.read_data('bb_factor_expo_'+i)
     # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
     #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
@@ -985,7 +991,7 @@ if __name__ == '__main__':
     # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
     # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
     # bb.n_indus = 32
-    # bb.get_base_factor_return(if_save=True)
+    #     bb.get_base_factor_return(if_save=False)
     # if i in ['all', 'hs300', 'zz500']:
     #     bb.base_data.factor_expo.to_hdf('bb_factorexpo_'+i, '123')
     # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
@@ -1022,7 +1028,7 @@ if __name__ == '__main__':
     # bb.risk_forecast_performance_parallel(test_type='random', bias_type=2, freq='w')
     # bb.risk_forecast_performance_parallel_spec(test_type='stock', bias_type=1, cap_weighted_bias=False)
     # bb.risk_forecast_performance_total_parallel(test_type='random', bias_type=2, freq='w')
-    # bb.update_factor_base_data()
+    #     bb.update_factor_base_data(start_date=pd.Timestamp('2017-11-14'))
     # print("time: {0} seconds\n".format(time.time()-start_time))
     pass
 

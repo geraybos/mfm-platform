@@ -129,8 +129,8 @@ class strategy_data(data):
         percentile: percentile on which data will be winsorized.
         """
         temp = raw_data * 1
-        lower_q = raw_data.quantile(percentile, 1)[:, np.newaxis]
-        upper_q = raw_data.quantile(1-percentile, 1)[:, np.newaxis]
+        lower_q = np.expand_dims(raw_data.quantile(percentile, 1), 1)
+        upper_q = np.expand_dims(raw_data.quantile(1-percentile, 1), 1)
         raw_data = np.where(np.greater(raw_data, lower_q), raw_data, lower_q)
         raw_data = np.where(np.less(raw_data, upper_q), raw_data, upper_q)
         # np.greater, np.less遇到nan时都返回false，因此要将nan的数据改为nan
@@ -366,7 +366,7 @@ class strategy_data(data):
         yx = yx.dropna()
         # 如果只有小于等于1个有效数据，返回nan序列
         if yx.shape[0] <= 1:
-            return [np.full(n_style + n_indus + 1, np.nan), pd.Series(np.nan, index=x.index)]
+            return [np.full(n_style + n_indus + 1, np.nan), pd.Series(np.nan, index=x.index), np.nan]
         y = yx.ix[:, 0]
         x = yx.ix[:, 1:]
 
@@ -420,17 +420,21 @@ class strategy_data(data):
         # 不存在的因子收益，可以认为它的收益是0
         results_s = results_s.fillna(0)
 
-        # 计算残余收益, 注意: 这里的残余收益是指没有被base模型解释的收益率部分,
-        # 即, 用y - (x*b + a) 直接算出的残差, 这个残差与回归权重没有关系, 就代表的是没有被回归模型解释的部分
-        # statsmodels里的results.resid返回的也是这个残差, 特别注意这样一点, 计算残差的时候与回归权重无关.
-        residual_return = asset_return.reindex(index=y.index) - base_expo.reindex(index=x.index,
+        # 计算残余收益(Specific Return), 注意: specific return的定义为, 资产收益中, 未被common factor解释的部分
+        # 即, 用y - (x*b + a) 直接算出的这部分收益, 这个残差与回归权重没有关系
+        # statsmodels里的results.resid返回的也是这个残差也是与回归权重无关的, 特别注意这一点
+        specific_return = asset_return.reindex(index=y.index) - base_expo.reindex(index=x.index,
                             columns=x.columns).dot(results_np)
         # 将残余收益的index改为asset return的index(所有传入的股票), 而不是残余回归的有效股票index
-        residual_return = residual_return.reindex(index=asset_return.index)
+        specific_return = specific_return.reindex(index=asset_return.index)
+
+        # 计算等价的wls的r squared, 注意由于是wls, 因此计算r squared时需要考虑回归权重
+        ssr = specific_return.pow(2).mul(weights).sum()
+        sst = asset_return.reindex(y.index).sub(asset_return.mul(weights.reindex(index=y.index)).
+            div(weights.reindex(index=y.index).sum()).sum()).pow(2).mul(weights).sum()
+        r_squared = 1 - ssr / sst
         
-        return [results_s, residual_return]
-
-
+        return [results_s, specific_return, r_squared]
 
     # 计算净利润增长率的函数, 因为净利润增长, 涉及净利润是负数的情况比较麻烦, 所以专门写一个函数来计算
     # lag为传入序列要计算的成长率, 1则是计算每隔一期的成长, 2则是每隔两期(注意这样会少一些数据)

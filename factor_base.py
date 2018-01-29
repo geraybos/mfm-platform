@@ -122,6 +122,8 @@ class factor_base(object):
 
         ncpus = 20
         p = mp.ProcessPool(ncpus)
+        p.close()
+        p.restart()
         # 从第sample_size项开始计算
         data_size = np.arange(sample_size-1, base_factor_return.shape[0])
         chunksize = int(len(data_size)/ncpus)
@@ -129,6 +131,8 @@ class factor_base(object):
         self.initial_cov_mat = pd.Panel({i: v[0] for i, v in zip(base_factor_return.index[sample_size-1:], results)})
         self.daily_var_forecast = pd.DataFrame({i: v[1] for i, v  in
                                                 zip(base_factor_return.index[sample_size-1:], results)}).T
+        p.close()
+        p.join()
         # 将因子的排序改为习惯的排序, 而不是按照字母顺序
         self.initial_cov_mat = self.initial_cov_mat.reindex(major_axis=self.base_factor_return.columns,
                                                             minor_axis=self.base_factor_return.columns)
@@ -287,14 +291,19 @@ class factor_base(object):
             bias = outcome[1]
 
             return [adjusted_cov_mat, bias]
-        ncpus=20
+        ncpus = 20
         p = mp.ProcessPool(ncpus)
+        p.close()
+        p.restart()
         data_size = np.arange(vra_cov_mat.shape[0])
         chunksize = int(len(data_size)/ncpus)
         results = p.map(one_time_adjust_func, data_size, chunksize=chunksize)
         adjusted_cov_mat = pd.Panel({k:v[0] for k, v in zip(vra_cov_mat.items, results)},
             major_axis=self.vra_cov_mat.major_axis, minor_axis=self.vra_cov_mat.minor_axis)
         self.simed_eigen_bias = pd.DataFrame({i: v[1] for i, v in zip(vra_cov_mat.items, results)}).T
+        p.close()
+        p.join()
+
         self.eigen_adjusted_cov_mat = adjusted_cov_mat.reindex(items=self.vra_cov_mat.items)
 
         # # 储存
@@ -471,8 +480,10 @@ class factor_base(object):
 
             return [ts_outcome[0], ts_outcome[1], str_outcome[0], str_outcome[1], ts_weight]
 
-        ncpus = 1
+        ncpus = 20
         p = mp.ProcessPool(ncpus)
+        p.close()
+        p.restart()
         data_size = np.arange(sample_size - 1, specific_return_g.shape[0])
         chunksize = int(len(data_size)/ncpus)
         results = p.map(one_time_estimator_func, data_size, chunksize=chunksize)
@@ -492,6 +503,9 @@ class factor_base(object):
         str_spec_vol = str_spec_vol.reindex(columns=self.base_data.stock_price.minor_axis)
         str_daily_spec_vol = str_daily_spec_vol.reindex(columns=self.base_data.stock_price.minor_axis)
         ts_weight = ts_weight.reindex(columns=self.base_data.stock_price.minor_axis)
+
+        p.close()
+        p.join()
 
         weighted_spec_vol = ts_spec_vol*ts_weight + str_spec_vol*(1-ts_weight)
         weighted_daily_spec_vol = ts_daily_spec_vol*ts_weight + str_daily_spec_vol*(1-ts_weight)
@@ -702,7 +716,7 @@ class factor_base(object):
             eigen_adj_sims=1000, scaling_factor=1.4, specvol_sample_size=360, specvol_half_life=84,
             specvol_nw_lag=5, shrinkage_parameter=0.1):
         # 将freq转到forecast_step
-        freq_map = {'a':252, 'm': 21, 'w': 5}
+        freq_map = {'a': 252, 'm': 21, 'w': 5}
         forecast_steps = freq_map[freq]
 
         self.base_data.generate_if_tradable()

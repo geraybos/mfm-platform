@@ -36,20 +36,26 @@ class opt_portfolio_test(multi_factor_strategy):
     """
     def __init__(self):
         multi_factor_strategy.__init__(self)
+        self.factor_cov = None,
+        self.cov_risk_aversion = None
+        self.spec_risk_aversion = None
 
     # 解优化组合的函数, 由于此策略主要用于测试风险模型的表现, 即测试不同的优化组合的回测表现
     # 这些优化组合是给定要测试的风险模型, 然后变化alpha得来的, 因此, 这里不对换手率等做什么限制
     # 所以每一期的优化没有什么联系, 因此可以用并行来解优化组合
     def construct_optimized_portfolio(self, *, indus_neutral=False):
-        global holding_days_g, alpha_g, factor_expo_g, factor_cov_g, spec_var_g, benchmark_g
+        global holding_days_g, alpha_g, factor_expo_g, factor_cov_g, spec_var_g, benchmark_g, \
+               cov_risk_aversion_g, spec_risk_aversion_g
 
         holding_days_g = self.holding_days
         alpha_g = self.factor_return
         factor_expo_g = self.strategy_data.factor_expo
         factor_cov_g = self.factor_cov
         spec_var_g = self.spec_var
-        # benchmark_g = self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.stock_pool]
         benchmark_g = self.strategy_data.benchmark_price.iloc[0]
+
+        cov_risk_aversion_g = self.cov_risk_aversion
+        spec_risk_aversion_g = self.spec_risk_aversion
 
         if indus_neutral:
             global indus_cons
@@ -75,6 +81,8 @@ class opt_portfolio_test(multi_factor_strategy):
             curr_spec_var = spec_var_g.ix[curr_time, curr_factor_ret.index]
             curr_bench_weight = benchmark_g.ix[curr_time, curr_factor_ret.index]
             opt = optimizer_utility()
+            opt.set_risk_aversion(cov_risk_aversion=cov_risk_aversion_g,
+                                  spec_risk_aversion=spec_risk_aversion_g)
 
             # 如果当期某个行业所有的股票都是0暴露, 则在行业限制中去除这个行业
             if indus_neutral:
@@ -89,7 +97,8 @@ class opt_portfolio_test(multi_factor_strategy):
             # 不添加任何限制的解最大化IR的组合
             opt.solve_optimization(curr_bench_weight, curr_factor_expo, curr_factor_cov,
                 residual_return=curr_factor_ret, specific_var=curr_spec_var,
-                factor_expo_cons=curr_indus_cons, enable_full_inv_cons=enable_full_inv_cons)
+                factor_expo_cons=curr_indus_cons, enable_full_inv_cons=enable_full_inv_cons,
+                asset_cap=None)
 
             return (opt.optimized_weight.reindex(alpha_g.columns), opt.forecasted_vol)
 
@@ -128,6 +137,9 @@ class opt_portfolio_test(multi_factor_strategy):
 
         # 解优化组合
         self.construct_optimized_portfolio(indus_neutral=indus_neutral)
+        # 将优化组合中小于万分之一的持仓扔掉
+        self.position.holding_matrix = self.position.holding_matrix.where(
+            self.position.holding_matrix >= 1e-4, 0)
 
         # 如果没有路径名, 则自己创建一个
         if not os.path.exists(str(os.path.abspath('.')) + '/' + foldername + self.strategy_data.stock_pool +
@@ -144,42 +156,61 @@ class opt_portfolio_test(multi_factor_strategy):
         self.bkt_obj.execute_backtest()
         self.bkt_obj.get_performance(foldername=foldername + self.strategy_data.stock_pool, pdfs=self.pdfs)
 
+        # 根据策略的超额净值, 可以计算策略的实现的超额收益波动率, 对比实现波动率和预测波动率, 可以看出风险预测能力
+        # 由于是周5换仓, 因此实现的区间为周5到下周4, 标签选择周5, 因此选择的resample区间为周五开始, 周五结束
+        # 闭区间选择为left, 即这周五, 标签也选择为left, 即这周五, 这样就能和预测风险的标签相吻合
+        active_nav_ret_std = self.bkt_obj.bkt_performance.active_nav.pct_change(). \
+            resample('w-fri', closed='left', label='left').std().mul(np.sqrt(252))
+        # 统计量为实现波动率除以预测波动率
+        self.risk_pred_ratio = active_nav_ret_std / self.forecasted_vol
+        # 实现波动率储存起来以供参考
+        self.realized_vol = active_nav_ret_std
+        # 打印统计量的均值和方差
+        str_risk = 'Risk forecast accuracy ratio, mean: {0}, std: {1}\n'. \
+            format(self.risk_pred_ratio.mean(), self.risk_pred_ratio.std())
+        print(str_risk)
+        # 根据优化组合算每期组合的预期alpha
+        self.forecasted_alpha = self.position.holding_matrix.mul(self.factor_return.reindex(index=
+            self.position.holding_matrix.index)).sum(1)
+        # 打印组合的预期alpha均值和方差
+        str_alpha = 'Alpha forecast, mean: {0}, std: {1}\n'. \
+            format(self.forecasted_alpha.mean(), self.forecasted_alpha.std())
+        print(str_alpha)
+
+        # 将风险预测统计量, 预期alpha, 以及风险厌恶系数等量写入txt文件
+        target_str = str_risk + str_alpha
+        target_str += 'Cov Mat risk aversion: {0}, Spec Var risk aversion: {1}\n'. \
+            format(self.cov_risk_aversion, self.spec_risk_aversion)
+        with open(str(os.path.abspath('.'))+'/'+foldername+self.strategy_data.stock_pool+'/performance.txt',
+                  'a', encoding='GB18030') as text_file:
+            text_file.write(target_str)
+
         # 做真实情况下的超额归因
-        pa_benchmark_weight = data.read_data(['Weight_' + self.strategy_data.stock_pool],
-                                             ['Weight_' + self.strategy_data.stock_pool])
-        pa_benchmark_weight = pa_benchmark_weight['Weight_' + self.strategy_data.stock_pool].fillna(0.0)
+        pa_benchmark_weight = data.read_data('Weight_' + self.strategy_data.stock_pool).fillna(0.0)
         # pa_benchmark_weight = data.read_data(['Weight_hs300'],
         #                                      ['Weight_hs300'])
         # pa_benchmark_weight = pa_benchmark_weight['Weight_hs300']
 
         self.bkt_obj.get_performance_attribution(benchmark_weight=pa_benchmark_weight, show_warning=False,
             pdfs=self.pdfs, is_real_world=True, foldername=foldername + self.strategy_data.stock_pool,
-            real_world_type=2, enable_read_base_expo=True, enable_read_pa_return=True,
-            base_stock_pool=self.strategy_data.stock_pool)
+            real_world_type=2, enable_read_pa_return=True, base_stock_pool=self.strategy_data.stock_pool)
 
         self.pdfs.close()
 
 
 if __name__ == '__main__':
-    # global indus_neutral, indus_number
-    # for i in np.arange(6):
 
-    rv = pd.read_hdf('stock_alpha_hs300_split', '123')
-    for iname, idf in rv.iteritems():
-
-        if iname != 'runner_value_1':
-            continue
-
+    for spec_ra in np.arange(1, 10.5, 0.5):
         opt_test = opt_portfolio_test()
         opt_test.strategy_data.stock_pool = 'hs300'
 
         # 读取数据, 注意数据需要shift一个交易日
-        opt_test.factor_cov = pd.read_hdf('bb_riskmodel_covmat_all', '123')
-        opt_test.strategy_data.factor_expo = pd.read_hdf('bb_factor_expo_all', '123')
-        opt_test.spec_var = pd.read_hdf('bb_riskmodel_specvar_all', '123')
+        risk_model_version = 'all'
+        opt_test.factor_cov = data.read_data('bb_riskmodel_covmat_' + risk_model_version)
+        opt_test.strategy_data.factor_expo = data.read_data('bb_factor_expo_' + risk_model_version)
+        opt_test.spec_var = data.read_data('bb_riskmodel_specvar_' + risk_model_version)
 
-
-        # opt_test.factor_cov = pd.read_hdf('barra_fore_cov_mat', '123')
+        # opt_test.factor_cov = pd.read_hdf('barra_fore_cov_mat', '123') * 12
         # opt_test.strategy_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
         # opt_test.strategy_data.factor_expo = opt_test.strategy_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
         #                                                      'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP',
@@ -200,7 +231,7 @@ if __name__ == '__main__':
         # opt_test.strategy_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
         # opt_test.factor_cov = opt_test.factor_cov.reindex(major_axis=opt_test.strategy_data.factor_expo.items,
         #                                                   minor_axis=opt_test.strategy_data.factor_expo.items)
-        # opt_test.spec_var = pd.read_hdf('barra_fore_spec_var_new', '123')
+        # opt_test.spec_var = pd.read_hdf('barra_fore_spec_var_new', '123') * 12
 
 
         # opt_test.factor_cov = pd.read_hdf('barra_riskmodel_covmat_all_facret', '123')
@@ -230,30 +261,19 @@ if __name__ == '__main__':
                                         opt_test.strategy_data.factor_expo.major_axis)
         opt_test.spec_var = opt_test.spec_var.shift(1)
 
-        opt_test.factor_return = pd.read_hdf('stock_alpha_hs300', '123')
+        opt_test.factor_return = data.read_data('runner_value_63')
         # opt_test.factor_return = opt_test.factor_return.div(20)
-        # opt_test.factor_return = data.read_data(['runner_value_63']).iloc[0]
         opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0)
-        # opt_test.factor_return = opt_test.factor_return.div(5)
-        # opt_test.factor_return = idf
-
-        # tar_holding = pd.read_hdf('tar_holding_vol', '123')
-        # curr_tar_holding = tar_holding['300alpha投机']
-        # curr_tar_holding = curr_tar_holding.where(curr_tar_holding.sum(1)!=0, np.nan). \
-        #     fillna(method='ffill').fillna(0.0)
-        # cp = data.read_data(['ClosePrice'], shift=True).iloc[0]
-        # holding_value = curr_tar_holding.mul(cp)
-        # opt_test.factor_return = holding_value.div(holding_value.sum(1), axis=0).fillna(0.0)
-        # opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0).fillna(0.0)
-        # opt_test.factor_return = opt_test.factor_return.replace(0, np.nan)
-
         opt_test.factor_return = opt_test.factor_return.shift(1)
-        opt_test.strategy_data.benchmark_price = data.read_data(['Weight_hs300'], shift=True).fillna(0.0)
+        opt_test.strategy_data.benchmark_price = data.read_data(['Weight_hs300'],
+                                                                shift=True).fillna(0.0)
 
-        # folder_name = 'opt_test/my_opt_sf1p4_bs_indus/' + iname + '_'
-        folder_name = 'opt_test/stock_alpha_hs300_allopt_std1_TEST'
-        # folder_name = 'opt_test/hs300/stock_alpha_hs300/my_opt_sf1p4_bs_std1_'
-        opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2011-05-04'), end_date=pd.Timestamp('2017-03-09'),
+        # 设置风险厌恶系数
+        opt_test.cov_risk_aversion = 0.75
+        opt_test.spec_risk_aversion = spec_ra
+
+        folder_name = 'tar_holding_bkt/spec_ra_tuning/spec_ra_' + str(spec_ra) + '_'
+        opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2016-01-04'), end_date=pd.Timestamp('2018-01-16'),
             loc=-1, foldername=folder_name, indus_neutral=True)
 
 

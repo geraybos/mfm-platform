@@ -89,14 +89,13 @@ class backtest(object):
         if isinstance(risk_free_rate, pd.Series):
             self.bkt_data.const_data = pd.DataFrame(risk_free_rate.values, index=risk_free_rate.index,
                                                     columns=['risk_free_rate'])
-        elif os.path.isfile('const_data.csv'):
-            self.bkt_data.const_data = pd.read_csv('const_data.csv', index_col=0, parse_dates=True,
-                                                   encoding='GB18030')
+        else:
+            self.bkt_data.const_data = data.read_data('const_data')
             if 'risk_free' not in self.bkt_data.const_data.columns:
                 self.bkt_data.const_data['risk_free_rate'] = 0.0
-        else:
-            self.bkt_data.const_data = pd.DataFrame(0.0, index=self.bkt_data.stock_price.major_axis,
-                                                    columns=['risk_free_rate'])
+            else:
+                self.bkt_data.const_data = pd.DataFrame(0.0, index=self.bkt_data.stock_price.major_axis,
+                                                        columns=['risk_free_rate'])
 
         # 检测回测数据是否覆盖了回测时间段
         # 检测起始时间
