@@ -2,24 +2,16 @@ import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('PDF')  # Do this BEFORE importing matplotlib.pyplot
-import matplotlib.pyplot as plt
-from pandas import Series, DataFrame, Panel
 from datetime import datetime
 import os
 import statsmodels.api as sm
 import copy
-from matplotlib.backends.backend_pdf import PdfPages
-from cvxopt import solvers, matrix
-from pandas.tools.plotting import table
-from pandas.stats.fama_macbeth import fama_macbeth
-from statsmodels.discrete.discrete_model import Poisson
+from linearmodels import FamaMacBeth
 
 from single_factor_strategy import single_factor_strategy
 from database import database
 from data import data
 from strategy_data import strategy_data
-from strategy import strategy
-from barra_base import barra_base
 
 # 构造titman文章中的结果\
 
@@ -96,7 +88,7 @@ class intangible_info(single_factor_strategy):
             self.bv_return = self.bv_return_direct
         pass
 
-    # 用收益进行回归, 去残差, 得到intangible return
+    # 用收益进行回归, 取残差, 得到intangible return
     def get_intangible_return(self):
         # 这段时间之前的bm
         lagged_bm = self.strategy_data.raw_data['lbm'].shift(self.time_range)
@@ -190,8 +182,8 @@ class intangible_info_earnings(intangible_info):
 
     def prepare_data(self, *, price='ClosePrice'):
         intangible_info.prepare_data(self, price=price)
-        add_data = data.read_data(['NetIncome_ttm', 'runner_value_36'], ['NetIncome_ttm', 'sue'],
-                                  shift=True)
+        add_data = data.read_data(['NetIncome_ttm', 'runner_value_36'],
+                                  item_name=['NetIncome_ttm', 'sue'], shift=True)
         self.strategy_data.raw_data['NetIncome_ttm'] = add_data['NetIncome_ttm']
         self.strategy_data.raw_data['sue'] = add_data['sue']
         self.strategy_data.raw_data['ep_ttm'] = self.strategy_data.raw_data['NetIncome_ttm']/\
@@ -289,11 +281,11 @@ class intangible_info_earnings(intangible_info):
 
     def construct_factor(self):
         price_data = data.read_data(['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
-                                    ['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
+                                    item_name=['ClosePrice_adj', 'OpenPrice_adj', 'vwap_adj'],
                                     shift=True)
         ret = np.log(price_data['ClosePrice_adj'] / price_data['ClosePrice_adj'].shift(1))
         ret = ret.fillna(0)
-        exp_w = barra_base.construct_expo_weights(126, 504)
+        exp_w = strategy_data.construct_expo_weights(126, 504)
         mom = ret.rolling(504).apply(lambda x: (x * exp_w).sum())
 
         # mom = data.read_data(['runner_value_8'], shift=True)
@@ -315,16 +307,133 @@ class intangible_info_earnings(intangible_info):
         self.strategy_data.factor = pd.Panel({'mom':-mom})
 
 
+# 重新审视这个因子 2018年2月1日
+class reversal_new(intangible_info_earnings):
+    def __init__(self, *, time_range=252*1):
+        intangible_info_earnings.__init__(self, time_range=time_range)
+
+    # 读取数据
+    def construct_factor(self):
+        # 直接使用runner value中的rv8, rv36
+        self.strategy_data.raw_data = data.read_data(['runner_value_8', 'runner_value_36'],
+                                                     item_name=['rv8', 'rv36'])
+        self.strategy_data.stock_price = data.read_data(['FreeMarketValue'])
+
+        # # 在投资域内进行标准化及回归
+        # self.strategy_data.discard_uninv_data()
+
+        # 由于rv没有进行标准化, 在这里进行标准化, 进行市值加权标准化
+        self.strategy_data.raw_data['rv8'] = strategy_data.get_cap_wgt_exposure(
+            self.strategy_data.raw_data['rv8'], self.strategy_data.stock_price['FreeMarketValue'])
+        self.strategy_data.raw_data['rv36'] = strategy_data.get_cap_wgt_exposure(
+            self.strategy_data.raw_data['rv36'], self.strategy_data.stock_price['FreeMarketValue'])
+
+        # 等权回归
+        reg_weight = None
+        # 以根号市值作为回归权重
+        # reg_weight = np.sqrt(self.strategy_data.stock_price['FreeMarketValue'])
+        outcome = strategy_data.simple_orth_gs(self.strategy_data.raw_data['rv8'],
+            self.strategy_data.raw_data[['rv36']], weights=reg_weight)
+
+        new_factor = outcome[0]
+        pvalues = outcome[1]
+        rsquared = outcome[2]
+
+        # 储存因子
+        self.strategy_data.factor = pd.Panel({'new_reversal': new_factor.shift(1)})
+        pass
+
+    def get_table3(self, *, freq='w', foldername=None, startdate=None, enddate=None):
+        # 首先需要按照频率生成holdingdays
+        self.generate_holding_days(holding_freq=freq, loc=-1, start_date=startdate,
+                                   end_date=enddate)
+        # 读取数据
+        self.strategy_data.raw_data['rv3'] = data.read_data('runner_value_3')
+        # 对rv3进行标准化
+        self.strategy_data.raw_data['rv3'] = strategy_data.get_cap_wgt_exposure(
+            self.strategy_data.raw_data['rv3'], self.strategy_data.stock_price['FreeMarketValue'])
+
+        self.strategy_data.stock_price['ClosePrice_adj'] = data.read_data('ClosePrice_adj')
+        self.strategy_data.stock_price['daily_return'] = \
+            self.strategy_data.stock_price['ClosePrice_adj'].pct_change()
+        # 按照频率算收益率, 和holdingdays同步, 论文用月, 我们一般用w
+        r = self.strategy_data.stock_price['daily_return', startdate:enddate, :].\
+            resample(freq).sum()
+        # 注意, 回归的左边是未来一期的收益率, 因此要shift(-1), 即用到未来数据
+        r = r.shift(-1).dropna(how='all')
+        # 因为r的index为月末, 但是月末不一定是交易日, 因此将r的index重置为holding days
+        r = r.set_index(self.holding_days)
+        # 用于回归的右边
+        reg_panel = pd.Panel({'lagged_ep': self.strategy_data.raw_data['rv3'].shift(0),
+                              'sue': self.strategy_data.raw_data['rv36'],
+                              'reversal': self.strategy_data.raw_data['rv8']})
+        # 储存table3的结果
+        table3 = pd.Panel(items=['coef', 't_stats'], major_axis=np.arange(5),
+                          minor_axis=['intercept', 'lagged_ep', 'sue', 'reversal'])
+        # 使用holding days中的日期进行回归,
+        # 1. 用lagged lbm回归
+        results1 = strategy_data.fama_macbeth(r, reg_panel.ix[['lagged_ep'], self.holding_days, :])
+        table3.ix['coef', 0, :] = results1[0]
+        table3.ix['t_stats', 0, :] = results1[1]
+        # 2. 使用bv return回归
+        results2 = strategy_data.fama_macbeth(r, reg_panel.ix[['sue'], self.holding_days, :])
+        table3.ix['coef', 1, :] = results2[0]
+        table3.ix['t_stats', 1, :] = results2[1]
+        # 3. 使用lagged return回归
+        results3 = strategy_data.fama_macbeth(r, reg_panel.ix[['reversal'], self.holding_days, :])
+        table3.ix['coef', 2, :] = results3[0]
+        table3.ix['t_stats', 2, :] = results3[1]
+        # 4. 使用lagged lbm与bv return回归
+        results4 = strategy_data.fama_macbeth(r, reg_panel.ix[['lagged_ep', 'reversal'], self.holding_days, :])
+        table3.ix['coef', 3, :] = results4[0]
+        table3.ix['t_stats', 3, :] = results4[1]
+        # 5. 使用lagged lbm, bv return, lagged return一起回归
+        results5 = strategy_data.fama_macbeth(r, reg_panel.ix[['lagged_ep', 'sue', 'reversal'],
+                                                 self.holding_days, :], nw_lags=0)
+        table3.ix['coef', 4, :] = results5[0]
+        table3.ix['t_stats', 4, :] = results5[1]
+
+        # # 储存信息
+        # if foldername is None:
+        #     table3.ix['coef'].to_csv(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool +
+        #                                  '/' + 'Table3_coef.csv', na_rep='N/A', encoding='GB18030')
+        #     table3.ix['t_stats'].to_csv(str(os.path.abspath('.')) + '/' + self.strategy_data.stock_pool +
+        #                                     '/' + 'Table3_t_stats.csv', na_rep='N/A', encoding='GB18030')
+        # else:
+        #     table3.ix['coef'].to_csv(foldername +
+        #                              '/' + 'Table3_coef.csv', na_rep='N/A', encoding='GB18030')
+        #     table3.ix['t_stats'].to_csv(foldername +
+        #                                 '/' + 'Table3_t_stats.csv', na_rep='N/A', encoding='GB18030')
+        # pass
+
+        # 尝试使用linearmodels包
+        reg_panel['const'] = 1.0
+        fm_result1 = FamaMacBeth(r, reg_panel.ix[['lagged_ep', 'const'], self.holding_days, :]).fit()
+        fm_result2 = FamaMacBeth(r, reg_panel.ix[['sue', 'const'], self.holding_days, :]).fit()
+        fm_result3 = FamaMacBeth(r, reg_panel.ix[['reversal', 'const'], self.holding_days, :]).fit()
+        fm_result4 = FamaMacBeth(r, reg_panel.ix[['reversal', 'lagged_ep', 'const'],
+                                    self.holding_days, :]).fit()
+        fm_result5 = FamaMacBeth(r, reg_panel.ix[['reversal', 'sue', 'const'],
+                                    self.holding_days, :]).fit()
+        fm_result6 = FamaMacBeth(r, reg_panel.ix[:, self.holding_days, :]).fit()
+
+        pass
+
+
+
 if __name__ == '__main__':
-    ii = intangible_info_earnings()
-    ii.strategy_data.stock_pool = 'cyb'
-    ii.construct_factor()
-    ii.prepare_data()
+    rn = reversal_new()
+    rn.construct_factor()
+    rn.get_table3(startdate=pd.Timestamp('2009-05-04'), enddate=pd.Timestamp('2018-01-16'))
+    # ii = intangible_info_earnings()
+    # ii.strategy_data.stock_pool = 'cyb'
+    # ii.construct_factor()
+    # ii.prepare_data()
     # ii.get_bv_return_direct()
     # ii.get_bv_return_indirect()
     # ii.check_two_bv_returns()
-    ii.get_intangible_return()
-    ii.get_table3()
+    # ii.get_intangible_return()
+    # ii.get_table3()
 
 
 

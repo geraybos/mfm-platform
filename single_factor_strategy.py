@@ -454,12 +454,13 @@ class single_factor_strategy(strategy):
 
         # 输出的string
         tstats_sig_ratio = self.t_stats_series[np.abs(self.t_stats_series) >= 2].size / self.t_stats_series.size
-        target_str = 'The average return of this factor: {0:.4f}%\n' \
-                     'Note that the return of factor is not annualized but corresponding to the holding days interval\n' \
-                     'The average t-statistics value: {1:.4f}\n' \
-                     'Ratio of t_stats whose absolute value >= 2: {2:.2f}%\n'.format(
-            self.factor_return_series.mean()*100, self.t_stats_series.mean(), tstats_sig_ratio*100
-        )
+        target_str = 'Factor return info: mean {0:.4f}%, std {1:.4f}%\n' \
+                     'Note that the return of factor is not annualized but ' \
+                     'corresponding to the holding days interval\n' \
+                     'The average t-statistics value: {2:.4f}\n' \
+                     'Ratio of t_stats whose absolute value >= 2: {3:.2f}%\n'.format(
+            self.factor_return_series.mean()*100, self.factor_return_series.std()*100,
+            self.t_stats_series.mean(), tstats_sig_ratio*100)
 
         # 循环结束，输出结果
         print(target_str)
@@ -586,7 +587,7 @@ class single_factor_strategy(strategy):
             # It will be removed when pandas 0.20.0 releases, which gives an additional parameter to handle this problem
             def pct_rank_qcut(series, n):
                 edges = pd.Series([float(i) / n for i in range(n + 1)])
-                f = lambda x: (edges >= x).argmax()-1
+                f = lambda x: (edges >= x).idxmax()-1
                 return series.rank(pct=1).apply(f).reindex(series.index)
             labeled_factor = pct_rank_qcut(curr_factor_data.dropna(), no_of_groups).reindex(curr_factor_data.index)
 
@@ -926,7 +927,7 @@ class single_factor_strategy(strategy):
         # 2. 计算单因子的ic序列
         # 3. 单因子选股策略的n分位图
         # 4. 画单因子策略n分位图的long-short图
-        # self.sft_part_7(direction=direction, bkt_start=bkt_start, bkt_end=bkt_end)
+        self.sft_part_7(direction=direction, bkt_start=bkt_start, bkt_end=bkt_end)
 
         ###################################################################################################
         # 第八部分, 最后的收尾工作

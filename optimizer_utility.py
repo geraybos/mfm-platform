@@ -7,8 +7,9 @@ import functools
 
 from optimizer import optimizer
 
-
 # 优化器类
+
+
 class optimizer_utility(optimizer):
     def __init__(self):
         optimizer.__init__(self)
@@ -75,3 +76,32 @@ class optimizer_utility(optimizer):
 
         # 因为目标函数的形式是最小化, 因此要取负号
         return - utility
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

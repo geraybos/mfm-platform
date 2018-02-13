@@ -33,7 +33,7 @@ class barra_base_prod(barra_base):
 
     # 初始化链接到RiskModel数据库的引擎
     def initialize_rm(self):
-        self.rm_engine = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',
+        self.rm_engine = db_engine(server_type='mssql', driver='pymssql', username='rmreader', password='OP#567890',
                                      server_ip='192.168.66.12', port='1433', db_name='RiskModel', add_info='')
 
     # 设置数据起始和结束时间的函数

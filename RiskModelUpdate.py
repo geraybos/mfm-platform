@@ -16,7 +16,7 @@ if __name__ == '__main__':
     stock_pool = ('all', 'hs300', 'zz500')
 
     # 建立risk model数据库引擎
-    rm_engine = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',
+    rm_engine = db_engine(server_type='mssql', driver='pymssql', username='rmreader', password='OP#567890',
                           server_ip='192.168.66.12', port='1433', db_name='RiskModel', add_info='')
     today = pd.Timestamp(format(datetime.now().date().strftime('%Y-%m-%d')))
     # RawData数据库里的最近和次近日期, 次新日期即为有效数据的日期

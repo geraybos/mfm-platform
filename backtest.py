@@ -47,6 +47,8 @@ class backtest(object):
             'Sum of the holding matrix are no greater than 0 for at least 1 timestamp, this is not supported by this ' \
             'backtest system. Note that the timestamp whose holdings are all 0 has been excluded from this error.\n'
 
+        # 将持仓进行归一化
+        self.bkt_position.to_percentage()
         
         # 初始化回测用到的股价数据类
         self.bkt_data = backtest_data()
@@ -312,13 +314,21 @@ class backtest(object):
                 # 注意, 涨停股票不能买入
                 buy_plan = projected_vol_holding.ix[np.logical_and(projected_vol_holding>0,
                                 self.bkt_data.if_tradable.ix['if_buyable', 0, :])]
-                # 买入量的价值的百分比
+                # 与后面的execute trading函数一样, 这里需要判断如何进行购买
+                # 买入量的价值
                 buy_plan_value = buy_plan * self.bkt_data.stock_price.ix['vwap_adj', 0, :] * 100
-                buy_plan_value_pct = buy_plan_value / buy_plan_value.sum()
-                # 计算买入的量
-                real_buy_vol = (self.real_vol_position.cash.iloc[0] * (1 - self.tar_pct_position.cash.iloc[0]) *
-                    buy_plan_value_pct / (1+self.buy_cost) / (self.bkt_data.stock_price.ix['vwap_adj', 0, :] * 100))
-                # real_buy_vol = np.floor(real_buy_vol)
+                buy_plan_cost = buy_plan_value.sum() * (1 + self.buy_cost)
+                if buy_plan_cost < self.real_vol_position.cash.iloc[0]:
+                    # 第一种情况, 如果当前资金足够购买buy_plan, 则按照buy_plan购买,
+                    real_buy_vol = buy_plan
+                else:
+                    # 第二种情况, 当前资金已经不足以购买buy plan, 此时计算买入量的价值的百分比
+                    # 实际的买入价值就只能按照这个比例来买
+                    buy_plan_value_pct = buy_plan_value / buy_plan_value.sum()
+                    # 实际买入的量，用实际的全部现金，以buy_plan的比例买入股票
+                    real_buy_vol = self.real_vol_position.cash.iloc[0] * buy_plan_value_pct / \
+                                   (1 + self.buy_cost) / (self.bkt_data.stock_price.ix['vwap_adj', 0, :] * 100)
+                    # real_buy_vol = np.floor(real_buy_vol)
                 # 买入股票的总额
                 self.info_series.ix[0, 'buy_value'] = (real_buy_vol * 100 * self.bkt_data.stock_price.
                                                        ix['vwap_adj', 0, :]).sum()
@@ -427,15 +437,26 @@ class backtest(object):
                                                 self.bkt_data.if_tradable.ix['if_buyable', cursor, :])]
         # 有买入
         if not buy_plan.empty:
-            # 计算买入量的价值的百分比
-            # 这是因为，有实际操作以及刚刚提到的交易费用的原因，计划的买入量和实际的买入量会不同，只能按比例买
+            # 由于有实际操作以及刚刚提到的交易费用的原因, 卖出股票后得到的资金总额会比计算交易单时小
+            # 这时, 买入操作分为两种情况, 由于可能有预留现金资产的存在, 因此, 可以挪用现金资产来保证
+            # 实际买入的量与buy_plan相符, 即若现金足够, 则优先考虑逼近buy plan而不考虑目标cash ratio
+            # 于是, 计算买入buy_plan所需要的资金
             buy_plan_value = buy_plan * self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100
-            buy_plan_value_pct = buy_plan_value / buy_plan_value.sum()
-            # 实际买入的量，用实际的现金，以buy_plan的比例买入股票
-            real_buy_vol = self.real_vol_position.cash.iloc[cursor] * (1 - self.tar_pct_position.cash.iloc[cursor]) * \
-                           buy_plan_value_pct / (1+self.buy_cost) / \
-                           (self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100)
-            # real_buy_vol = np.floor(real_buy_vol)
+            buy_plan_cost = buy_plan_value.sum() * (1 + self.buy_cost)
+            if buy_plan_cost < self.real_vol_position.cash.iloc[cursor]:
+                # 第一种情况, 如果当前资金足够购买buy_plan, 则按照buy_plan购买,
+                # 注意此时忽略了tar cash ratio, 即目标现金比例, 也就是说, 在这个回测交易框架下,
+                # 保证股票上的仓位比保持现金比例更重要, 在其他情况不变, 有交易费的情况下, 现金会一直减少,
+                # 因为要用来填补交易费的空缺.
+                real_buy_vol = buy_plan
+            else:
+                # 第二种情况, 当前资金已经不足以购买buy plan, 此时计算买入量的价值的百分比
+                # 实际的买入价值就只能按照这个比例来买
+                buy_plan_value_pct = buy_plan_value / buy_plan_value.sum()
+                # 实际买入的量，用实际的全部现金，以buy_plan的比例买入股票
+                real_buy_vol = self.real_vol_position.cash.iloc[cursor] * buy_plan_value_pct / \
+                    (1+self.buy_cost) / (self.bkt_data.stock_price.ix['vwap_adj', cursor, :] * 100)
+                # real_buy_vol = np.floor(real_buy_vol)
 
             # 买入的股票的总额
             self.info_series.ix[cursor, 'buy_value'] = (real_buy_vol * 100 *

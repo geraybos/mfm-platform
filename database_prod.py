@@ -22,7 +22,7 @@ class database_prod(database):
 
     # 初始化链接到RiskModel数据库的引擎
     def initialize_rm(self):
-        self.rm_engine = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',
+        self.rm_engine = db_engine(server_type='mssql', driver='pymssql', username='rmreader', password='OP#567890',
                                      server_ip='192.168.66.12', port='1433', db_name='RiskModel', add_info='')
 
     # 新建raw data表的函数, 第一次运行时需要建表. 更新数据时不需要新建表, 重新取数据时需要重新建表

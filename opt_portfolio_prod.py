@@ -210,6 +210,14 @@ class opt_portfolio_prod(object):
         else:
             self.opt_config['spec_risk_aversion'] = self.optimizer.spec_risk_aversion / 100
 
+        # 看是否有优化器包的设置, 没有的话, 默认设置为cvxopt
+        if 'opt_package' in self.opt_config.index:
+            self.optimizer.set_opt_package(self.opt_config['opt_package'])
+            # 把opt_config里的opt_package写发改成标准写法
+            self.opt_config['opt_package'] = self.optimizer.opt_package
+        else:
+            self.opt_config['opt_package'] = self.optimizer.opt_package
+
         # 看是否有行业中性的限制条件, 默认行业中性=True
         if 'indus_neutral' not in self.opt_config.index:
             self.opt_config['indus_neutral'] = True
@@ -276,7 +284,7 @@ class opt_portfolio_prod(object):
             indus_cons = pd.DataFrame(indus_name.values, columns=['factor'])
             indus_cons['if_eq'] = True
             indus_cons['if_lower_bound'] = True
-            indus_cons['limit'] = 0
+            indus_cons['limit'] = 0.0
             # 如果这一期, 某个行业的所有股票都是0暴露, 则在行业限制中去除这个行业
             empty_indus = curr_factor_expo[n_styles:(n_styles+n_indus)].sum(1) == 0
             indus_cons = indus_cons[np.logical_not(empty_indus.values)]
@@ -308,10 +316,10 @@ class opt_portfolio_prod(object):
         self.opt_config['benchmark'] = self.benchmark
         self.opt_config['stock_pool'] = self.stock_pool
         # 优化结果的输出信息
-        self.opt_config['OptResult_success'] = self.optimizer.opt_result.success
-        self.opt_config['OptResult_status'] = self.optimizer.opt_result.status
-        self.opt_config['OptResult_message'] = self.optimizer.opt_result.message
-        self.opt_config['obj_func_value'] = self.optimizer.opt_result.fun
+        self.opt_config['OptResult_success'] = self.optimizer.opt_result['success']
+        self.opt_config['OptResult_status'] = self.optimizer.opt_result['status']
+        self.opt_config['OptResult_message'] = self.optimizer.opt_result['message']
+        self.opt_config['obj_func_value'] = self.optimizer.opt_result['fun']
         self.opt_config['forecasted_vol'] = self.optimizer.forecasted_vol
 
         # 由于数据库没有bool类型, 因此将true false替换成1 0来储存
@@ -319,7 +327,7 @@ class opt_portfolio_prod(object):
         self.opt_config.to_json(self.output_dir + '/OptimizationProfile.json')
 
         # 判断优化器结果是否成功
-        if self.optimizer.opt_result.success and self.optimizer.opt_result.status == 0:
+        if self.optimizer.opt_result['success'] and self.optimizer.opt_result['status'] == 0:
             # 持仓绝对值小于1e-4的股票都不要
             output_holding = self.optimizer.optimized_weight.mask(
                 self.optimizer.optimized_weight.abs() < 1e-4, np.nan).dropna()
@@ -357,13 +365,13 @@ class opt_portfolio_prod(object):
         self.solve_opt_portfolio()
         print('Optimization has been solved...\n', flush=True)
         print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
-        # self.save_opt_outcome()
-        # print('Optimization outcome has been successfully saved!\n', flush=True)
-        # print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
+        self.save_opt_outcome()
+        print('Optimization outcome has been successfully saved!\n', flush=True)
+        print("time: {0} seconds\n".format(time.time() - start_time), flush=True)
 
 
 if __name__ == '__main__':
-    test = opt_portfolio_prod(benchmark='zz500', stock_pool='all',
+    test = opt_portfolio_prod(benchmark='hs300', stock_pool='hs300',
                               read_json=os.path.abspath('.')+'/dbuser.txt',
                               date='2018-01-29',
                               read_opt_config=os.path.abspath('.')+'/opt_config.txt')

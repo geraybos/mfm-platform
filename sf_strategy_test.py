@@ -28,7 +28,7 @@ from single_factor_strategy import single_factor_strategy
 
 # 根据多个股票池进行一次完整的单因子测试
 def sf_test_multiple_pools(factor=None, sf_obj=single_factor_strategy(), *, direction='+', bb_obj=None,
-                           discard_factor=(), folder_name=None, holding_freq='w', benchmark=None,
+                           discard_factor=(), folder_names=None, holding_freq='w', benchmarks=None,
                            stock_pools=('all', 'hs300', 'zz500', 'zz800'), bkt_start=None, bkt_end=None,
                            select_method=0, do_bb_pure_factor=False, do_pa=False, do_active_pa=False,
                            do_data_description=False, do_factor_corr_test=False, loc=-1):
@@ -54,19 +54,17 @@ def sf_test_multiple_pools(factor=None, sf_obj=single_factor_strategy(), *, dire
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
         # 对bkt obj做了同样的处理，尽管这里并不是必要的
         sf_obj.single_factor_test(factor=factor, loc=loc, direction=direction, bkt_obj=copy.deepcopy(bkt_obj),
-                                  base_obj=copy.deepcopy(bb_obj), discard_factor=discard_factor,
-                                  folder_name=folder_name, bkt_start=bkt_start, bkt_end=bkt_end,
-                                  holding_freq=holding_freq, benchmark=benchmark[cursor],
-                                  stock_pool=stock_pool, select_method=select_method,
-                                  do_base_pure_factor=do_bb_pure_factor,
-                                  do_pa=do_pa, do_active_pa=do_active_pa,
-                                  do_data_description=do_data_description,
-                                  do_factor_corr_test=do_factor_corr_test)
+            base_obj=copy.deepcopy(bb_obj), discard_factor=discard_factor,
+            folder_name=folder_names[cursor], bkt_start=bkt_start, bkt_end=bkt_end,
+            holding_freq=holding_freq, benchmark=benchmarks[cursor], stock_pool=stock_pool,
+            select_method=select_method, do_base_pure_factor=do_bb_pure_factor,
+            do_pa=do_pa, do_active_pa=do_active_pa, do_data_description=do_data_description,
+            do_factor_corr_test=do_factor_corr_test)
 
 
 # 根据多个股票池进行一次完整的单因子测试, 多进程版
 def sf_test_multiple_pools_parallel(factor=None, sf_obj=single_factor_strategy(), *, direction='+',
-                                    bb_obj=None, discard_factor=(), folder_name=None, benchmark=None,
+                                    bb_obj=None, discard_factor=(), folder_names=None, benchmarks=None,
                                     stock_pools=('all', 'hs300', 'zz500', 'zz800'), bkt_start=None,
                                     bkt_end=None, select_method=0, do_bb_pure_factor=False,
                                     do_pa=False, do_factor_corr_test=False, do_active_pa=False,
@@ -91,12 +89,12 @@ def sf_test_multiple_pools_parallel(factor=None, sf_obj=single_factor_strategy()
         # 注意bb obj进行了一份深拷贝，这是因为在业绩归因的计算中，会根据不同的股票池丢弃数据，导致数据不全，因此不能传引用
         # 对bkt obj做了同样的处理，这是因为尽管bkt obj不会被改变，但是多进程同时操作可能出现潜在的问题
         sf_obj.single_factor_test(stock_pool=stock_pool, factor=factor, loc=loc, direction=direction,
-                                  folder_name=folder_name, bkt_obj=copy.deepcopy(bkt_obj),
-                                  base_obj=copy.deepcopy(bb_obj), discard_factor=discard_factor,
-                                  bkt_start=bkt_start, bkt_end=bkt_end, benchmark=benchmark[cursor],
-                                  select_method=select_method, do_base_pure_factor=do_bb_pure_factor,
-                                  holding_freq=holding_freq, do_pa=do_pa, do_active_pa=do_active_pa,
-                                  do_data_description=do_data_description, do_factor_corr_test=do_factor_corr_test)
+            folder_name=folder_names[cursor], bkt_obj=copy.deepcopy(bkt_obj),
+            base_obj=copy.deepcopy(bb_obj), discard_factor=discard_factor, bkt_start=bkt_start,
+            bkt_end=bkt_end, benchmark=benchmarks[cursor], select_method=select_method,
+            do_base_pure_factor=do_bb_pure_factor, holding_freq=holding_freq, do_pa=do_pa,
+            do_active_pa=do_active_pa, do_data_description=do_data_description,
+            do_factor_corr_test=do_factor_corr_test)
 
     import multiprocessing as mp
     mp.set_start_method('fork')
@@ -107,20 +105,28 @@ def sf_test_multiple_pools_parallel(factor=None, sf_obj=single_factor_strategy()
 
 
 # 进行单因子测试
-alpha = data.read_data('runner_value_63', shift=True)
+# alpha = data.read_data('runner_value_63', shift=True)
+rv8 = data.read_data('runner_value_8', shift=True)
+from intangible_info import reversal_new
+sf_obj = reversal_new()
 
-sf_test_multiple_pools(factor=alpha, sf_obj=single_factor_strategy(), direction='+',
-                       folder_name='tar_holding_bkt/rv63_hs300_TEST', bkt_start=pd.Timestamp('2016-01-04'),
+foldername_prefix = 'reversal_new/insideReg1618_'
+
+# sf_test_multiple_pools(factor=None, sf_obj=sf_obj, direction='+',
+#                        folder_names=('reversal_new/hs300', 'reversal_new/zz500'),
+#                        bkt_start=pd.Timestamp('2009-05-04'),
+#                        bkt_end=pd.Timestamp('2018-01-16'), holding_freq='w',
+#                        stock_pools=('hs300', 'zz500'), benchmarks=('hs300', 'zz500'),
+#                        do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+#                        do_data_description=False, do_factor_corr_test=False, loc=-1)
+
+sf_test_multiple_pools_parallel(factor=None, sf_obj=sf_obj, direction='+',
+                       folder_names=(foldername_prefix+'hs300', foldername_prefix+'zz500'),
+                       bkt_start=pd.Timestamp('2016-01-04'),
                        bkt_end=pd.Timestamp('2018-01-16'), holding_freq='w',
-                       stock_pools=('all', ), benchmark=('hs300', ),
-                       do_bb_pure_factor=False, do_pa=True, select_method=3, do_active_pa=True,
+                       stock_pools=('hs300', 'zz500'), benchmarks=('hs300', 'zz500'),
+                       do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
                        do_data_description=False, do_factor_corr_test=False, loc=-1)
-
-# sf_test_multiple_pools_parallel(factor='default', direction='+', bkt_start=pd.Timestamp('2010-04-02'),
-#                                 bkt_end=pd.Timestamp('2017-06-20'), stock_pools=['sz50', 'zxb', 'cyb', 'hs300', 'zz500'],
-#                                 do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
-#                                 do_data_description=False, holding_freq='w', do_factor_corr_test=False,
-#                                 loc=-1)
 
 
 

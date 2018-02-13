@@ -328,7 +328,7 @@ class performance_attribution(object):
         # 处理中文图例的字体文件
         from matplotlib.font_manager import FontProperties
         # chifont = FontProperties(fname='/System/Library/Fonts/STHeiti Light.ttc')
-        chifont = FontProperties(fname=str(os.path.abspath('.'))+'/华文细黑.ttf')
+        chifont = FontProperties(fname=str(os.path.abspath('.'))+'/ResearchData/华文细黑.ttf')
         
         # 第一张图分解组合的累计收益来源
         f1 = plt.figure()

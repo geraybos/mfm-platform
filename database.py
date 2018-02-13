@@ -776,7 +776,7 @@ class database(object):
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    db = database(start_date=pd.Timestamp('2017-01-01'), end_date=pd.Timestamp('2018-01-17'))
+    db = database(start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2018-01-17'))
     # db.is_update=False
     # db.get_data_from_db()
     # db.update_data_from_db()
@@ -786,11 +786,11 @@ if __name__ == '__main__':
     # db.get_AdjustFactor()
     # db.get_sq_data()
     # db.get_index_price()
-    db.get_index_weight()
+    # db.get_index_weight()
     # data.write_data(db.data.benchmark_price)
     # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
-    # db.get_runner_value(63)
-    # data.write_data(db.data.stock_price.ix['runner_value_63'], file_name='runner_value_63')
+    db.get_runner_value(3)
+    data.write_data(db.data.stock_price.ix['runner_value_3'], file_name='runner_value_3')
     # data.write_data(db.data.stock_price.ix['runner_value_63'], file_name='runner_value_63')
     print("time: {0} seconds\n".format(time.time()-start_time))
 

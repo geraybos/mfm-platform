@@ -75,7 +75,8 @@ class strategy(object):
     # 传入的时间序列可以是series，也可以是dataframe
     @staticmethod
     def resample_tradingdays(time_series, *, freq='m', loc=-1):
-        # 所取调仓日为每个调仓周期的第一天,注意调仓时间是调仓日的早上,即调仓日当天早上调仓时,拥有上一个周期的所有数据
+        # 所取调仓日为每个调仓周期的第loc天, 注意调仓时间是调仓日的早上,
+        # 即调仓日当天早上调仓时,拥有上一个周期的所有数据
         # 首先定义要apply的函数, 函数在每个调仓周期之间进行处理, 返回需要的调仓日
         def holdingday_func(ts, *, loc):
             # 如果loc为非负数, 则要求size必须大于等于loc+1
