@@ -38,8 +38,9 @@ def sf_test_multiple_pools(factor=None, sf_obj=single_factor_strategy(), *, dire
     cp_adj = data.read_data('ClosePrice_adj')
     temp_position = position(cp_adj)
     # 先要初始化bkt对象
-    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000, sell_cost=1.5/1000,
-                       bkt_benchmark_data='ClosePrice_adj_hs300')
+    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=0.0015,
+                       sell_cost=0.0015, bkt_benchmark_data='ClosePrice_adj_hs300',
+                       bkt_stock_data=['ClosePrice_adj', 'ClosePrice_adj'])
     # 建立bb对象，否则之后每次循环都要建立一次新的bb对象
     if bb_obj is None:
         bb_obj = barra_base()
@@ -75,7 +76,8 @@ def sf_test_multiple_pools_parallel(factor=None, sf_obj=single_factor_strategy()
     cp_adj = data.read_data('ClosePrice_adj')
     temp_position = position(cp_adj)
     # 先要初始化bkt对象
-    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000, sell_cost=1.5/1000)
+    bkt_obj = backtest(temp_position, bkt_start=bkt_start, bkt_end=bkt_end, buy_cost=1.5/1000,
+                       sell_cost=1.5/1000, bkt_stock_data=['ClosePrice_adj', 'ClosePrice_adj'])
     # 建立bb对象，否则之后每次循环都要建立一次新的bb对象
     if bb_obj is None:
         bb_obj = barra_base()
@@ -103,32 +105,33 @@ def sf_test_multiple_pools_parallel(factor=None, sf_obj=single_factor_strategy()
         p = mp.Process(target=single_task, args=(cursor, stock_pool))
         p.start()
 
+if __name__ == '__main__':
+    # 进行单因子测试
+    # factor = data.read_data('runner_value_63', shift=True)
+    from analyst_coverage import analyst_coverage_new
+    acn = analyst_coverage_new()
+    acn.construct_factor()
+    factor = acn.strategy_data.factor.iloc[0]
 
-# 进行单因子测试
-# alpha = data.read_data('runner_value_63', shift=True)
-rv8 = data.read_data('runner_value_8', shift=True)
-from intangible_info import reversal_new
-sf_obj = reversal_new()
+    # foldername_prefix = 'analyst_coverage_new/abn_barra_3&2_'
+    # foldername_prefix = 'tar_holding_bkt/damu_alpha/holding_test/08_'
+    foldername_prefix = 'analyst_coverage_new/abn_barra_5&2_'
 
-foldername_prefix = 'reversal_new/insideReg1618_'
+    # sf_test_multiple_pools(factor=factor, sf_obj=acn, direction='+',
+    #                        folder_names=(foldername_prefix+'zz500', ),
+    #                        bkt_start=pd.Timestamp('2009-05-04'),
+    #                        bkt_end=pd.Timestamp('2018-01-16'), holding_freq='w',
+    #                        stock_pools=('zz500', ), benchmarks=('zz500', ),
+    #                        do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+    #                        do_data_description=False, do_factor_corr_test=False, loc=-1)
 
-# sf_test_multiple_pools(factor=None, sf_obj=sf_obj, direction='+',
-#                        folder_names=('reversal_new/hs300', 'reversal_new/zz500'),
-#                        bkt_start=pd.Timestamp('2009-05-04'),
-#                        bkt_end=pd.Timestamp('2018-01-16'), holding_freq='w',
-#                        stock_pools=('hs300', 'zz500'), benchmarks=('hs300', 'zz500'),
-#                        do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
-#                        do_data_description=False, do_factor_corr_test=False, loc=-1)
-
-sf_test_multiple_pools_parallel(factor=None, sf_obj=sf_obj, direction='+',
-                       folder_names=(foldername_prefix+'hs300', foldername_prefix+'zz500'),
-                       bkt_start=pd.Timestamp('2016-01-04'),
-                       bkt_end=pd.Timestamp('2018-01-16'), holding_freq='w',
-                       stock_pools=('hs300', 'zz500'), benchmarks=('hs300', 'zz500'),
-                       do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
-                       do_data_description=False, do_factor_corr_test=False, loc=-1)
-
-
+    sf_test_multiple_pools_parallel(factor=factor, sf_obj=acn, direction='+',
+                           folder_names=(foldername_prefix+'hs300', foldername_prefix+'zz500'),
+                           bkt_start=pd.Timestamp('2009-05-04'),
+                           bkt_end=pd.Timestamp('2018-01-16'), holding_freq='w',
+                           stock_pools=('hs300', 'zz500'), benchmarks=('hs300', 'zz500'),
+                           do_bb_pure_factor=False, do_pa=True, select_method=1, do_active_pa=True,
+                           do_data_description=False, do_factor_corr_test=False, loc=-1)
 
 
 

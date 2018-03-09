@@ -421,8 +421,8 @@ class optimizer(object):
         # 注意区分full inv和country factor中性. 由于基准有停牌股的原因, 基准权重之和可能不为1, 这时
         # full inv并不能做到country factor中性, 即full inv此时会有市场暴露(country factor暴露)
         if enable_full_inv_cons:
-            eq_cons['full_inv_cons'] = (pd.Series(1, index=factor_expo.columns).to_frame().T,
-                                        1 - bench_weight.fillna(0.0).sum())
+            eq_cons['full_inv_cons'] = (pd.Series(1.0, index=factor_expo.columns).to_frame().T,
+                                        1.0 - bench_weight.fillna(0.0).sum())
 
         # 设置因子暴露的限制条件
         if isinstance(factor_expo_cons, pd.DataFrame):
@@ -450,7 +450,7 @@ class optimizer(object):
         # 设置单支股票的持仓限制条件
         if long_only:
             # 由于qp的标准形式是小于等于, 因此需要加上负号
-            long_only_cons = pd.DataFrame(-1 * np.eye(n_assets), columns=factor_expo.columns)
+            long_only_cons = pd.DataFrame(-1.0 * np.eye(n_assets), columns=factor_expo.columns)
             # 由于传入的求解变量是超额持仓, 因此, 持仓大于0, 即超额持仓大于负基准权重,
             # 而由于qp的标准形式是小于等于, 加上负号后, 等式右边的target直接变成了正的基准权重
             long_only_targets = bench_weight.fillna(0.0)

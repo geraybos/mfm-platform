@@ -887,6 +887,52 @@ class barra_base(factor_base):
             data.write_data(self.specific_return, file_name='bb_specific_return' + self.filename_appendix)
             print('The bb factor return has been saved! \n')
 
+    # 回归观察风格因子的t统计量, 从而观察其显著性,
+    # 不考虑行业因子可以直接使用回归模型, 从而直接使用模型中的统计量
+    def style_factor_significance(self, *, freq='d'):
+        # 根据freq选择回归的周期, 如果是d, 则不进行聚合运算
+        # 周期内的收益需要算累计收益
+        if freq in ['w', 'm', 'q', 'a']:
+            simple_return = self.base_data.stock_price.ix['daily_simple_return'].resample(freq). \
+                apply(lambda x: x.add(1).prod().sub(1))
+            # 因子暴露和用来加权的市值都要用上一个周期最后一天的, 因此取最后一天的数据并lag一个周期
+            lagged_expo = self.base_data.factor_expo.resample(freq, axis=1).last()
+            lagged_expo = lagged_expo.shift(1).reindex(major_axis=lagged_expo.major_axis)
+            lagged_mv = self.base_data.stock_price.ix['FreeMarketValue'].resample(freq).last().shift(1)
+        else:
+            simple_return = self.base_data.stock_price.ix['daily_simple_return']
+            lagged_expo = self.base_data.factor_expo.shift(1).reindex(
+                major_axis=self.base_data.factor_expo.major_axis)
+            lagged_mv = self.base_data.stock_price.ix['FreeMarketValue'].shift(1)
+
+        # 初始化储存t stat, r 2的dataframe和series
+        # style_factor_tstat = pd.DataFrame(np.nan, index=simple_return.index, columns=
+        #     list(self.base_data.factor_expo.items[:self.n_style]) + [self.base_data.factor_expo.items[-1]])
+        style_factor_tstat = pd.DataFrame(np.nan, index=simple_return.index,
+                                          columns=self.base_data.factor_expo.items)
+        style_factor_pvalue = style_factor_tstat * 1
+        r_squared = pd.Series(np.nan, index=simple_return.index)
+        f_pvalue = r_squared * 1
+        # 只选择风格因子和截距项
+        lagged_expo = lagged_expo.reindex(items=style_factor_tstat.columns)
+
+        # 循环回归
+        for time, curr_ret in simple_return.iterrows():
+            y = curr_ret
+            x = lagged_expo.ix[:, time, :]
+            # 如果有效数据少于自变量个数, 则不做操作
+            if pd.concat([y, x], axis=1).dropna().shape[0] < self.n_style + 1:
+                continue
+            weight = np.sqrt(lagged_mv.ix[time, :])
+            model = sm.WLS(y, x, weights=weight, missing='drop')
+            results = model.fit()
+
+            style_factor_tstat.ix[time, :] = results.tvalues
+            style_factor_pvalue.ix[time, :] = results.pvalues
+            r_squared.ix[time] = results.rsquared
+            f_pvalue.ix[time] = results.f_pvalue
+        pass
+
 
     # 更新数据
     def update_factor_base_data(self, *, start_date=None):
@@ -980,19 +1026,20 @@ if __name__ == '__main__':
     # bb.read_original_data()
     bb.construct_factor_base(if_save=False)
     # bb.base_data.factor_expo = data.read_data('bb_factor_expo_'+i)
-    bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
-    bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
-        'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
-        'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
-        'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
-        'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
-        'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
-        'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
-        'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
-    bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
-    bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    bb.n_indus = 32
-    # bb.get_base_factor_return(if_save=False)
+    # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+    # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
+    #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
+    #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
+    #     'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
+    #     'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
+    #     'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
+    #     'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
+    #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
+    # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
+    # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+    # bb.n_indus = 32
+    bb.style_factor_significance(freq='d')
+    #bb.get_base_factor_return(if_save=False)
     # if i in ['all', 'hs300', 'zz500']:
     #     bb.base_data.factor_expo.to_hdf('bb_factorexpo_'+i, '123')
     # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
@@ -1011,31 +1058,31 @@ if __name__ == '__main__':
     # bb.specific_return = data.read_data('bb_specific_return_'+i)
     # #############################################################################################
     # 算barra r squared的方法2, 使用barra的因子收益
-    bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
-    bb.base_factor_return = bb.base_factor_return.reindex(index=bb.base_data.factor_expo.major_axis,
-                                                          columns=bb.base_data.factor_expo.items)
-    fitted_part = np.einsum('ktn,tk->tn', bb.base_data.factor_expo.shift(1).reindex(
-        major_axis=bb.base_data.factor_expo.major_axis), bb.base_factor_return)
-    fitted_part = pd.DataFrame(fitted_part, index=bb.base_data.factor_expo.major_axis,
-                               columns=bb.base_data.factor_expo.minor_axis)
-    fitted_part = fitted_part.where(bb.base_data.stock_price['daily_simple_return'].notnull(), np.nan)
-    residual_part = bb.base_data.stock_price['daily_simple_return'] - fitted_part
-    residual_part_w = residual_part.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    ssr = residual_part_w.pow(2).sum(1)
-    y = bb.base_data.stock_price['daily_simple_return'].where(fitted_part.notnull(), np.nan)
-    daily_return_w = y.mul(
-        bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    sst = daily_return_w.sub(daily_return_w.mean(1), axis=0).pow(2).sum(1)
-    # #############################################################################################
-    # 算barra r squared的方法3, 使用barra的specific return直接算residual part
-    bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')
-    bb.specific_return = bb.specific_return.reindex(index=bb.base_data.factor_expo.major_axis)
-    residual_part_w = bb.specific_return.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    ssr = residual_part_w.pow(2).sum(1)
-    y = bb.base_data.stock_price['daily_simple_return'].where(bb.specific_return.notnull(), np.nan)
-    daily_return_w = y.mul(
-        bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    sst = daily_return_w.sub(daily_return_w.mean(1), axis=0).pow(2).sum(1)
+    # bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
+    # bb.base_factor_return = bb.base_factor_return.reindex(index=bb.base_data.factor_expo.major_axis,
+    #                                                       columns=bb.base_data.factor_expo.items)
+    # fitted_part = np.einsum('ktn,tk->tn', bb.base_data.factor_expo.shift(1).reindex(
+    #     major_axis=bb.base_data.factor_expo.major_axis), bb.base_factor_return)
+    # fitted_part = pd.DataFrame(fitted_part, index=bb.base_data.factor_expo.major_axis,
+    #                            columns=bb.base_data.factor_expo.minor_axis)
+    # fitted_part = fitted_part.where(bb.base_data.stock_price['daily_simple_return'].notnull(), np.nan)
+    # residual_part = bb.base_data.stock_price['daily_simple_return'] - fitted_part
+    # residual_part_w = residual_part.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+    # ssr = residual_part_w.pow(2).sum(1)
+    # y = bb.base_data.stock_price['daily_simple_return'].where(fitted_part.notnull(), np.nan)
+    # daily_return_w = y.mul(
+    #     bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+    # sst = daily_return_w.sub(daily_return_w.mean(1), axis=0).pow(2).sum(1)
+    # # #############################################################################################
+    # # 算barra r squared的方法3, 使用barra的specific return直接算residual part
+    # bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')
+    # bb.specific_return = bb.specific_return.reindex(index=bb.base_data.factor_expo.major_axis)
+    # residual_part_w = bb.specific_return.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+    # ssr = residual_part_w.pow(2).sum(1)
+    # y = bb.base_data.stock_price['daily_simple_return'].where(bb.specific_return.notnull(), np.nan)
+    # daily_return_w = y.mul(
+    #     bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+    # sst = daily_return_w.sub(daily_return_w.mean(1), axis=0).pow(2).sum(1)
     # #############################################################################################
     # bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_all', '123')
     # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_hs300', '123')

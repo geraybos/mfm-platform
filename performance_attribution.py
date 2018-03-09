@@ -29,22 +29,9 @@ class performance_attribution(object):
     foo
     """
 
-    def __init__(self, input_position, portfolio_returns, *, benchmark_weight=None,
-                 intra_holding_deviation=None, trans_cost=None, show_warning=True):
+    def __init__(self, input_position, portfolio_returns, *, benchmark_weight=None, trans_cost=None,
+                 intra_holding_deviation=None,  show_warning=True, benchmark_short_ratio=None):
         self.pa_position = position(input_position.holding_matrix)
-        # 如果传入基准持仓数据，则归因超额收益
-        if isinstance(benchmark_weight, pd.DataFrame):
-            # 一些情况下benchmark的权重和不为1（一般为差一点），为了防止偏差，这里重新归一化
-            # 同时将时间索引控制在回测期间内
-            new_benchmark_weight = benchmark_weight.reindex(self.pa_position.holding_matrix.index).\
-                apply(lambda x:x if (x==0).all() else x.div(x.sum()), axis=1)
-            self.pa_position.holding_matrix = input_position.holding_matrix.sub(new_benchmark_weight, fill_value=0)
-            # 提示用户, 归因变成了对超额部分的归因
-            print('Note that with benchmark_weight being passed, the performance attribution will be based on the '
-                  'active part of the portfolio against the benchmark. Please make sure that the portfolio returns '
-                  'you passed to the pa is the corresponding active return! \n')
-        else:
-            self.pa_position.holding_matrix = input_position.holding_matrix
 
         # 检测是否要对现金部分进行归因，设置一个检测现金部分的阈值
         self.pa_position.cash = input_position.cash
@@ -52,6 +39,36 @@ class performance_attribution(object):
             self.do_cash_pa = True
         else:
             self.do_cash_pa = False
+        # 如果要做现金归因, 即持有了现金资产, 需要将组合部分的权重按照现金资产的权重等比例的缩减
+        # 这样做是因为, 归因是针对整个组合的归因, 包括现金, 因此有了现金, 股票资产就被等比例缩小了
+        # 而对于超额归因也是这样, 超额归因一般针对超额策略, 超额策略的构建一般是用整个组合(包括现金),
+        # 去对标基准组合, 而不是用现金资产以外的股票组合去对标基准组合.
+        if self.do_cash_pa:
+            input_position.holding_matrix = input_position.holding_matrix.mul(1 - self.pa_position.cash, axis=0)
+
+        # 和performance中一样, 加入benchmark_short_ratio, 表示在进行超额归因时减去的基准组合的比例
+        if isinstance(benchmark_short_ratio, pd.Series):
+            self.benchmark_short_ratio = benchmark_short_ratio
+        else:
+            self.benchmark_short_ratio = pd.Series(1.0, index=self.pa_position.cash.index)
+        # 如果传入基准持仓数据，则归因超额收益
+        if isinstance(benchmark_weight, pd.DataFrame):
+            # 一些情况下benchmark的权重和不为1（一般为差一点），为了防止偏差，这里重新归一化
+            # 同时将时间索引控制在回测期间内
+            new_benchmark_weight = benchmark_weight.reindex(self.pa_position.holding_matrix.index).\
+                apply(lambda x:x if (x==0).all() else x.div(x.sum()), axis=1)
+            # 提示用户, 归因变成了对超额部分的归因
+            print('Note that with benchmark_weight being passed, the performance attribution will be based on the '
+                  'active part of the portfolio against the benchmark. Please make sure that the portfolio returns '
+                  'you passed to the pa is the corresponding active return! \n')
+            # 根据做空基准组合的比例对基准组合权重进行调整
+            new_benchmark_weight_adj = new_benchmark_weight.mul(self.benchmark_short_ratio, axis=0)
+            self.pa_position.holding_matrix = input_position.holding_matrix.sub(new_benchmark_weight_adj,
+                                                                                fill_value=0)
+        else:
+            self.pa_position.holding_matrix = input_position.holding_matrix
+
+
 
         # 传入的组合收益, 由于传入的组合收益是对数收益，而归因基于简单收益
         # 因此，要将对数收益转换成简单收益
@@ -167,10 +184,6 @@ class performance_attribution(object):
             # 首先要将在base中的无风险收益的时间索引重索引为归因时间段
             self.risk_free_rate_simple = self.base.base_data.const_data['RiskFreeRate_simple'].\
                 reindex(index=self.pa_position.holding_matrix.index)
-            # 现在来根据现金资产的存在对收益归因进行调整，首先，组合的暴露全部被现金比例等比例缩小
-            self.port_expo = self.port_expo.mul(1 - self.pa_position.cash, axis=0)
-            # 组合在因子上的收益，也要进行一样的调整，因为组合的暴露被等比例缩小了
-            self.port_pa_returns = self.port_pa_returns.mul(1 - self.pa_position.cash, axis=0)
             # 现金部分的收益，应该等于上一期的现金因子的暴露，乘以无风险利率
             # 为了保证第一天的收益都到residual上去，第一天的现金收益也要fillna成0
             self.cash_returns = self.pa_position.cash.shift(1).mul(self.risk_free_rate_simple).fillna(0.0)

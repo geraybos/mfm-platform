@@ -116,8 +116,11 @@ class opt_portfolio_test(multi_factor_strategy):
         p.join()
 
         self.position.holding_matrix = tar_holding.fillna(0.0)
-        # 剩下的部分是现金
-        self.position.cash = 1 - self.position.holding_matrix.sum(1)
+        # 不再将停牌部分持有为现金, 而是全部持有股票, 将股票归一化
+        self.position.holding_matrix = self.position.holding_matrix.apply(
+            position.to_percentage_func, axis=1)
+        # # 剩下的部分是现金
+        # self.position.cash = 1 - self.position.holding_matrix.sum(1)
         self.forecasted_vol = forecasted_vol
 
     # 解最优化持仓, 进行回测, 然后归因的函数
@@ -155,7 +158,7 @@ class opt_portfolio_test(multi_factor_strategy):
 
         # 进行回测
         self.bkt_obj = backtest(self.position, bkt_start=start_date, bkt_end=end_date,
-                                bkt_benchmark_data='ClosePrice_adj_'+self.strategy_data.stock_pool)
+                                bkt_benchmark_data='ClosePrice_adj_'+self.strategy_data.benchmark)
         self.bkt_obj.execute_backtest()
         self.bkt_obj.get_performance(foldername=foldername + self.strategy_data.stock_pool, pdfs=self.pdfs)
 
@@ -189,7 +192,7 @@ class opt_portfolio_test(multi_factor_strategy):
             text_file.write(target_str)
 
         # 做真实情况下的超额归因
-        pa_benchmark_weight = data.read_data('Weight_' + self.strategy_data.stock_pool).fillna(0.0)
+        pa_benchmark_weight = data.read_data('Weight_' + self.strategy_data.benchmark).fillna(0.0)
         # pa_benchmark_weight = data.read_data(['Weight_hs300'],
         #                                      ['Weight_hs300'])
         # pa_benchmark_weight = pa_benchmark_weight['Weight_hs300']
@@ -203,80 +206,110 @@ class opt_portfolio_test(multi_factor_strategy):
 
 if __name__ == '__main__':
 
-    opt_test = opt_portfolio_test()
-    opt_test.strategy_data.stock_pool = 'hs300'
+    alphas = ('alpha_current_allmkt', 'alpha_opt_5d', 'alpha_opt_10d', 'alpha_opt_20d')
+    strategies = ('500spec', '500hedge', '300spec', '300hedge')
 
-    # 读取数据, 注意数据需要shift一个交易日
-    risk_model_version = 'all'
-    opt_test.factor_cov = data.read_data('bb_riskmodel_covmat_' + risk_model_version)
-    opt_test.strategy_data.factor_expo = data.read_data('bb_factor_expo_' + risk_model_version)
-    opt_test.spec_var = data.read_data('bb_riskmodel_specvar_' + risk_model_version)
+    for a in alphas:
+        for s in strategies:
+            if s[0] == '3':
+                bench = 'hs300'
+            else:
+                bench = 'zz500'
+            if s[3] == 's':
+                sp = 'all'
+            elif s[0] == '3' and s[3] == 'h':
+                sp = 'hs300'
+            else:
+                sp = 'zz500'
 
-    # opt_test.factor_cov = pd.read_hdf('barra_fore_cov_mat', '123') * 12
-    # opt_test.strategy_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
-    # opt_test.strategy_data.factor_expo = opt_test.strategy_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
-    #                                                      'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP',
-    #                                                      'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
-    #                                                      'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE',
-    #                                                      'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
-    #                                                      'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG',
-    #                                                      'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
-    #                                                      'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY',
-    #                                                      'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
-    #                                                      'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX',
-    #                                                      'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
-    #                                                      'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD',
-    #                                                      'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
-    #                                                      'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE',
-    #                                                      'CNE5S_COUNTRY']]
-    # opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'] = opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
-    # opt_test.strategy_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    # opt_test.factor_cov = opt_test.factor_cov.reindex(major_axis=opt_test.strategy_data.factor_expo.items,
-    #                                                   minor_axis=opt_test.strategy_data.factor_expo.items)
-    # opt_test.spec_var = pd.read_hdf('barra_fore_spec_var_new', '123') * 12
+            opt_test = opt_portfolio_test()
+            # opt_test.strategy_data.stock_pool = 'all'
+            # opt_test.strategy_data.benchmark = 'zz500'
+            opt_test.strategy_data.stock_pool = sp
+            opt_test.strategy_data.benchmark = bench
 
+            # 读取数据, 注意数据需要shift一个交易日
+            risk_model_version = 'all'
+            opt_test.factor_cov = data.read_data('bb_riskmodel_covmat_' + risk_model_version)
+            opt_test.strategy_data.factor_expo = data.read_data('bb_factor_expo_' + risk_model_version)
+            opt_test.spec_var = data.read_data('bb_riskmodel_specvar_' + risk_model_version)
 
-    # opt_test.factor_cov = pd.read_hdf('barra_riskmodel_covmat_all_facret', '123')
-    # opt_test.strategy_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
-    # opt_test.strategy_data.factor_expo = opt_test.strategy_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
-    #                                                      'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP',
-    #                                                      'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
-    #                                                      'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE',
-    #                                                      'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
-    #                                                      'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG',
-    #                                                      'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
-    #                                                      'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY',
-    #                                                      'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
-    #                                                      'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX',
-    #                                                      'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
-    #                                                      'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD',
-    #                                                      'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
-    #                                                      'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE',
-    #                                                      'CNE5S_COUNTRY']]
-    # opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'] = opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
-    # opt_test.strategy_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    # opt_test.spec_var = pd.read_hdf('barra_riskmodel_specvar_all_facret', '123')
+            # opt_test.factor_cov = pd.read_hdf('barra_fore_cov_mat', '123') * 12
+            # opt_test.strategy_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+            # opt_test.strategy_data.factor_expo = opt_test.strategy_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
+            #                                                      'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP',
+            #                                                      'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
+            #                                                      'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE',
+            #                                                      'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
+            #                                                      'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG',
+            #                                                      'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
+            #                                                      'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY',
+            #                                                      'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
+            #                                                      'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX',
+            #                                                      'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
+            #                                                      'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD',
+            #                                                      'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
+            #                                                      'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE',
+            #                                                      'CNE5S_COUNTRY']]
+            # opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'] = opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
+            # opt_test.strategy_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+            # opt_test.factor_cov = opt_test.factor_cov.reindex(major_axis=opt_test.strategy_data.factor_expo.items,
+            #                                                   minor_axis=opt_test.strategy_data.factor_expo.items)
+            # opt_test.spec_var = pd.read_hdf('barra_fore_spec_var_new', '123') * 12
 
 
-    opt_test.factor_cov = opt_test.factor_cov.shift(1, axis=0).reindex(items=opt_test.factor_cov.items)
-    opt_test.strategy_data.factor_expo = opt_test.strategy_data.factor_expo.shift(1).reindex(major_axis=
-                                    opt_test.strategy_data.factor_expo.major_axis)
-    opt_test.spec_var = opt_test.spec_var.shift(1)
+            # opt_test.factor_cov = pd.read_hdf('barra_riskmodel_covmat_all_facret', '123')
+            # opt_test.strategy_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
+            # opt_test.strategy_data.factor_expo = opt_test.strategy_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
+            #                                                      'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP',
+            #                                                      'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
+            #                                                      'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE',
+            #                                                      'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
+            #                                                      'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG',
+            #                                                      'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
+            #                                                      'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY',
+            #                                                      'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
+            #                                                      'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX',
+            #                                                      'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
+            #                                                      'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD',
+            #                                                      'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
+            #                                                      'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE',
+            #                                                      'CNE5S_COUNTRY']]
+            # opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'] = opt_test.strategy_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
+            # opt_test.strategy_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+            # opt_test.spec_var = pd.read_hdf('barra_riskmodel_specvar_all_facret', '123')
 
-    opt_test.factor_return = data.read_data('runner_value_63')
-    # opt_test.factor_return = opt_test.factor_return.div(20)
-    opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0)
-    opt_test.factor_return = opt_test.factor_return.shift(1)
-    opt_test.strategy_data.benchmark_price = data.read_data(['Weight_hs300'],
-                                                            shift=True).fillna(0.0)
 
-    # 设置风险厌恶系数
-    opt_test.cov_risk_aversion = 0.75
-    opt_test.spec_risk_aversion = 7.5
+            opt_test.factor_cov = opt_test.factor_cov.shift(1, axis=0).reindex(items=opt_test.factor_cov.items)
+            opt_test.strategy_data.factor_expo = opt_test.strategy_data.factor_expo.shift(1).reindex(major_axis=
+                                            opt_test.strategy_data.factor_expo.major_axis)
+            opt_test.spec_var = opt_test.spec_var.shift(1)
 
-    folder_name = 'tar_holding_bkt/QP_test_'
-    opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2016-01-04'), end_date=pd.Timestamp('2018-01-16'),
-        loc=-1, foldername=folder_name, indus_neutral=True)
+            # opt_test.factor_return = data.read_data('runner_value_63')
+            # # opt_test.factor_return = opt_test.factor_return.div(20)
+            # opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0)
+            # opt_test.factor_return = opt_test.factor_return.shift(1)
+            # 测试damu的外部alpha
+            damu_alpha = pd.read_csv('./Damu_alpha/'+a+'.csv')
+            damu_alpha['secucode'] = damu_alpha['secucode'].map(lambda x: str(x).zfill(6))
+            damu_alpha['sigdate'] = pd.to_datetime(damu_alpha['sigdate'])
+            opt_test.factor_return = damu_alpha.pivot_table(index='sigdate', columns='secucode', values='alpha'). \
+                reindex(index=opt_test.strategy_data.factor_expo.major_axis,
+                        columns=opt_test.strategy_data.factor_expo.minor_axis)
+            opt_test.factor_return = opt_test.factor_return.div(opt_test.factor_return.std(1), axis=0)
+            opt_test.factor_return = opt_test.factor_return.shift(0)
+
+            # 读取benchmark数据
+            opt_test.strategy_data.benchmark_price = data.read_data(['Weight_' +
+                opt_test.strategy_data.benchmark], shift=True).fillna(0.0)
+
+            # 设置风险厌恶系数
+            opt_test.cov_risk_aversion = 0.005
+            opt_test.spec_risk_aversion = 0.005
+
+            folder_name = 'tar_holding_bkt/damu_alpha/'+a+'/'+s+'_'
+            opt_test.do_opt_portfolio_test(start_date=pd.Timestamp('2011-05-04'), end_date=pd.Timestamp('2018-01-16'),
+                loc=-1, foldername=folder_name, indus_neutral=True)
 
 
 

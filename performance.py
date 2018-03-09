@@ -26,7 +26,7 @@ class performance(object):
     """
     
     def __init__(self, account_value, *, benchmark = None, holding_days=None, info_series=None,
-                 tradedays_one_year=252, risk_free_rate=None, cash_ratio=None):
+                 tradedays_one_year=252, risk_free_rate=None, cash_ratio=None, benchmark_short_ratio=None):
         """ Initialize performance object.
         
         foo
@@ -50,6 +50,12 @@ class performance(object):
             self.cash_ratio = cash_ratio
         else:
             self.cash_ratio = pd.Series(0.0, index=self.simple_return.index)
+        # 为了把历史遗留下来的代码用起来, 加入做空基准的比例序列, 注意, 只会在超额收益和净值的计算中用到
+        # 另外, benchamrk_short_ratio是指定变量, 并不是实际变量, 因此假设其可以随意理想的调整
+        if isinstance(benchmark_short_ratio, pd.Series):
+            self.benchmark_short_ratio = benchmark_short_ratio
+        else:
+            self.benchmark_short_ratio = pd.Series(1.0, index=self.simple_return.index)
         # 累积简单收益率，这种收益率用来画图，以及计算最大回撤等，注意这个收益率序列有起始项
         self.cum_simple_return = (self.simple_return+1).cumprod()-1
         # 累积对数收益
@@ -86,12 +92,12 @@ class performance(object):
             self.get_active_nav_and_return()
 
     def get_stock_asset_return(self):
-        # 首先计算股票资产的账户净值, 用股票部分的净值, 减去benchmark乘以股票资产比例的净值
+        # 首先计算包括股票资产在内的各个资产的账户净值, 为计算超额收益做准备
         # 一个问题是, 如果第一天就是调仓日, 则为了计算第一天的股票收益率, 但初始时刻的股票资产价值为0
         # 解决办法是, 设置初始时刻的现金比例和第一天一样, 这样股票资产的初始价值就可比了
         adjusted_cash_ratio = pd.concat([pd.Series(self.cash_ratio.iloc[0], index=[self.base_timestamp]),
                                          self.cash_ratio], axis=0)
-        # 拥有股票资产的净值序列, 如何计算它的收益呢, 因为每次调仓可能有现金资产和股票资产的流动
+        # 拥有组合的净值序列, 如何计算它的收益呢, 因为每次调仓可能有现金资产和股票资产的流动
         # 因此不能直接用股票资产的净值序列来计算, 由于调仓时间在一天中不确定, 需要区别对待
         # 在非调仓日, 股票资产比例直接使用昨天的比例就可以了
         # 但是在调仓日,股票资产的收益, 在昨天结算到今天换仓期间, 是由昨天的比例带来的
@@ -129,22 +135,29 @@ class performance(object):
         # 今天调仓到今天结算的收益, 即股票带来的价值, 除以股票资产的基础值
         self.log_return_equity2 = np.log(value_added_stock2.div(base_stock_value2) + 1).ix[1:]
 
+        # 做空benchmark的比例, 因为今天是用昨天给的比例来计算, 然后第一天的比例为0
+        benchmark_base = self.benchmark_short_ratio.shift(1)
+        benchmark_base[0] = 0.0
+
         # 将需要的数据储存下来, 这些数据在之后的计算中会用到, 如计算超额净值和收益
         self.return_data = pd.DataFrame({'log_return_equity1': self.log_return_equity1,
             'log_return_equity2': self.log_return_equity2, 'log_return_bench': self.log_return_bench,
             'risk_free_rate': self.risk_free_rate, 'base_cash_value1': base_cash_value1,
             'base_stock_value1': base_stock_value1, 'base_cash_value2': base_cash_value2,
-            'base_stock_value2': base_stock_value2})
+            'base_stock_value2': base_stock_value2, 'benchmark_base': benchmark_base})
         # 不要第一行的那个基础起始点
         self.return_data = self.return_data.iloc[1:]
 
     # 计算组合的超额收益和超额净值的函数
-    # 注意, 有现金资产的情况下, benchmark的比例只会和股票资产比例一致,
-    # 因此active的部分其实只有股票资产部分, 即股票的active return + 现金的return
-    # 超额净值，注意超额净值并不是账户净值减去基准净值，因为超额净值要考虑到策略在调仓日对基准份额的调整
-    # 超额净值的算法为，每个调仓周期之内的股票超额净值序列为exp（策略累计收益序列）- exp（基准累计收益序列）
-    # 周期内整体超额收益为: 股票资产超额收益净值与现金净值按照对应比例相加
+    # 注意, 之前的想法是错误的, 加入现金资产后算超额收益时, 做空的benchmark部分应当同样和整体组合比例一致
+    # 而不是和股票资产比例一致, 就如同归因中那样, 因为是要用整个组合去对标benchmark, 看超额收益,
+    # 而不是只去看股票部分的超额收益. 因此, 超额收益的计算方法应该还是和没有现金资产时一样, 很简单
+    # 但是由于这种算法已经写出来了, 基于这个历史遗留问题, 决定给算收益和归因时都加上一个新的变量,
+    # 即benchmar_short_ratio, 做空基准期货的比例, 默认这个比例是1. 因此新的算法为:
+    # 周期内整体超额收益为: 股票资产收益净值与现金净值按照对应比例相加, 减去基准净值乘以基准做空比例
     # 不同调仓周期之间的净值为：这个调仓周期内的超额净值序列加上上一个调仓周期的最后一天的净值
+    # 这个复杂算法的好处在于, 第一从时间上分开了调仓期的调仓前和调仓后, 第二, 从资产上分开了现金资产和股票资产
+    # (虽然也可以将现金资产一起整合到持仓矩阵中), 分开资产的好处是计算intra_deviation比较方便
     def get_active_nav_and_return(self):
         # benchmark的账户净值
         # 第一个不为nan的数
@@ -172,24 +185,29 @@ class performance(object):
             stock_nav_change_before = np.exp(stock_return_before.cumsum()) - 1
             # benchmark的净值增长序列
             bench_nav_change_before = np.exp(x['log_return_bench'].cumsum()) - 1
-            # 如果需要计算的是intra_holding_deviation(即股票多空头的偏差), 则这个时候的信息已经足够了
-            if get_deviation:
-                intra_deviation = stock_nav_change_before - bench_nav_change_before
-                # 最后一天, 因为是换仓日, 且假设了benchmark在收盘换仓, 因此deviation一定是0
-                # 注意, 在整个回测的最后一个调仓周期, 调仓周期的最后一天不一定是调仓日
-                if intra_deviation.index[-1] in self.holding_days:
-                    intra_deviation.iloc[-1] = 0.0
-                    return intra_deviation
-            # 如果不是计算intra deviation, 则继续我们的计算
+
             # 同时计算现金部分, 现金部分的收益全部在这一部分实现
             cash_nav_change = np.exp(x['risk_free_rate'].cumsum()) - 1
             # 这部分净值序列的起始资产比例为对应的base1, 即上一个调仓日结算时的比例
             base_cash_ratio1 = x.ix[0, 'base_cash_value1'] / (x.ix[0, 'base_cash_value1'] +
                 x.ix[0, 'base_stock_value1'])
             # 于是净值增长的序列
-            active_nav_change_before = (stock_nav_change_before - bench_nav_change_before) * \
-                (1 - base_cash_ratio1) + cash_nav_change * base_cash_ratio1
+            active_nav_change_before = stock_nav_change_before * (1 - base_cash_ratio1) + \
+                cash_nav_change * base_cash_ratio1 - bench_nav_change_before * x['benchmark_base']
 
+            # 如果需要计算的是intra_holding_deviation(即股票多空头的偏差), 则这个时候的信息已经足够了
+            # 周期内的多空头偏差是股票资产的净值变化减去持有基准的净值变化, 因为只有股票资产的净值变化才会
+            # 使得组合的country factor的正向暴露发生变化, 现金资产并不会改变country factor的变化
+            # 另外, 由于周期最后那一天换仓后偏差会是0, 因此不用管最后那一天的净值
+            if get_deviation:
+                intra_deviation = active_nav_change_before - cash_nav_change * base_cash_ratio1
+                # 最后一天, 因为是换仓日, 且假设了benchmark在收盘换仓, 因此deviation一定是0
+                # 注意, 在整个回测的最后一个调仓周期, 调仓周期的最后一天不一定是调仓日
+                if intra_deviation.index[-1] in self.holding_days:
+                    intra_deviation.iloc[-1] = 0.0
+                return intra_deviation
+
+            # 如果不是计算intra deviation, 则继续我们的计算
             # 现在来计算调仓后的部分
             stock_return_after = x.ix[-1, 'log_return_equity2']
             # 注意, 调仓后股票部分的收益的基础是调仓前的股票部分的净值, 而不是1.
@@ -213,42 +231,16 @@ class performance(object):
             else:
                 return intra_active_nav_change
 
+        self.intra_holding = grouped.apply(func_intra_nav).reset_index(0, drop=True)
+        self.holding_node_value = grouped.apply(func_intra_nav, get_node_value=True)
 
-            # active_stock_nav = np.exp(x['log_return_equity'].cumsum()) - np.exp(x['log_return_bench'].cumsum())
-            # cash_nav = np.exp(x['risk_free_rate'].cumsum())
-            # # 如果是为了计算调仓期内的股票多头空头偏差, 则直接返回股票资产的超额收益
-            # if get_deviation:
-            #     return active_stock_nav
-            # # 找到距离这一期第一天最近的一个调仓日
-            # latest_holidng_day = self.holding_days.asof(x.index[0])
-            # # 根据这个调仓日寻找比例
-            # base_cash_ratio = self.cash_ratio.ix[latest_holidng_day]
-            # intra_holding_nav = active_stock_nav * (1 - base_cash_ratio) + cash_nav * base_cash_ratio
-            #
-            # return intra_holding_nav
-
-        intra_holding = grouped.apply(func_intra_nav).reset_index(0, drop=True)
-
-        # # 算每个调仓周期的最后一天的周期内净值
-        # def func_holding_node_nav(x):
-        #     active_stock_nav = np.exp(x['log_return_equity'].sum()) - np.exp(x['log_return_bench'].sum())
-        #     cash_nav = np.exp(x['risk_free_rate'].sum())
-        #     # 找到距离这一期第一天最近的一个调仓日
-        #     latest_holidng_day = self.holding_days.asof(x.index[0])
-        #     # 根据这个调仓日寻找比例
-        #     base_cash_ratio = self.cash_ratio.ix[latest_holidng_day]
-        #     holding_node_nav = active_stock_nav * (1 - base_cash_ratio) + cash_nav * base_cash_ratio
-        #
-        #     return holding_node_nav
-
-        holding_node_value = grouped.apply(func_intra_nav, get_node_value=True)
         # 此后的每个周期内的净值，都需要加上此前所有周期的最后一天的净值，注意首先需要shift一个调仓周期
         # 因为每个周期结束的净值, 其label是上一个周期的最后一天(即上一个调仓日)
         # 在将index设置为每天后(而非每个调仓周期), 需要再次shift一天, 因为当前周期的最后一天
         # 即当前周期的那个调仓日, 其不需要加上这个周期结束时的数据, 而是在下一天才开始加入
-        holding_node_value_cum = holding_node_value.shift(1).cumsum().fillna(0.0). \
-            reindex(intra_holding.index, method='ffill').shift(1).fillna(0.0)
-        active_nav_change = holding_node_value_cum + intra_holding
+        self.holding_node_value_cum = self.holding_node_value.shift(1).cumsum().fillna(0.0). \
+            reindex(self.intra_holding.index, method='ffill').shift(1).fillna(0.0)
+        active_nav_change = self.holding_node_value_cum + self.intra_holding
         self.active_nav = active_nav_change + 1.0
         self.active_nav = pd.concat([pd.Series(1.0, index=[self.base_timestamp]),
                                                    self.active_nav], axis=0)
@@ -266,8 +258,6 @@ class performance(object):
             reset_index(0, drop=True)
         pass
 
-
-            
     # 定义各种计算指标的函数，这里都用对数收益来计算
     # 年化收益
     @staticmethod

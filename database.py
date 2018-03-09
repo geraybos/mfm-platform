@@ -37,6 +37,7 @@ class database(object):
         self.sq_data = pd.DataFrame()
         # 朝阳永续数据库引擎，取分析师预期数据
         self.initialize_gg()
+        self.initialize_gg_new()
         # 所取数据的开始、截止日期，市场代码
         self.start_date = start_date
         self.end_date = end_date
@@ -54,10 +55,14 @@ class database(object):
         self.sq_engine = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',
                                    server_ip='192.168.66.12', port='1433', db_name='SmartQuant', add_info='')
 
-    # 初始化zyyx
+    # 初始化朝阳永续
     def initialize_gg(self):
         self.gg_engine = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',
                                      server_ip='192.168.66.12', port='1433', db_name='GOGOAL', add_info='')
+    # 初始化朝阳永续2.0版本的数据库
+    def initialize_gg_new(self):
+        self.gg_new_engine = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',
+                                     server_ip='192.168.66.12', port='1433', db_name='GOGOAL2', add_info='')
 
     # 取交易日表
     def get_trading_days(self):
@@ -293,39 +298,44 @@ class database(object):
         # 向前填充
         list_status = list_status.fillna(method='ffill')
 
-        # 上市标记为1，找到那些为1的，然后将false全改为nan，再向前填充true，即可得到is_enlisted
-        # 即一旦上市后，之后的is_enlisted都为true
-        is_enlisted = list_status == 1
-        is_enlisted = is_enlisted.replace(False, np.nan)
-        is_enlisted = is_enlisted.fillna(method='ffill')
+        # 上市标记为1, 恢复上市标记为3, 退市准备期为6, 其他标记为9, 6和9一般都在退市标记4之前, 且数量很少
+        # 以上标记都处于上市状态, 2为暂停上市, 虽然暂停上市为非上市状态, 但是由于持有的股票无法清盘
+        # 因此对于投资来说, 暂停上市和停牌更相近, 因此将暂停上市也标记为上市状态, 而暂停上市的股票会没有交易数据
+        # 因此停牌标记会缺失, 在生成可交易标记的函数中, 停牌标记会把nan填成True, 因此暂停上市可以被正确的视作停牌
+        # 详情见data.generate_if_tradable. 因此, 状态标记为1, 2, 3, 6, 9的股票都是上市状态
+        # 另外注意, 新版的上市标记和以前不同, 并非只要上市, 之后的标记都是True, 而是退市后会变成False
+        is_enlisted = list_status.isin((1, 2, 3, 6, 9))
+        # is_enlisted = is_enlisted.replace(False, np.nan)
+        # is_enlisted = is_enlisted.fillna(method='ffill')
         # 将时间索引和标准时间索引对齐，向前填充
         is_enlisted = is_enlisted.reindex(self.data.stock_price.major_axis, method='ffill')
-        # 将股票索引对其，以保证fillna时可以填充所有的股票
-        is_enlisted = is_enlisted.reindex(columns=self.data.stock_price.minor_axis)
-        # # 股票上市前会变成nan，它们未上市，因此将它们填成false
-        # # 更新的时候，那些一列全是nan的不能填，要等衔接旧数据时填
-        # if self.is_update:
-        #     is_enlisted = is_enlisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
-        # else:
-        #     is_enlisted = is_enlisted.fillna(0).astype(np.bool)
 
-        # 退市标记为4， 找到那些为4的，然后将false改为nan，向前填充true，即可得到is_delisted
-        # 即一旦退市之后，之后的is_delisted都为true
-        # 退市准备期标记为6，都在4的前面，其他标记9，也在4的前面，而且两者数量很少，暂不考虑
+        # 退市标记为4，只有为4的时候, 才认为股票真的退市了. 一般情况下, 股票一旦退市, 之后就不会有状态变化了,
+        # 即之后的状态都会是4, 一旦退市, 之后退市标记都是True. 唯一的例外是600018(上港集团)这支股票
+        # 由于进行重组, 股票被标记为先退市, 之后又上市了, 而股票代码SecuCode没变, 但是实际上InnerCode是发生了变化的
+        # 因此对于InnerCode而言, 实际上是两支证券, 一支退市了, 另一只上市了, 但是对于SecuCode, 体现为这支股票先退市
+        # 然后又恢复了上市
         is_delisted = list_status == 4
-        is_delisted = is_delisted.replace(False, np.nan)
-        is_delisted = is_delisted.fillna(method='ffill')
+        # is_delisted = is_delisted.replace(False, np.nan)
+        # is_delisted = is_delisted.fillna(method='ffill')
         # 将时间索引和标准时间索引对齐，向前填充
         is_delisted = is_delisted.reindex(self.data.stock_price.major_axis, method='ffill')
-        # 将股票索引对其，以保证fillna时可以填充所有的股票
+
+        # 当first_date不为默认值时, 一般认为此时在更新数据, 因此, 更新时间段内的list_status要做额外处理
+        # 最重要的是在第一个状态标记前的那些nan的值不能被当做布尔值, 必须保留为nan, 然后在更新数据函数中
+        # 利用以前的老数据的状态标记进行填充, 譬如更新区间段并未涉及到某股票的上市时间, 没有上市标记
+        # 则is_enlisted会都是false, 则退市之前的那段时间都会被错误的标记成未上市.
+        # 解决办法是将list_status的时间索引先reindex到is_enlisted(is_delisted)上去,
+        # 然后新的list_status的为nan的地方一律改为nan即可
+        if first_date != pd.Timestamp('1900-01-01'):
+            new_list_status = list_status.reindex(self.data.stock_price.major_axis, method='ffill')
+            is_enlisted = is_enlisted.where(new_list_status.notnull(), np.nan)
+            is_delisted = is_delisted.where(new_list_status.notnull(), np.nan)
+
+        # 将股票索引对其, 只有first_date不为默认值时才会没有涵盖所有股票, 在更新数据时
+        # 没有出现的股票都是更新时间段状态没有变化的股票, 因此这里不能填nan
+        is_enlisted = is_enlisted.reindex(columns=self.data.stock_price.minor_axis)
         is_delisted = is_delisted.reindex(columns=self.data.stock_price.minor_axis)
-        # 未退市过的股票，因为没有出现过4，会出现全是nan的情况，将它们填成false
-        # # 股票退市前会变成nan，它们未退市，依然填成false
-        # # 更新的时候，那些一列全是nan的不能填，要等衔接旧数据时填
-        # if self.is_update:
-        #     is_delisted = is_delisted.apply(lambda x:x if x.isnull().all() else x.fillna(0), axis=0)
-        # else:
-        #     is_delisted = is_delisted.fillna(0).astype(np.bool)
 
         self.data.if_tradable['is_enlisted'] = is_enlisted
         self.data.if_tradable['is_delisted'] = is_delisted
@@ -782,15 +792,15 @@ if __name__ == '__main__':
     # db.update_data_from_db()
     db.get_trading_days()
     db.get_labels()
-    # db.get_list_status()
+    db.get_list_status(first_date=pd.Timestamp('20070101'))
     # db.get_AdjustFactor()
     # db.get_sq_data()
     # db.get_index_price()
     # db.get_index_weight()
     # data.write_data(db.data.benchmark_price)
     # for runner_id in [1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,24,27,30,31,32,35,36]:
-    db.get_runner_value(3)
-    data.write_data(db.data.stock_price.ix['runner_value_3'], file_name='runner_value_3')
+    # db.get_runner_value(3)
+    # data.write_data(db.data.stock_price.ix['runner_value_3'], file_name='runner_value_3')
     # data.write_data(db.data.stock_price.ix['runner_value_63'], file_name='runner_value_63')
     print("time: {0} seconds\n".format(time.time()-start_time))
 

@@ -55,9 +55,10 @@ class backtest(object):
         # 初始化股价数据，包括收盘价, vwap(交易量加权平均价)等
         if bkt_stock_data is None:
             self.bkt_data.stock_price = data.read_data(['ClosePrice_adj','vwap_adj'],
-                                                       item_name=['ClosePrice_adj','vwap_adj'])
+                                                       item_name=['ClosePrice_adj', 'vwap_adj'])
         else:
-            self.bkt_data.stock_price = data.read_data(bkt_stock_data)
+            self.bkt_data.stock_price = data.read_data(bkt_stock_data,
+                                                       item_name=['ClosePrice_adj', 'vwap_adj'])
         # self.bkt_data.stock_price['vwap_adj'] = self.bkt_data.stock_price['vwap_adj'].shift(1)
         # 初始化基准价格数据，默认设为中证500，只需要收盘数据, 开盘数据只是为了初始化序列的第一个值
         # 注意, 因为做空期货实际上做空的是指数的全收益序列, 因此我们要计算基准的全收益价格序列
@@ -290,7 +291,7 @@ class backtest(object):
                 # 对交易计划中的涨跌停股票的数量进行检查, 如果占比超过阈值, 则输出警告
                 self.check_if_plan_buyable_sellable(projected_vol_holding, curr_time)
                 # 如果停牌和涨跌停股票比例之和达到某个阈值, 则不进行这次换仓
-                self.check_if_abort_trading(curr_time, threshold=0.5)
+                self.check_if_abort_trading(curr_time)
                 if not self.if_exec_this_trading:
                     self.if_exec_this_trading = True
                     return
@@ -406,7 +407,7 @@ class backtest(object):
         # 对交易计划中的涨跌停股票的数量进行检查, 如果占比超过阈值, 则输出警告
         self.check_if_plan_buyable_sellable(trade_plan, curr_time)
         # 如果停牌和涨跌停的比例之和达到某个阈值, 这次换仓不执行
-        self.check_if_abort_trading(curr_time, threshold=0.5)
+        self.check_if_abort_trading(curr_time)
         if not self.if_exec_this_trading:
             self.if_exec_this_trading = True
             return

@@ -126,11 +126,21 @@ class data(object):
                 'is_suspended' not in self.if_tradable.items:
             # 读取上市、退市、停牌数据
             self.if_tradable = data.read_data(file_name, item_name=item_name, shift = shift)
-        # 将数据中的nan填成false, 即未上市的股票, is_delisted会变成False, 未上市或已退市的股票is_suspended会变成False
-        # 这样其实没有关系, 因为1.有is_enlisted来控制这些股票 2. 这些股票本来也没有数据
-        self.if_tradable = self.if_tradable.fillna(0)
+        # 填数据中的nan要分别处理, 对于is_enlisted和is_delisted, 把nan填成0. 即未上市的股票, is_delisted会变成
+        # False, 这与正常逻辑相符. 对于is_suspended, 要将nan填成1, 即默认没有数据的股票是停牌的. 这会导致: 1.
+        # 未上市或已退市的股票会被标记成停牌, 这没有问题; 2. 没有停牌的股票, 一定在SmartQuant中有行情数据,
+        # 行情数据中会标记是否停牌, 停牌的数据不会是nan, 因此也没有问题; 3. 这样填主要是为了应对暂停上市的股票,
+        # 这些暂停上市的股票, 在暂停上市的初期, SmartQuant中会有行情数据, 并把它们标记成停牌, 但是若暂停时间过长
+        # SmartQuant中会没有这些股票的行情数据(根本原因是聚源数据库里会没有这些股票的行情数据), 即出现在这里的nan中,
+        # 如果把nan填成0, 则它们变成可以交易的了, 就会出错, 因为实际上它们是不可交易的,
+        # 至于为何不在退市标记中处理暂停上市标记, 是因为暂停上市的股票是被套牢的, 而退市的股票是可以被清算交易的,
+        # 因此, 对于投资者来暂停上市和停牌的性质更相同, 将其处理成停牌即可. 这一点事实上也与在database中
+        # 处理复权因子和价格数据时的思路一样, 因为在那里为nan的is_suspended数据会被bool转换成True, 即停牌
+        self.if_tradable.ix['is_enlisted'].fillna(0, inplace=True)
+        self.if_tradable.ix['is_delisted'].fillna(0, inplace=True)
+        self.if_tradable.ix['is_suspended'].fillna(1, inplace=True)
         # 将已上市且未退市，未停牌的股票标记为可交易(if_tradable = True)
-        # 注意没有停牌数据的股票默认为不停牌
+        # 注意没有停牌数据的股票默认为停牌
         self.if_tradable['if_tradable'] = (self.if_tradable.ix['is_enlisted', :, :] *
             np.logical_not(self.if_tradable.ix['is_delisted', :, :]) *
             np.logical_not(self.if_tradable.ix['is_suspended', :, :])).astype(np.bool)

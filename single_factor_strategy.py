@@ -192,9 +192,10 @@ class single_factor_strategy(strategy):
                 self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.benchmark,
                 self.position.holding_matrix.index, :].fillna(0.0))
 
-        # benchmark的权重之和少于1的部分, 就是那些在指数中停牌的股票, 这些股票应当当做现金持有
-        self.position.cash = 1 - self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.benchmark,
-                self.position.holding_matrix.index, :].sum(1)
+        # 暂时不这样做
+        # # benchmark的权重之和少于1的部分, 就是那些在指数中停牌的股票, 这些股票应当当做现金持有
+        # self.position.cash = 1 - self.strategy_data.benchmark_price.ix['Weight_'+self.strategy_data.benchmark,
+        #         self.position.holding_matrix.index, :].sum(1)
         pass
 
     # 用优化的方法构造纯因子组合，纯因子组合保证组合在该因子上有暴露（注意，并不一定是1），在其他因子上无暴露
@@ -724,8 +725,9 @@ class single_factor_strategy(strategy):
     # 再次计算暴露后的因子将不再与base中的因子正交, 但是却拥有了和其他因子暴露之间的可比性
     # 如不再次计算暴露, 则保留了正交性, 不再与其他因子暴露之间可比, 但是用回归的方法算因子收益的时候
     # 可以得到相对base因子的纯因子收益, 在这个角度上更有参考性, 因此是否重新计算暴露, 两者都会经常用到
+    # 由于之后的计算因子收益的时候会再算因子暴露, 于是这里默认为不再次计算
     def get_pure_factor_gs_orth(self, base_expo, *, reg_weight=1, add_constant=False,
-                                use_factor_expo=True, expo_weight=1, get_expo_again=True):
+                                use_factor_expo=True, expo_weight=1, get_expo_again=False):
         # 计算当前因子的暴露，注意策略里的数据都已经lag过了
         if use_factor_expo:
             if expo_weight == 1:
@@ -1167,28 +1169,23 @@ class single_factor_strategy(strategy):
         self.pdfs.close()
         
     def sft_test_outside_position(self):
-        # holding = pd.read_csv('sue_holding500.csv', index_col=0, parse_dates=[2])
-        # holding = holding.pivot_table(index='TradingDay', columns='SecuCode', values='WEIGHT')
-        # new_col = []
-        # for curr_stock in holding.columns:
-        #     new_col.append(str(curr_stock).zfill(6))
-        # holding.columns = new_col
-        # holding = pd.read_csv('tarholding.csv', index_col=0, parse_dates=True)
-        # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
-        #                             self.position.holding_matrix.columns, method='ffill').fillna(0.0)
-        # pass
-        # holding = pd.read_hdf('opt_holding_tar_hs300', '123')
-        # self.position.holding_matrix = holding.reindex(self.position.holding_matrix.index,
-        #                                                method='ffill').fillna(0.0)
-        # tar_holding = pd.read_hdf('tar_holding_vol', '123')
-        # curr_tar_holding = tar_holding['300alpha投机']
-        # curr_tar_holding = curr_tar_holding.where(curr_tar_holding.sum(1)!=0, np.nan). \
-        #     fillna(method='ffill').fillna(0.0)
-        # cp = data.read_data(['ClosePrice'], shift=True).iloc[0]
-        # holding_value = curr_tar_holding.mul(cp)
-        # self.position.holding_matrix = holding_value.div(holding_value.sum(1), axis=0).fillna(0.0)
+        # h = pd.read_csv('./Damu_alpha/yyalpha_port.csv', parse_dates=[3])
+        # h['secucode'] = h['secucode'].map(lambda x: str(x).zfill(6))
+        # h = h.pivot_table(index='sigdate', columns='secucode', values='weight')
+        # h = h.reindex(index=self.position.holding_matrix.index,
+        #               columns=self.position.holding_matrix.columns).fillna(0.0)
+        # self.position.holding_matrix = h
+        # self.position.cash *= 0.0
         #
         # print('Please Note: the position of strategy has been set to an outside position!\n')
+
+        # h = self.strategy_data.benchmark_price['Weight_'+self.strategy_data.benchmark]
+        # # c = 1 - h.sum(1)
+        # c = self.position.cash * 0
+        # h = h.div(h.sum(1), axis=0)
+        # self.position.holding_matrix = h.reindex(index=self.position.holding_matrix.index).fillna(0.0)
+        # self.position.cash = c.reindex(index=self.position.holding_matrix.index).fillna(0.0)
+
         pass
 
             

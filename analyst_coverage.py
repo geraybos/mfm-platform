@@ -21,6 +21,8 @@ from cvxopt import solvers, matrix
 from pandas.tools.plotting import table
 from pandas.stats.fama_macbeth import fama_macbeth
 from statsmodels.discrete.discrete_model import Poisson
+import pathos.multiprocessing as mp
+from linearmodels import FamaMacBeth
 
 from single_factor_strategy import single_factor_strategy
 from database import database
@@ -35,19 +37,15 @@ class analyst_coverage(single_factor_strategy):
     
     foo
     """
-    def __init__(self):
+    def __init__(self, start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2018-01-17')):
         single_factor_strategy.__init__(self)
         # 该策略用于取数据的database类
-        self.db = database(start_date='2007-01-01', end_date='2017-04-27')
-
-    # 取计算分析师覆盖因子的原始数据
-    def get_coverage_number(self):
-        self.db.initialize_jydb()
-        self.db.initialize_sq()
-        self.db.initialize_gg()
+        self.db = database(start_date=start_date, end_date=end_date)
         self.db.get_trading_days()
         self.db.get_labels()
 
+    # 取计算分析师覆盖因子的原始数据
+    def get_coverage_number(self):
         # 取每天，每只股票的净利润预测数据
         sql_query = "select create_date, code, count(forecast_profit) as num_fore from " \
                     "((select id, code, organ_id, create_date from DER_REPORT_RESEARCH where " \
@@ -71,12 +69,6 @@ class analyst_coverage(single_factor_strategy):
 
     # 取每支股票的每期报表的第一次发布的数据, 以用来选择分析师数据的rolling window
     def get_fra_pub_date(self):
-        self.db.initialize_jydb()
-        self.db.initialize_sq()
-        self.db.initialize_gg()
-        self.db.get_trading_days()
-        self.db.get_labels()
-
         sql_query = 'select b.InfoPublDate, b.EndDate, a.SecuCode from (' \
                     'select distinct CompanyCode, SecuCode from SmartQuant.dbo.ReturnDaily) a ' \
                     'left join (select InfoPublDate, EndDate, CompanyCode from LC_BalanceSheetAll ' \
@@ -371,7 +363,6 @@ class analyst_coverage(single_factor_strategy):
             print(end_time)
             return df
         # 进行并行计算
-        import pathos.multiprocessing as mp
         if __name__ == '__main__':
             ncpus = 16
             p = mp.ProcessPool(ncpus)
@@ -419,7 +410,8 @@ class analyst_coverage(single_factor_strategy):
     # 计算因子值
     def get_abn_coverage(self):
         if os.path.isfile('unique_coverage.csv'):
-            self.strategy_data.raw_data = data.read_data(['unique_coverage'], ['coverage'], shift=True)
+            self.strategy_data.raw_data = data.read_data(['unique_coverage'], item_name=['coverage'],
+                                                         shift=True)
             print('reading coverage\n')
         else:
             self.get_unique_coverage_number_parallel()
@@ -1110,7 +1102,7 @@ class analyst_coverage(single_factor_strategy):
         plt.hist(stacked_uc.values)
         plt.savefig(str(os.path.abspath('.')) + '/' + str(self.strategy_data.stock_pool) + '/kde.png', dpi=1200)
 
-        uc_old = data.read_data(['unique_coverage cmb'], ['coverage_old'])
+        uc_old = data.read_data(['unique_coverage cmb'], item_name=['coverage_old'])
         uc_old = uc_old['coverage_old'].fillna(0).where(self.strategy_data.if_tradable.ix['if_inv'], np.nan)
         uc_old = uc_old.ix[self.holding_days, :]
         stacked_uc_old = uc_old.stack(dropna=True)
@@ -1212,26 +1204,39 @@ class analyst_coverage(single_factor_strategy):
         #             "on a.id=b.id) where type_id != 28" \
         #             "order by create_date, code "
 
-        sql_query = "select create_date, code, organ_id, author, Time_year, forecast_profit from " \
-                    "((select id, code, organ_id, type_id, author, create_date from CMB_REPORT_RESEARCH where " \
-                    "create_date>='" + str(self.db.trading_days.iloc[0]) + "' and create_date<='" + \
-                    str(self.db.trading_days.iloc[-1]) + "') a " \
-                    "left join (select report_search_id as id, Time_year, forecast_profit from CMB_REPORT_SUBTABLE) b " \
-                    "on a.id=b.id) where type_id in (21, 22, 25) " \
-                    "order by create_date, code "
+        # sql_query = "select create_date, code, organ_id, author, Time_year, forecast_profit from " \
+        #             "((select id, code, organ_id, type_id, author, create_date from CMB_REPORT_RESEARCH where " \
+        #             "create_date>='" + str(self.db.trading_days.iloc[0]) + "' and create_date<='" + \
+        #             str(self.db.trading_days.iloc[-1]) + "') a " \
+        #             "left join (select report_search_id as id, Time_year, forecast_profit from CMB_REPORT_SUBTABLE) b " \
+        #             "on a.id=b.id) where type_id in (21, 22, 25) " \
+        #             "order by create_date, code "
 
-        original_data = self.db.gg_engine.get_original_data(sql_query)
+        # 需要研究的报告类型
+        type_id = "98"
+        folder_name = 'analyst_coverage_new/analyst_report_time/id' + type_id
+        sql_query = "select stock_code, report_type, organ_id, author_name, create_date, report_year, " \
+                    "forecast_eps, entrytime from rpt_forecast_stk where create_date>='" + \
+                    str(self.db.trading_days.iloc[0]) + "' and create_date<='" + \
+                    str(self.db.trading_days.iloc[-1]) + "' and report_type in (" + str(type_id) + \
+                    ") " + "order by create_date, stock_code"
+
+        original_data = self.db.gg_new_engine.get_original_data(sql_query)
 
         # 去除重复的报告数据, 一份报告只能算一次
-        unique_data = original_data.drop_duplicates(subset=['create_date', 'code', 'organ_id', 'author'], keep='first')
+        original_data['create_date'] = pd.to_datetime(original_data['create_date'])
+        unique_data = original_data.drop_duplicates(subset=['create_date', 'stock_code',
+                                                            'organ_id', 'author_name'], keep='first')
         month_distribution = unique_data['create_date'].map(lambda x: x.month)
 
+        if not os.path.exists(str(os.path.abspath('.')) + '/' + str(folder_name) + '/'):
+            os.makedirs(str(os.path.abspath('.')) + '/' + str(folder_name) + '/')
         # 画分析师报告的发布时间的月份分布, 可以看到大部分的分析师报告都是在财报发布的月份发布的
         f1 = plt.figure()
         ax1 = f1.add_subplot(1, 1, 1)
         plt.hist(month_distribution.values, np.arange(1, 14))
         plt.grid()
-        plt.savefig(str(os.path.abspath('.')) + '/' + str(self.strategy_data.stock_pool) + '/month_dist.png', dpi=1200)
+        plt.savefig(str(os.path.abspath('.')) + '/' + str(folder_name) + '/month_dist.png', dpi=1200)
 
         # 尝试研究每份分析师报告是在公司财报发布后或发布前的什么时候发布的
         # 储存数据
@@ -1240,8 +1245,8 @@ class analyst_coverage(single_factor_strategy):
         fra_pub_date = self.fra_pub_date * 1
         # 计算每期的函数
         def one_time_diff(cursor):
-            curr_pub_date = unique_data.iloc[cursor, 0]
-            curr_stock = unique_data.iloc[cursor, 1]
+            curr_pub_date = unique_data.iloc[cursor, 4]
+            curr_stock = unique_data.iloc[cursor, 0]
             curr_stock_fra = fra_pub_date[fra_pub_date['SecuCode'] == curr_stock]
             if curr_stock_fra.empty:
                 return np.nan
@@ -1251,7 +1256,6 @@ class analyst_coverage(single_factor_strategy):
             latest_fra_index = date_diff_series.abs().idxmin()
             # 获取最近的一期财报和这期分析师报告的发布时间差距
             recent_diff = date_diff_series[latest_fra_index].days
-            print(cursor)
             return recent_diff
 
         # # 循环唯一的报告
@@ -1276,7 +1280,7 @@ class analyst_coverage(single_factor_strategy):
 
         import pathos.multiprocessing as mp
         if __name__ == '__main__':
-            ncpus = 16
+            ncpus = 20
             p = mp._ProcessPool(ncpus)
             data_size = np.arange(unique_data.shape[0])
             # data_size = np.arange(5000)
@@ -1292,7 +1296,7 @@ class analyst_coverage(single_factor_strategy):
         ax2 = f2.add_subplot(1, 1, 1)
         plt.hist(time_diff_dist.values, [-300, -31, -15, -7, 0, 7, 15, 31, 300])
         plt.grid()
-        plt.savefig(str(os.path.abspath('.')) + '/' + str(self.strategy_data.stock_pool) + '/time_diff_dist.png', dpi=1200)
+        plt.savefig(str(os.path.abspath('.')) + '/' + str(folder_name) + '/time_diff_dist.png', dpi=1200)
 
         # 画饼图
         labels = ['>1m before', '1m before', '0.5m before', '1w before', '1w after', '0.5m after',
@@ -1302,7 +1306,7 @@ class analyst_coverage(single_factor_strategy):
         f3 = plt.figure()
         ax3 = f3.add_subplot(1, 1, 1)
         plt.pie(time_diff_pie_ratio, labels=labels, autopct='%1.1f%%')
-        plt.savefig(str(os.path.abspath('.')) + '/' + str(self.strategy_data.stock_pool) + '/time_diff_pie.png',
+        plt.savefig(str(os.path.abspath('.')) + '/' + str(folder_name) + '/time_diff_pie.png',
                     dpi=1200)
 
 
@@ -1390,14 +1394,211 @@ class analyst_coverage(single_factor_strategy):
         self.draw_kde()
         pass
 
+
+
+# 重新审视analyst coverage这个因子, 2018年2月26日
+class analyst_coverage_new(analyst_coverage):
+    def __init__(self, start_date=pd.Timestamp('2007-01-01'), end_date=pd.Timestamp('2018-01-17')):
+        analyst_coverage.__init__(self, start_date=start_date, end_date=end_date)
+
+    # 取新财富分析师数据, 指示其是否为新财富分析师
+    def new_fortune_author(self):
+        sql_query = "select author_id, author_name, time_year, pia, entrydate from T_GREAT_AUTHOR "
+        self.great_author = self.db.gg_engine.get_original_data(sql_query)
+        pass
+
+    # 取分析师报告数据
+    def get_analyst_report_count(self):
+        # 只取21, 23, 24, 26这4种报告
+        sql_query = "select * from ( " \
+                    "(select report_id, stock_code, report_type, organ_id, author_name, create_date, " \
+                    "report_year, forecast_eps, entrytime from rpt_forecast_stk where create_date>='" + \
+                    str(self.db.trading_days.iloc[0]) + "' and create_date<='" + \
+                    str(self.db.trading_days.iloc[-1]) + "' and report_type in (21, 23, 24, 26)) a " + \
+                    "left join (select report_id, author_id from rpt_report_author) b " \
+                    "on a.report_id = b.report_id) " \
+                    "order by create_date, stock_code"
+        self.rpt_count = self.db.gg_new_engine.get_original_data(sql_query)
+        self.rpt_count['create_date'] = pd.to_datetime(self.rpt_count['create_date'])
+        pass
+
+    # 根据设置的参数, 计算analyst coverage
+    def get_analyst_coverage_parallel(self, *, rolling_days=90, great_rpt_extra_score=3,
+                                      great_author_extra_score=2):
+        """
+        :param rolling_days: 滚动窗口
+        :param great_rpt_extra_score: 每份深度报告的额外得分
+        :param great_author_extra_score: 新财富分析师所写报告的额外得分
+        :return:
+        """
+        # # 先构造一个pivot table,主要目的是为了取时间
+        # date_mark = self.rpt_count.pivot_table(index='create_date', columns='stock_code',
+        #                                       values='forecast_profit')
+        # # 因为数据有每天不同时点的数据,因此要resample
+        # date_mark = date_mark.resample('d').mean().dropna(axis=0, how='all')
+        # 暂时只算周末的值
+        self.generate_holding_days(holding_freq='d', loc=-1, start_date=self.db.start_date,
+                                   end_date=self.db.end_date)
+        holding_days = self.holding_days
+        # 将新财富分析师数据对分析师去重, 即, 如果一个人多次得到新财富, 则只取录入数据库最早的那一次
+        # 多次得到新财富并不会再次加分, 因此只取最早的那一次即可, 注意是录入最早的那一次, 而不是得奖年份最早
+        unique_great_author = self.great_author.sort_values(['author_id', 'entrydate']). \
+            drop_duplicates(['author_id'], keep='first')
+        # 将新财富分析师数据left join到rpt_count上去
+        rpt_count = self.rpt_count.merge(unique_great_author[['author_id', 'entrydate']],
+                                         how='left', on='author_id')
+
+        global rpt_count_g
+        rpt_count_g = rpt_count
+        # 计算每期的coverage的函数count
+        def one_time_coverage(cursor):
+            end_time = holding_days.index[cursor]
+            start_time = end_time - pd.DateOffset(days=rolling_days - 1)
+            # 满足最近rolling days天的条件的项
+            # 使用的数据日期为create date, 如果从写报告到入库时间差显著的话,
+            # 也可以考虑使用entry_time, 此时entry_time更为真实
+            condition = np.logical_and(rpt_count_g['create_date'] >= start_time,
+                                       rpt_count_g['create_date'] <= end_time)
+            valid_rpt = rpt_count_g[condition] * 1
+            # 增加得分这一列, 所有报告的默认得分是1
+            valid_rpt['score'] = 1
+            # 如果报告属于深度报告, 则加上额外的分数, 深度报告的分类是23, 24, 26
+            valid_rpt['score'] = valid_rpt['score'].mask(valid_rpt['report_type'].isin((23, 24, 26)),
+                                                         valid_rpt['score'] + great_rpt_extra_score)
+            # 如果报告为新财富分析师所写, 且录入时间在当前时间之前, 则加上额外的分数
+            valid_rpt['score'] = valid_rpt['score'].mask(valid_rpt['entrydate'] <= end_time,
+                                                         valid_rpt['score'] + great_author_extra_score)
+            # 将报告按照所预测股票, 机构id, 作者, 以及得分进行排序, 前3项作为判定独立报告的条件
+            # 最后的得分则是由于一份报告可能由多个作者所写, 因此得分不同, 此时只取最高的得分, 即
+            # 只要作者中有一个是新财富分析师, 则报告就会享受新财富分析师的额外加分
+            valid_rpt = valid_rpt.sort_values(['stock_code', 'organ_id', 'author_name', 'score'])
+            # 根据预测股票, 机构, 作者进行去重, 选取最后一个(因为刚刚得分是按照升序排列的)
+            unique_valid_rpt = valid_rpt.drop_duplicates(['stock_code', 'organ_id', 'author_name'],
+                                                         keep='last')
+            # 根据股票进行得分加总
+            coverage = unique_valid_rpt.groupby('stock_code').apply(lambda x: x['score'].sum())
+            return coverage
+
+        # 进行并行计算
+        ncpus = 20
+        p = mp.ProcessPool(ncpus)
+        data_size = np.arange(holding_days.shape[0])
+        chunksize = int(len(data_size)/ncpus)
+        results = p.map(one_time_coverage, data_size, chunksize=chunksize)
+        analyst_coverage = pd.concat([i for i in results], axis=1)
+        self.analyst_coverage = analyst_coverage.T.set_index(self.holding_days).reindex(index=
+            self.strategy_data.stock_price.major_axis, columns=self.strategy_data.stock_price.minor_axis)
+
+        # 要将holding days给清空, 否则测试的时候策略会变成每日换仓
+        self.holding_days = pd.Series()
+
+    def construct_factor(self):
+        self.new_fortune_author()
+        self.get_analyst_report_count()
+        self.get_analyst_coverage_parallel()
+        # self.strategy_data.factor = pd.Panel({'analyst_coverage': self.analyst_coverage.shift(1)})
+        self.prepare_data()
+        self.get_abn_coverage()
+        self.strategy_data.factor = pd.Panel({'abn_coverage': self.abn_coverage.shift(1)})
+
+    # 准备计算abnormal coverage的数据
+    def prepare_data(self):
+        # 将覆盖原始数据填上0, 之后记得要过滤数据
+        self.analyst_coverage = self.analyst_coverage.fillna(0)
+
+        # 计算ln(1+coverage)得到回归的y项
+        self.strategy_data.raw_data = pd.Panel({'ln_coverage': np.log(self.analyst_coverage + 1)})
+        # 计算lncap
+        self.strategy_data.stock_price['lncap'] = np.log(self.strategy_data.stock_price.ix['FreeMarketValue'])
+        # 计算turnover和momentum
+        data_to_be_used = data.read_data(['Volume', 'FreeShares', 'ClosePrice_adj'])
+        turnover = (data_to_be_used.ix['Volume']/data_to_be_used.ix['FreeShares']).rolling(252).sum()
+        daily_return = np.log(data_to_be_used.ix['ClosePrice_adj']/data_to_be_used.ix['ClosePrice_adj'].shift(1))
+        momentum = daily_return.rolling(252).sum()
+        self.strategy_data.stock_price['daily_return'] = daily_return
+        self.strategy_data.stock_price['turnover'] = turnover
+        self.strategy_data.stock_price['momentum'] = momentum
+
+        self.strategy_data.stock_price['vlty'] = self.strategy_data.stock_price.ix['daily_return'].rolling(252).std()
+        pb = data.read_data('PB')
+        self.strategy_data.stock_price['lbm'] = np.log(1 + 1/pb)
+        roa_data = data.read_data(['TotalAssets', 'NetIncome_ttm'])
+        self.strategy_data.stock_price['roa'] = roa_data['NetIncome_ttm'] / roa_data['TotalAssets']
+
+        # 进行标准化
+        for item in ('lncap', 'turnover', 'momentum', 'vlty', 'lbm', 'roa'):
+            self.strategy_data.raw_data[item] = strategy_data.get_cap_wgt_exposure(
+                self.strategy_data.stock_price[item], self.strategy_data.stock_price['FreeMarketValue'])
+        self.strategy_data.raw_data['ln_coverage_expo'] = strategy_data.get_cap_wgt_exposure(
+            self.strategy_data.raw_data['ln_coverage'], self.strategy_data.stock_price['FreeMarketValue'])
+
+        self.strategy_data.raw_data['const'] = 1.0
+
+    # 用不同的方法计算各种abnormal coverage
+    def get_abn_coverage(self):
+        # 取回归掉论文中的6个因子后的残差作为abn coverage
+        weights = np.sqrt(self.strategy_data.stock_price['FreeMarketValue'])
+
+        # outcome = strategy_data.simple_orth_gs(self.strategy_data.raw_data['ln_coverage_expo'],
+        #     self.strategy_data.raw_data.ix[['lncap', 'turnover', 'momentum', 'vlty', 'lbm', 'roa']],
+        #     weights=weights)
+        # self.abn_coverage = outcome[0]
+
+        # 对barra风格因子进行回归
+        bb_factor_expo = data.read_data('bb_factor_expo_all')
+        bb_style_expo = bb_factor_expo.iloc[0:10, :, :]
+        outcome = strategy_data.simple_orth_gs(self.strategy_data.raw_data['ln_coverage_expo'],
+            bb_factor_expo, weights=weights)
+        # self.outcome = outcome
+        self.abn_coverage = outcome[0]
+
+
+    # 按照论文的因子, 对coverage进行控制其他变量后的fm回归检验
+    def abn_coverage_test(self, *, freq='w', startdate=None, enddate=None):
+        # 首先需要按照频率生成holdingdays
+        self.generate_holding_days(holding_freq=freq, loc=-1, start_date=startdate,
+                                   end_date=enddate)
+        # 按照频率算收益率, 和holdingdays同步, 论文用月, 我们一般用w
+        r = self.strategy_data.stock_price['daily_return', startdate:enddate, :].\
+            resample(freq).sum()
+        # 注意, 回归的左边是未来一期的收益率, 因此要shift(-1), 即用到未来数据
+        r = r.shift(-1).dropna(how='all')
+        # 因为r的index为月末, 但是月末不一定是交易日, 因此将r的index重置为holding days
+        self.r = r.set_index(self.holding_days)
+
+        # 进行fm回归
+        fm_result1 = FamaMacBeth(self.r, self.strategy_data.raw_data.ix[['ln_coverage_expo', 'const'],
+            self.holding_days, :]).fit()
+        fm_result2 = FamaMacBeth(self.r, self.strategy_data.raw_data.ix[['ln_coverage_expo', 'lncap',
+            'const'], self.holding_days, :]).fit()
+        fm_result3 = FamaMacBeth(self.r, self.strategy_data.raw_data.ix[['ln_coverage_expo', 'lncap',
+            'turnover', 'const'], self.holding_days, :]).fit()
+        fm_result4 = FamaMacBeth(self.r, self.strategy_data.raw_data.ix[['ln_coverage_expo', 'lncap',
+            'turnover', 'momentum', 'const'], self.holding_days, :]).fit()
+        fm_result5 = FamaMacBeth(self.r, self.strategy_data.raw_data.ix[['ln_coverage_expo', 'lncap',
+            'turnover', 'momentum', 'vlty', 'const'], self.holding_days, :]).fit()
+        fm_result6 = FamaMacBeth(self.r, self.strategy_data.raw_data.ix[['ln_coverage_expo', 'lncap',
+            'turnover', 'momentum', 'vlty', 'lbm', 'const'], self.holding_days, :]).fit()
+        fm_result7 = FamaMacBeth(self.r, self.strategy_data.raw_data.ix[['ln_coverage_expo', 'lncap',
+            'turnover', 'momentum', 'vlty', 'lbm', 'roa', 'const'], self.holding_days, :]).fit()
+
+        pass
+
+
 if __name__ == '__main__':
-    ac = analyst_coverage()
-    ac.get_fra_pub_date()
+    ac = analyst_coverage_new()
+    # ac.get_fra_pub_date()
     # ac.data_description()
     # ac.get_unique_coverage_number_parallel()
     # ac.get_unique_coverage_number()
-    ac.time_about_analyst_report()
+    # ac.time_about_analyst_report()
     # ac.get_analyst_report_structure()
+    ac.new_fortune_author()
+    ac.get_analyst_report_count()
+    ac.get_analyst_coverage_parallel()
+    ac.prepare_data()
+    ac.get_abn_coverage()
+    # ac.abn_coverage_test(startdate=pd.Timestamp('2009-05-04'), enddate=pd.Timestamp('2018-01-16'))
 
 
 
