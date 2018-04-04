@@ -361,10 +361,10 @@ class single_factor_strategy(strategy):
 
         # 循环结束后，进行权重归一化
         self.position.to_percentage()
-        # 如果有benchmark, 归一化后, 将benchmark中不可交易的比例当做现金持有, 即benchmark因为停牌的原因
-        # 其在country factor上的暴露并不一定是1, 因此停牌的那部分, 组合要当做现金持有, 更为合理
-        if isinstance(benchmark_weight, pd.DataFrame):
-            self.position.cash = 1 - benchmark_weight.ix[self.holding_days, :].sum(1)
+        # # 如果有benchmark, 归一化后, 将benchmark中不可交易的比例当做现金持有, 即benchmark因为停牌的原因
+        # # 其在country factor上的暴露并不一定是1, 因此停牌的那部分, 组合要当做现金持有, 更为合理
+        # if isinstance(benchmark_weight, pd.DataFrame):
+        #     self.position.cash = 1 - benchmark_weight.ix[self.holding_days, :].sum(1)
 
         # 因为优化后重新归一的组合, 其对目标因子暴露不一定是1,
         # (详情见barra文档或active portfolio management第一章附录),
@@ -455,7 +455,8 @@ class single_factor_strategy(strategy):
 
         # 输出的string
         tstats_sig_ratio = self.t_stats_series[np.abs(self.t_stats_series) >= 2].size / self.t_stats_series.size
-        target_str = 'Factor return info: mean {0:.4f}%, std {1:.4f}%\n' \
+        target_str = 'Factor return mean: {0:.4f}%\n' \
+                     'Factor return std: {1:.4f}%\n' \
                      'Note that the return of factor is not annualized but ' \
                      'corresponding to the holding days interval\n' \
                      'The average t-statistics value: {2:.4f}\n' \
@@ -1160,7 +1161,7 @@ class single_factor_strategy(strategy):
         self.get_factor_return(weights=np.sqrt(self.strategy_data.stock_price.ix['FreeMarketValue']),
                                holding_freq='w', direction=direction, start=bkt_start, end=bkt_end)
         # 画ic的走势图
-        self.get_factor_ic(direction=direction, holding_freq='w', start=bkt_start, end=bkt_end)
+        self.get_factor_ic(direction=direction, holding_freq='m', start=bkt_start, end=bkt_end)
         # 画分位数图和long short图
         self.plot_qgroup(self.bkt_obj, 5, direction=direction, value=1, weight=1)
 
@@ -1185,7 +1186,6 @@ class single_factor_strategy(strategy):
         # h = h.div(h.sum(1), axis=0)
         # self.position.holding_matrix = h.reindex(index=self.position.holding_matrix.index).fillna(0.0)
         # self.position.cash = c.reindex(index=self.position.holding_matrix.index).fillna(0.0)
-
         pass
 
             

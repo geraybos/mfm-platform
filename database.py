@@ -82,7 +82,7 @@ class database(object):
     # 设定数据的index和columns，index以交易日表为准，columns以sq中的return daily里的股票为准
     def get_labels(self):
         sql_query = "select distinct SecuCode from ReturnDaily where TradingDay <= '" + \
-                    str(self.trading_days.iloc[-1]) + "' order by SecuCode"
+                    str(self.trading_days.iloc[-1]) + "' order by SecuCode "
         column_label = self.sq_engine.get_original_data(sql_query)
         column_label = column_label.ix[:, 0]
         index_label = self.trading_days
@@ -104,7 +104,7 @@ class database(object):
                     "IfSuspended as is_suspended "\
                     "from ReturnDaily where "\
                     "IfTradingDay=1 and TradingDay>='" + str(self.trading_days.iloc[0]) + "' and TradingDay<='" + \
-                    str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode"
+                    str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode "
         self.sq_data = self.sq_engine.get_original_data(sql_query)
 
         # 提取sq_data里所需要的各种数据
@@ -172,7 +172,7 @@ class database(object):
         sql_query = "select TradingDay, SecuCode, OpenPrice, HighPrice, LowPrice, ClosePrice, " \
                     "IfSuspended as is_suspended from ReturnDaily where " \
                     "IfTradingDay=1 and TradingDay>='" + str(first_date) + "' and TradingDay<='" + \
-                    str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode"
+                    str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode "
         ochl_sus_data = self.sq_engine.get_original_data(sql_query)
         suspended_mark = ochl_sus_data.pivot_table(index='TradingDay', columns='SecuCode',
                                                    values='is_suspended', aggfunc='first')
@@ -208,7 +208,7 @@ class database(object):
                     "left join (select * from JYDB.dbo.QT_AdjustingFactor where ExDiviDate >='" + \
                     str(first_date) + "' and ExDiviDate <='" + str(self.trading_days.iloc[-1]) + "') b " \
                     "on a.InnerCode=b.InnerCode " \
-                    "order by SecuCode, ExDiviDate"
+                    "order by SecuCode, ExDiviDate "
         AdjustFactor = self.jydb_engine.get_original_data(sql_query)
         AdjustFactor = AdjustFactor.pivot_table(index='ExDiviDate', columns='SecuCode', values='RatioAdjustingFactor',
                                                 aggfunc='first')
@@ -230,7 +230,7 @@ class database(object):
             # 总之, 最后要实现的是把停牌期间因为复权因子变化带来的收益都挪到复牌第一天实现
             sql_query_sus = "select TradingDay, SecuCode, IfSuspended as is_suspended from ReturnDaily where " \
                             "IfTradingDay=1 and TradingDay >= '" + str(first_date) + "' and TradingDay <= ' " + \
-                            str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode"
+                            str(self.trading_days.iloc[-1]) + "' order by TradingDay, SecuCode "
             suspended_mark = self.sq_engine.get_original_data(sql_query_sus)
             suspended_mark = suspended_mark.pivot_table(index='TradingDay', columns='SecuCode',
                                                         values='is_suspended', aggfunc='first')
@@ -267,7 +267,7 @@ class database(object):
                     "left join (select ChangeDate, ChangeType, InnerCode from LC_ListStatus where SecuMarket in " \
                     "(83,90) and ChangeDate>='" + str(first_date) + "' and ChangeDate<='" + \
                     str(self.trading_days.iloc[-1]) + "') b on a.InnerCode=b.InnerCode "\
-                    " order by SecuCode, ChangeDate"
+                    "order by SecuCode, ChangeDate "
         list_status = self.jydb_engine.get_original_data(sql_query)
 
         ################################################################################################
@@ -296,15 +296,17 @@ class database(object):
             list_status = pd.DataFrame(np.nan, index=self.data.stock_price.major_axis,
                                        columns=self.data.stock_price.minor_axis)
         # 向前填充
-        list_status = list_status.fillna(method='ffill')
+        # 注意, 标记9, 含义为其他, a股历史上仅有002808一支股票被标记为9, 且此时未上市, 因此9直接被replace成nan
+        # 如果之后出现其他标记9, 且代表上市状态, 则到时候再进行处理
+        list_status = list_status.replace(9, np.nan).fillna(method='ffill')
 
-        # 上市标记为1, 恢复上市标记为3, 退市准备期为6, 其他标记为9, 6和9一般都在退市标记4之前, 且数量很少
+        # 上市标记为1, 恢复上市标记为3, 退市准备期为6, 6一般都在退市标记4之前, 且数量很少
         # 以上标记都处于上市状态, 2为暂停上市, 虽然暂停上市为非上市状态, 但是由于持有的股票无法清盘
         # 因此对于投资来说, 暂停上市和停牌更相近, 因此将暂停上市也标记为上市状态, 而暂停上市的股票会没有交易数据
         # 因此停牌标记会缺失, 在生成可交易标记的函数中, 停牌标记会把nan填成True, 因此暂停上市可以被正确的视作停牌
-        # 详情见data.generate_if_tradable. 因此, 状态标记为1, 2, 3, 6, 9的股票都是上市状态
+        # 详情见data.generate_if_tradable. 因此, 状态标记为1, 2, 3, 6的股票都是上市状态
         # 另外注意, 新版的上市标记和以前不同, 并非只要上市, 之后的标记都是True, 而是退市后会变成False
-        is_enlisted = list_status.isin((1, 2, 3, 6, 9))
+        is_enlisted = list_status.isin((1, 2, 3, 6))
         # is_enlisted = is_enlisted.replace(False, np.nan)
         # is_enlisted = is_enlisted.fillna(method='ffill')
         # 将时间索引和标准时间索引对齐，向前填充
@@ -320,6 +322,10 @@ class database(object):
         # is_delisted = is_delisted.fillna(method='ffill')
         # 将时间索引和标准时间索引对齐，向前填充
         is_delisted = is_delisted.reindex(self.data.stock_price.major_axis, method='ffill')
+
+        # 为了处理之后的nan, 即fillna等函数, 将数据类型从bool改为float
+        is_enlisted = is_enlisted.astype(float)
+        is_delisted = is_delisted.astype(float)
 
         # 当first_date不为默认值时, 一般认为此时在更新数据, 因此, 更新时间段内的list_status要做额外处理
         # 最重要的是在第一个状态标记前的那些nan的值不能被当做布尔值, 必须保留为nan, 然后在更新数据函数中
@@ -348,10 +354,10 @@ class database(object):
                     "b.TotalEquity from ("\
                     "select distinct CompanyCode, SecuCode from SmartQuant.dbo.ReturnDaily) a " \
                     "left join (select InfoPublDate, EndDate, CompanyCode, TotalAssets, TotalLiability, " \
-                    "TotalShareholderEquity as TotalEquity from LC_BalanceSheetAll where IfMerged=1 "\
+                    "SEWithoutMI as TotalEquity from LC_BalanceSheetAll where IfMerged=1 "\
                     "and InfoPublDate>='" + str(first_date) + "' and InfoPublDate<='" + \
                     str(self.trading_days.iloc[-1]) + "') b on a.CompanyCode=b.CompanyCode "\
-                    " order by InfoPublDate, SecuCode, EndDate"
+                    "order by InfoPublDate, SecuCode, EndDate "
         balance_sheet_data = self.jydb_engine.get_original_data(sql_query)
 
         # 对资产负债和所有者权益，只取每个时间点上最近的那一期报告，
@@ -457,7 +463,8 @@ class database(object):
         sql_query = "set query_governor_cost_limit 0"\
                     "select b.DataDate, a.SecuCode, b.ni_ttm from " \
                     "(select distinct InnerCode, SecuCode from ReturnDaily) a left join " \
-                    "(select DataDate, NetProfit as ni_ttm, InnerCode from TTM_LC_IncomeStatementAll " \
+                    "(select DataDate, NPParentCompanyOwners as ni_ttm, InnerCode " \
+                    "from TTM_LC_IncomeStatementAll " \
                     "where DataDate>='" + str(self.trading_days.iloc[0]) + "' and DataDate<='" + \
                     str(self.trading_days.iloc[-1]) + "') b on a.InnerCode=b.InnerCode " \
                     "order by DataDate, SecuCode"
@@ -478,7 +485,7 @@ class database(object):
         sql_query = "set query_governor_cost_limit 0"\
                     "select b.DataDate, a.SecuCode, b.EndDate, b.ni_ttm, b.revenue_ttm, b.eps_ttm from " \
                     "(select distinct InnerCode, SecuCode from ReturnDaily) a " \
-                    "left join (select DataDate, InnerCode, EndDate, NetProfit as ni_ttm, " \
+                    "left join (select DataDate, InnerCode, EndDate, NPParentCompanyOwners as ni_ttm, " \
                     "TotalOperatingRevenue as revenue_ttm, BasicEPS as eps_ttm from TTM_LC_IncomeStatementAll_8Q " \
                     "where DataDate>='" + str(self.trading_days.iloc[0]) + \
                     "' and DataDate<='" + str(self.trading_days.iloc[-1]) + "') b " \
@@ -744,22 +751,15 @@ class database(object):
         self.data.raw_data['TotalLiability'] = self.data.raw_data['TotalLiability'].fillna(method='ffill')
         self.data.raw_data['TotalEquity'] = self.data.raw_data['TotalEquity'].fillna(method='ffill')
         self.get_pb()
-        # # 注意这两个数据在用旧数据向前填na之后，还要再fill一次na，因为更新的时候出现的新股票，之前的旧数据因为重索引的关系，也是nan
-        # self.data.if_tradable['is_enlisted'] = self.data.if_tradable['is_enlisted'].\
-        #     fillna(method='ffill').fillna(0).astype(np.bool)
-        # self.data.if_tradable['is_delisted'] = self.data.if_tradable['is_delisted'].\
-        #     fillna(method='ffill').fillna(0).astype(np.bool)
-        # # 指数权重数据也是这样, 在用旧数据向前填na之后, 还要再fill一次na, 原因与上面的上市退市数据是一样的
-        # for index_name in benchmark_index_name:
-        #     self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
-        #         fillna(method='ffill').fillna(0.0)
-        # 现在上市退市标记和指数权重数据只进行向前填充, 不再进行将所有nan填成0的步骤
+        # 现在上市退市标记需要在向前填充后, 将所有的数据填成0, 这是为了保证在更新时间段才上市的股票,
+        # 在未上市前的is_enlisted数据是False, 要重新fillna是因为现在的上退市标记处理规则不能出现nan, 而是全是1或0
         self.data.if_tradable['is_enlisted'] = self.data.if_tradable['is_enlisted'].\
-            fillna(method='ffill')
+            fillna(method='ffill').fillna(0.0)
         self.data.if_tradable['is_delisted'] = self.data.if_tradable['is_delisted'].\
-            fillna(method='ffill')
+            fillna(method='ffill').fillna(0.0)
         # 权重数据稍有不同, 只能整行整行的fillna, 而不能按个股fillna, 否则会把以前在指数中,
         # 现在不在指数中的那些股票的权重填到现在来, 这样是不对的, 只有当一行全是nan是才按行对这一行进行fillna
+        # 且指数权重数据只进行向前填充, 不再进行将所有nan填成0的步骤
         for index_name in benchmark_index_name:
             self.data.benchmark_price['Weight_'+index_name] = self.data.benchmark_price['Weight_'+index_name].\
                 dropna(how='all', axis=0).reindex(index=self.data.benchmark_price.major_axis, method='ffill')
@@ -792,7 +792,9 @@ if __name__ == '__main__':
     # db.update_data_from_db()
     db.get_trading_days()
     db.get_labels()
-    db.get_list_status(first_date=pd.Timestamp('20070101'))
+    db.get_list_status()
+    # db.get_ni_ttm()
+    # data.write_data(db.data.raw_data)
     # db.get_AdjustFactor()
     # db.get_sq_data()
     # db.get_index_price()

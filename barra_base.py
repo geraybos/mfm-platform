@@ -163,12 +163,12 @@ class barra_base(factor_base):
             # 指数权重
             exponential_weights = strategy_data.construct_expo_weights(63, 252)
             # 回归函数
-            def reg_func(y, *, x, weights):
+            def reg_func(y, *, x):
                 # 如果y全是nan或只有一个不是nan，则直接返回nan，可自由设定阈值
                 if y.notnull().sum() <= 63:
                     return pd.Series({'beta':np.nan,'hsigma':np.nan})
                 x = sm.add_constant(x)
-                model = sm.WLS(y, x, weights=weights, missing='drop')
+                model = sm.OLS(y, x, missing='drop')
                 results = model.fit()
                 resid = results.resid.reindex(index=y.index)
                 # 在这里提前计算hsigma----------------------------------------------------------------------
@@ -192,7 +192,10 @@ class barra_base(factor_base):
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
                 curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return',cursor-251:cursor+1,:]
                 curr_x = cap_wgt_universe_return.ix[cursor-251:cursor+1]
-                temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
+                # 指数权重加在数据上, 而不是回归权重上, 回归仍然使用OLS
+                curr_x = strategy_data.multiply_weights(curr_x, exponential_weights)
+                curr_data = curr_data.apply(strategy_data.multiply_weights, weights=exponential_weights)
+                temp = curr_data.apply(reg_func, x=curr_x)
                 temp_beta.ix[cursor,:] = temp.ix['beta']
                 temp_hsigma.ix[cursor,:] = temp.ix['hsigma']
                 print(cursor)
@@ -216,12 +219,12 @@ class barra_base(factor_base):
             exponential_weights = strategy_data.construct_expo_weights(63, 252)
 
             # 回归函数
-            def reg_func(y, *, x, weights):
+            def reg_func(y, *, x):
                 # 如果y全是nan或只有一个不是nan，则直接返回nan，可自由设定阈值
                 if y.notnull().sum() <= 63:
                     return pd.Series({'beta': np.nan, 'hsigma': np.nan})
                 x = sm.add_constant(x)
-                model = sm.WLS(y, x, weights=weights, missing='drop')
+                model = sm.OLS(y, x, missing='drop')
                 results = model.fit()
                 resid = results.resid.reindex(index=y.index)
                 # 在这里提前计算hsigma----------------------------------------------------------------------
@@ -240,10 +243,12 @@ class barra_base(factor_base):
             # 计算每期beta的函数
             def one_time_beta(cursor):
                 # 注意, 这里的股票收益因为要用过去一段时间的数据, 因此要用完整的数据
-                # curr_data = self.complete_base_data.stock_price.ix['daily_excess_simple_return', cursor - 251:cursor+1, :]
                 curr_data = complete_return_data.ix[cursor - 251:cursor + 1, :]
                 curr_x = cap_wgt_universe_return.ix[cursor - 251:cursor + 1]
-                temp = curr_data.apply(reg_func, x=curr_x, weights=exponential_weights)
+                # 指数权重加在数据上, 而不是回归权重上, 回归仍然使用OLS
+                curr_x = strategy_data.multiply_weights(curr_x, exponential_weights)
+                curr_data = curr_data.apply(strategy_data.multiply_weights, weights=exponential_weights)
+                temp = curr_data.apply(reg_func, x=curr_x)
                 print(cursor)
                 return temp
 
@@ -410,7 +415,8 @@ class barra_base(factor_base):
                                                                          self.base_data.stock_price.ix['FreeMarketValue'])})
             # 正交化
             new_rv = strategy_data.simple_orth_gs(y, x, weights = np.sqrt(self.base_data.stock_price.ix['FreeMarketValue']))[0]
-            # 之后会再次的计算暴露，注意再次计算暴露后，new_rv依然保有对x的正交性
+            # 之后会再次的计算暴露，注意再次计算暴露后，由于回归权重和标准化时使用的权重不一样
+            # 一个是市值, 一个是根号市值, 会导致其不再在回归空间下(乘以市值4分之一次方)对x正交
             self.base_data.factor['rv'] = new_rv
                            
     # 计算nonlinear size
@@ -931,7 +937,55 @@ class barra_base(factor_base):
             style_factor_pvalue.ix[time, :] = results.pvalues
             r_squared.ix[time] = results.rsquared
             f_pvalue.ix[time] = results.f_pvalue
+
+        self.significance_style_factor_tstat = style_factor_tstat
+        self.significance_style_factor_pvalue = style_factor_pvalue
+        self.significance_reg_r_squared = r_squared
+        self.significance_f_pvalue = f_pvalue
         pass
+
+    # 观察风格因子暴露的相似性
+    def style_factor_similarity(self):
+        # 只取风格因子
+        style_factor_expo = self.base_data.factor_expo.iloc[:self.n_style]
+        # 计算corr
+        self.style_factor_corr_all = style_factor_expo.apply(lambda x: x.corr(), axis=(0, 2))
+        self.style_factor_corr_mean = self.style_factor_corr_all.mean(0)
+
+        # 计算在回归空间下的cosine similarity, 因为这个夹角是决定在回归算因子收益的时候
+        # 对因子收益的值起决定性影响的变量
+        # 现将因子暴露乘以np.sqrt(np.sqrt(free mv)), 将空间转换到回归空间下
+        style_factor_expo_under_reg = style_factor_expo.apply(lambda x:
+            x.mul(self.base_data.stock_price['FreeMarketValue'].pow(0.25)), axis=(1, 2))
+        # 定义计算consine similarity的函数
+        def cosine_similarity_func(df):
+            # df的index为股票代码, columns风格因子值
+            # 建立储存结果的矩阵
+            cosine_matrix = pd.DataFrame(np.nan, index=df.columns, columns=df.columns)
+            # 如果暴露值全是nan, 则跳过计算
+            if df.isnull().all().all():
+                return cosine_matrix
+            # 因为需要计算pair wise的值, 因此需要做两次循环
+            for factor1, expo1 in df.iteritems():
+                for factor2, expo2 in df.iteritems():
+                    # 因为是对称矩阵, 因此之前计算过的相似度不需要再次计算
+                    if not np.isnan(cosine_matrix.ix[factor1, factor2]):
+                        continue
+                    else:
+                        similarity = expo1.mul(expo2).sum() / \
+                                     (np.sqrt(expo1.pow(2).sum() * expo2.pow(2).sum()))
+                        # 需要把两个空位都填上同样的值
+                        cosine_matrix.ix[factor1, factor2] = similarity * 1
+                        cosine_matrix.ix[factor2, factor1] = similarity * 1
+
+            return cosine_matrix
+
+        # 进行计算
+        self.style_factor_cos_similarity_all = style_factor_expo_under_reg.apply(
+            cosine_similarity_func, axis=(0, 2))
+        self.style_factor_cos_similarity_mean = self.style_factor_cos_similarity_all.mean(0)
+
+
 
 
     # 更新数据
@@ -1014,6 +1068,176 @@ class barra_base(factor_base):
         self.is_update = False
         self.try_to_read = True
 
+    #########################################################################################################
+    # 下面的部分为处理barra方面所给的数据, 用来跟自己的风险模型进行对比
+    #########################################################################################################
+
+    # 这个函数为处理barra方面的原始数据, 把它做成自己的数据格式, 处理barra方面的数据是因为想测试barra的预测效果
+    # 对比自己的预测效果, 可以有一个参考
+    def handle_barra_data_local(self):
+        # 取实现的因子收益, 其全部在一个文件夹里, 因此不需要循环
+        fac_ret = pd.read_csv('CNE5S_100_DlyFacRet.20170309', sep='|', header=0, parse_dates=[2])
+        factor_return = fac_ret.pivot_table(index='DataDate', columns='Factor', values='DlyReturn')
+        realized_factor_ret = factor_return.reindex(index=self.base_factor_return.index)
+        # 初始化要取的数据
+        forecasted_cov_mat = pd.Panel(np.nan, items=self.base_factor_return.index,
+                                      major_axis=realized_factor_ret.columns,
+                                      minor_axis=realized_factor_ret.columns)
+        forecasted_spec_var = pd.DataFrame()
+        realized_spec_ret = pd.DataFrame()
+        factor_expo = pd.Panel()
+
+        # 根据交易日进行循环
+        for cursor, time in enumerate(self.base_factor_return.index):
+            # 将时间转化成barra文件后缀的形式
+            datestr = str(time.year) + str(time.month).zfill(2) + str(time.day).zfill(2)
+            # 读取预测协方差数据
+            # 首先判断该天是否在文件中
+            if not os.path.isfile('barra_data/CNE5S_100_Covariance.' + datestr):
+                continue
+            covmat = pd.read_csv('barra_data/CNE5S_100_Covariance.' + datestr, sep='|', header=2)[:-1]
+            factor_cov1 = covmat.pivot_table(index='!Factor1', columns='Factor2', values='VarCovar')
+            factor_cov2 = covmat.pivot_table(index='Factor2', columns='!Factor1', values='VarCovar')
+            factor_cov = factor_cov1.where(factor_cov1.notnull(), factor_cov2).div(10000)
+            # 读取股票的预测残余风险
+            asset_data = pd.read_csv('barra_data/CNE5S_100_Asset_Data.' + datestr, sep='|', header=2)[:-1]
+            spec_risk = asset_data.pivot_table(index='!Barrid', values='SpecRisk%')
+            spec_var = (spec_risk / 100) ** 2
+            # 读取股票的实现残余收益
+            asset_return = pd.read_csv('barra_data/CNE5_100_Asset_DlySpecRet.' + datestr, sep='|', header=2)[:-1]
+            spec_return = asset_return.pivot_table(index='!Barrid', values='SpecificReturn')
+            spec_return /= 100
+            # 读取股票的因子暴露
+            asset_expo = pd.read_csv('barra_data/CNE5S_100_Asset_Exposure.' + datestr, sep='|', header=2)[:-1]
+            curr_factor_expo = asset_expo.pivot_table(index='!Barrid', columns='Factor', values='Exposure')
+
+            forecasted_cov_mat.ix[time] = factor_cov
+            spec_var.name = time
+            spec_return.name = time
+            forecasted_spec_var = forecasted_spec_var.join(spec_var, how='outer')
+            realized_spec_ret = realized_spec_ret.join(spec_return, how='outer')
+            curr_factor_expo = pd.Panel({time: curr_factor_expo})
+            factor_expo = factor_expo.join(curr_factor_expo, how='outer')
+
+            print(time)
+            pass
+
+        forecasted_spec_var = forecasted_spec_var.T.reindex(index=self.base_factor_return.index)
+        realized_spec_ret = realized_spec_ret.T.reindex(index=self.base_factor_return.index)
+        factor_expo = factor_expo.reindex(items=self.base_factor_return.index)
+        # 将年化的单位转为日度(收益), 月度(风险)
+        forecasted_cov_mat /= 12
+        forecasted_spec_var /= 12
+
+        # 储存结果
+        realized_factor_ret.to_hdf('barra_real_fac_ret', '123')
+        forecasted_cov_mat.to_hdf('barra_fore_cov_mat', '123')
+        realized_spec_ret.to_hdf('barra_real_spec_ret', '123')
+        forecasted_spec_var.to_hdf('barra_fore_spec_var', '123')
+        factor_expo.transpose(2, 0, 1).to_hdf('barra_factor_expo', '123')
+        pass
+
+    # 处理barra方面给出的数据, 同上面不一样的是, 这里是从数据库读取处理
+    def handle_barra_data_sql(self):
+        from db_engine import db_engine
+        xy_db = db_engine(server_type='mssql', driver='pymssql', username='lishi.wang', password='Zhengli1!',
+                    server_ip='192.168.66.12', port='1433', db_name='XY', add_info='')
+        # 取id map
+        idmap = xy_db.get_original_data("select * from idmap")
+        idmap = idmap.set_index('Barrid').squeeze()
+        # 取实现的每日因子收益
+        fac_ret = xy_db.get_original_data("select * from DlyFacRet")
+        fac_ret['DataDate'] = pd.to_datetime(fac_ret['DataDate'])
+        factor_return = fac_ret.pivot_table(index='DataDate', columns='Factor', values='FacRet')
+        # 取预测协方差矩阵
+        covmat = xy_db.get_original_data("select * from Covariance")
+        covmat['DataDate'] = pd.to_datetime(covmat['DataDate'])
+        factor_cov1 = covmat.pivot_table(index=['Factor1', 'Factor2'], columns='DataDate',
+                                         values='VarCovar').to_panel()
+        factor_cov2 = covmat.pivot_table(index=['Factor2', 'Factor1'], columns='DataDate',
+                                         values='VarCovar').to_panel()
+        factor_cov = pd.Panel(np.where(factor_cov1.notnull(), factor_cov1, factor_cov2),
+            items=factor_cov1.items, major_axis=factor_cov1.major_axis,
+            minor_axis=factor_cov1.minor_axis).div(10000)
+        # 取股票的预测残余风险
+        spec_risk = xy_db.get_original_data("select DataDate, Barrid, SpecRisk from Asset_Data")
+        spec_risk['DataDate'] = pd.to_datetime(spec_risk['DataDate'])
+        spec_vol = spec_risk.pivot_table(index='DataDate', columns='Barrid', values='SpecRisk')
+        spec_var = spec_vol.div(100).pow(2)
+        # 取股票的实现残余收益
+        spec_ret = xy_db.get_original_data("select * from Asset_DlySpecRet")
+        spec_ret['DataDate'] = pd.to_datetime(spec_ret['DataDate'])
+        spec_return = spec_ret.pivot_table(index='DataDate', columns='BarraID', values='SpecificReturn')
+        spec_return /= 100
+        # 取股票的因子暴露
+        asset_expo = xy_db.get_original_data("select * from Asset_Exposure where DataDate>='20070101'")
+        asset_expo['DataDate'] = pd.to_datetime(asset_expo['DataDate'])
+        factor_expo = asset_expo.pivot_table(index=['DataDate', 'Barrid'], columns='Factor',
+                                             values='Exposure').to_panel()
+        # 使用idmap重命名股票名称, 然后进行reindex
+        mv = data.read_data('FreeMarketValue')
+        # 对所有的数据进行重索引
+        factor_return = factor_return.reindex(index=mv.index)
+        factor_cov = factor_cov.reindex(items=mv.index)
+        spec_var = spec_var.rename(columns=idmap.to_dict()).reindex(index=mv.index, columns=mv.columns)
+        spec_return = spec_return.rename(columns=idmap.to_dict()).reindex(index=mv.index, columns=mv.columns)
+        factor_expo = factor_expo.rename(minor_axis=idmap.to_dict()).reindex(major_axis=mv.index,
+                                                                             minor_axis=mv.columns)
+
+        pass
+
+    # 读取并整理barra的因子暴露数据, 整理包括: 1. 将barra因子的顺序进行调整, 调整为风格, 然后是行业,
+    # 最后是country的顺序. 2. 将行业因子个数设置为32
+    def handle_barra_factor_expo_order_and_number(self):
+        self.base_data.factor_expo = data.read_data('barra_factor_expo')
+        self.base_data.factor_expo = self.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
+            'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
+            'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
+            'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
+            'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
+            'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
+            'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
+            'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
+        self.base_data.factor_expo['CNE5S_COUNTRY'] = self.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
+        self.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+        self.n_indus = 32
+
+    # 计算barra数据的r squared
+    def get_barra_r_squared(self):
+        # 先处理暴露数据
+        self.handle_barra_factor_expo_order_and_number()
+        # 需要读取原始数据
+        self.read_original_data()
+
+        # 算barra r squared的方法1, 使用barra的因子收益
+        bb.base_factor_return = data.read_data('barra_real_fac_ret')
+        bb.base_factor_return = bb.base_factor_return.reindex(index=bb.base_data.factor_expo.major_axis,
+                                                              columns=bb.base_data.factor_expo.items)
+        fitted_part = np.einsum('ktn,tk->tn', bb.base_data.factor_expo.shift(1).reindex(
+            major_axis=bb.base_data.factor_expo.major_axis), bb.base_factor_return)
+        fitted_part = pd.DataFrame(fitted_part, index=bb.base_data.factor_expo.major_axis,
+                                   columns=bb.base_data.factor_expo.minor_axis)
+        fitted_part = fitted_part.where(bb.base_data.stock_price['daily_simple_return'].notnull(), np.nan)
+        residual_part_1 = bb.base_data.stock_price['daily_simple_return'] - fitted_part
+        residual_part_w_1 = residual_part_1.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+        ssr_1 = residual_part_w_1.pow(2).sum(1)
+        y_1 = bb.base_data.stock_price['daily_simple_return'].where(fitted_part.notnull(), np.nan)
+        daily_return_w_1 = y_1.mul(
+            bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+        sst_1 = daily_return_w_1.sub(daily_return_w_1.mean(1), axis=0).pow(2).sum(1)
+        self.barra_data_rsquared_1 = 1 - ssr_1/sst_1
+
+        # 算barra r squared的方法2, 使用barra的specific return直接算residual part
+        bb.specific_return = data.read_data('barra_real_spec_ret')
+        bb.specific_return = bb.specific_return.reindex(index=bb.base_data.factor_expo.major_axis)
+        residual_part_w_2 = bb.specific_return.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+        ssr_2 = residual_part_w_2.pow(2).sum(1)
+        y_2 = bb.base_data.stock_price['daily_simple_return'].where(bb.specific_return.notnull(), np.nan)
+        daily_return_w_2 = y_2.mul(
+            bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
+        sst_2 = daily_return_w_2.sub(daily_return_w_2.mean(1), axis=0).pow(2).sum(1)
+        self.barra_data_rsquared_2 = 1 - ssr_2 / sst_2
+
 
 if __name__ == '__main__':
     import time
@@ -1022,86 +1246,24 @@ if __name__ == '__main__':
     i = 'all'
     # for i in pools:
     bb = barra_base(stock_pool=i)
-    # bb.try_to_read = False
+    # bb.handle_barra_data_sql()
+    bb.try_to_read = False
     # bb.read_original_data()
     bb.construct_factor_base(if_save=False)
+    bb.get_base_factor_return(if_save=False)
+
     # bb.base_data.factor_expo = data.read_data('bb_factor_expo_'+i)
-    # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
-    # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
-    #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
-    #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
-    #     'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
-    #     'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
-    #     'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
-    #     'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
-    #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
-    # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
-    # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
-    # bb.n_indus = 32
-    bb.style_factor_significance(freq='d')
-    #bb.get_base_factor_return(if_save=False)
-    # if i in ['all', 'hs300', 'zz500']:
-    #     bb.base_data.factor_expo.to_hdf('bb_factorexpo_'+i, '123')
-    # bb.base_data.factor_expo = pd.read_hdf('barra_factor_expo_new', '123')
-    # bb.base_data.factor_expo = bb.base_data.factor_expo[['CNE5S_SIZE', 'CNE5S_BETA', 'CNE5S_MOMENTUM',
-    #     'CNE5S_RESVOL', 'CNE5S_SIZENL', 'CNE5S_BTOP', 'CNE5S_LIQUIDTY', 'CNE5S_EARNYILD', 'CNE5S_GROWTH',
-    #     'CNE5S_LEVERAGE', 'CNE5S_AERODEF', 'CNE5S_AIRLINE', 'CNE5S_AUTO', 'CNE5S_BANKS', 'CNE5S_BEV',
-    #     'CNE5S_BLDPROD', 'CNE5S_CHEM', 'CNE5S_CNSTENG', 'CNE5S_COMSERV', 'CNE5S_CONMAT', 'CNE5S_CONSSERV',
-    #     'CNE5S_DVFININS', 'CNE5S_ELECEQP', 'CNE5S_ENERGY', 'CNE5S_FOODPROD', 'CNE5S_HDWRSEMI', 'CNE5S_HEALTH',
-    #     'CNE5S_HOUSEDUR', 'CNE5S_INDCONG', 'CNE5S_LEISLUX', 'CNE5S_MACH', 'CNE5S_MARINE', 'CNE5S_MATERIAL',
-    #     'CNE5S_MEDIA', 'CNE5S_MTLMIN', 'CNE5S_PERSPRD', 'CNE5S_RDRLTRAN', 'CNE5S_REALEST', 'CNE5S_RETAIL',
-    #     'CNE5S_SOFTWARE', 'CNE5S_TRDDIST', 'CNE5S_UTILITIE', 'CNE5S_COUNTRY']]
-    # bb.base_data.factor_expo['CNE5S_COUNTRY'] = bb.base_data.factor_expo['CNE5S_COUNTRY'].fillna(1)
-    # bb.base_data.factor_expo.ix['CNE5S_AERODEF':'CNE5S_UTILITIE'].fillna(0, inplace=True)
+    # bb.get_barra_r_squared()
+    # bb.style_factor_significance(freq='d')
+
     # bb.base_factor_return = data.read_data('bb_factor_return_'+i)
-    # bb.base_factor_return = bb.base_factor_return.reindex(columns=bb.base_data.factor_expo.items)
     # bb.specific_return = data.read_data('bb_specific_return_'+i)
-    # #############################################################################################
-    # 算barra r squared的方法2, 使用barra的因子收益
-    # bb.base_factor_return = pd.read_hdf('barra_real_fac_ret', '123')
-    # bb.base_factor_return = bb.base_factor_return.reindex(index=bb.base_data.factor_expo.major_axis,
-    #                                                       columns=bb.base_data.factor_expo.items)
-    # fitted_part = np.einsum('ktn,tk->tn', bb.base_data.factor_expo.shift(1).reindex(
-    #     major_axis=bb.base_data.factor_expo.major_axis), bb.base_factor_return)
-    # fitted_part = pd.DataFrame(fitted_part, index=bb.base_data.factor_expo.major_axis,
-    #                            columns=bb.base_data.factor_expo.minor_axis)
-    # fitted_part = fitted_part.where(bb.base_data.stock_price['daily_simple_return'].notnull(), np.nan)
-    # residual_part = bb.base_data.stock_price['daily_simple_return'] - fitted_part
-    # residual_part_w = residual_part.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    # ssr = residual_part_w.pow(2).sum(1)
-    # y = bb.base_data.stock_price['daily_simple_return'].where(fitted_part.notnull(), np.nan)
-    # daily_return_w = y.mul(
-    #     bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    # sst = daily_return_w.sub(daily_return_w.mean(1), axis=0).pow(2).sum(1)
-    # # #############################################################################################
-    # # 算barra r squared的方法3, 使用barra的specific return直接算residual part
-    # bb.specific_return = pd.read_hdf('barra_real_spec_ret_new', '123')
-    # bb.specific_return = bb.specific_return.reindex(index=bb.base_data.factor_expo.major_axis)
-    # residual_part_w = bb.specific_return.mul(bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    # ssr = residual_part_w.pow(2).sum(1)
-    # y = bb.base_data.stock_price['daily_simple_return'].where(bb.specific_return.notnull(), np.nan)
-    # daily_return_w = y.mul(
-    #     bb.base_data.stock_price['FreeMarketValue'].shift(1).pow(0.25))
-    # sst = daily_return_w.sub(daily_return_w.mean(1), axis=0).pow(2).sum(1)
-    # #############################################################################################
-    # bb.initial_cov_mat = pd.read_hdf('bb_factor_vracovmat_all', '123')
-    # bb.daily_var_forecast = pd.read_hdf('bb_factor_var_hs300', '123')
-    # bb.get_initial_cov_mat()
-    # bb.get_initial_cov_mat_parallel()
-    # bb.get_vra_cov_mat()
-    # bb.get_eigen_adjusted_cov_mat_parallel(n_of_sims=100, simed_sample_size=504, scaling_factor=3)
-    # bb.get_initial_spec_vol()
-    # bb.get_initial_spec_vol_parallel()
-    # bb.get_vra_spec_vol()
-    # bb.get_bayesian_shrinkage_spec_vol(shrinkage_parameter=0.25)
+
     # start_time = time.time()
     # bb.base_data.stock_price = data.read_data(['FreeMarketValue'])
     # bb.construct_risk_forecast_parallel(eigen_adj_sims=1000)
     # bb.handle_barra_data()
-    # bb.risk_forecast_performance_parallel(test_type='random', bias_type=2, freq='w')
-    # bb.risk_forecast_performance_parallel_spec(test_type='stock', bias_type=1, cap_weighted_bias=False)
-    # bb.risk_forecast_performance_total_parallel(test_type='random', bias_type=2, freq='w')
-    #     bb.update_factor_base_data(start_date=pd.Timestamp('2017-11-14'))
+
     # print("time: {0} seconds\n".format(time.time()-start_time))
     pass
 

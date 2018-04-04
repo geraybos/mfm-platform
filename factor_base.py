@@ -39,7 +39,13 @@ class factor_base(object):
 
     # 在完成全部因子暴露的计算或读取后, 得出该base中风格因子和行业因子的数量
     def get_factor_group_count(self):
-        pass
+        # 注意, 默认的排序是, 先排所有风格因子, 然后是行业因子, 最后是一个国家因子
+        # 先判断行业因子, 行业因子一定是以industry开头的
+        items = self.base_data.factor_expo.items
+        industry = items.str.startswith('Industry')
+        self.n_indus = industry[industry].size
+        # 于是风格因子的数量为总数量减去行业因子数量, 再减去1(country factor)
+        self.n_style = items.size - self.n_indus - 1
 
     # 创建因子值读取文件名的函数, 一般来说, 文件名与股票池相对应
     # 但是, 如在多因子研究框架中说到的那样, 为了增强灵活性, 用户可以选择在当前股票池设定下,
@@ -432,7 +438,7 @@ class factor_base(object):
             # reg_base = reg_base.drop(['lncap', 'beta', 'nls', 'bp', 'ey', 'growth', 'leverage'], axis=1)
             str_outcome = factor_base.str_spec_vol_estimator(ts_spec_vol.ix[time, :],
                 ts_daily_spec_vol.ix[time, :], ts_weight.ix[time, :], reg_base,
-                n_style=3, n_indus=32, reg_weight=
+                n_style=self.n_style, n_indus=self.n_indus, reg_weight=
                 np.sqrt(self.base_data.stock_price.ix['FreeMarketValue', time, valid_data.columns]))
             str_spec_vol.ix[time, :] = str_outcome[0]
             str_daily_spec_vol.ix[time, :] = str_outcome[1]
@@ -445,12 +451,15 @@ class factor_base(object):
     # 估计原始spec vol的函数的并行版本
     def get_initial_spec_vol_parallel(self, *, sample_size=360, spec_var_half_life=84, nw_lag=5, forecast_steps=252):
         # specific_return = self.specific_return.dropna(axis=0, how='all')
-        global factor_expo_g, specific_return_g, if_tradable_g, mv_g
+        global factor_expo_g, specific_return_g, if_tradable_g, mv_g, n_style_g, n_indus_g
         specific_return_g = self.specific_return
         # 更新的时候, specific return和if tradable的股票索引会不一样, specific return会少一些, 需要reindex
         if_tradable_g = self.base_data.if_tradable.reindex(minor_axis=self.specific_return.columns)
         factor_expo_g = self.base_data.factor_expo
         mv_g = self.base_data.stock_price.ix['FreeMarketValue']
+
+        n_style_g = self.n_style
+        n_indus_g = self.n_indus
 
         def one_time_estimator_func(cursor):
             time = specific_return_g.index[cursor]
@@ -476,7 +485,8 @@ class factor_base(object):
             reg_base = factor_expo_g.ix[:, time, valid_data.columns]
             # # reg_base = reg_base.drop(['lncap', 'beta', 'nls', 'bp', 'ey', 'growth', 'leverage'], axis=1)
             str_outcome = factor_base.str_spec_vol_estimator(ts_outcome[0], ts_outcome[1], ts_weight,
-                reg_base, n_style=10, n_indus=28, reg_weight=np.sqrt(mv_g.ix[time, valid_data.columns]))
+                reg_base, n_style=n_style_g, n_indus=n_indus_g,
+                reg_weight=np.sqrt(mv_g.ix[time, valid_data.columns]))
 
             return [ts_outcome[0], ts_outcome[1], str_outcome[0], str_outcome[1], ts_weight]
 
@@ -1279,70 +1289,6 @@ class factor_base(object):
             rolling_bias_stats = vol_ratio.rolling(12).apply(lambda x: np.nanmean(x))
 
         return vol_ratio
-
-    # 这个函数为处理barra方面的原始数据, 把它做成自己的数据格式, 处理barra方面的数据是因为想测试barra的预测效果
-    # 对比自己的预测效果, 可以有一个参考
-    def handle_barra_data(self):
-        # 取实现的因子收益, 其全部在一个文件夹里, 因此不需要循环
-        fac_ret = pd.read_csv('CNE5S_100_DlyFacRet.20170309', sep='|', header=0, parse_dates=[2])
-        factor_return = fac_ret.pivot_table(index='DataDate', columns='Factor', values='DlyReturn')
-        realized_factor_ret = factor_return.reindex(index=self.base_factor_return.index)
-        # 初始化要取的数据
-        forecasted_cov_mat = pd.Panel(np.nan, items=self.base_factor_return.index,
-                    major_axis=realized_factor_ret.columns, minor_axis=realized_factor_ret.columns)
-        forecasted_spec_var = pd.DataFrame()
-        realized_spec_ret = pd.DataFrame()
-        factor_expo = pd.Panel()
-
-        # 根据交易日进行循环
-        for cursor, time in enumerate(self.base_factor_return.index):
-            # 将时间转化成barra文件后缀的形式
-            datestr = str(time.year) + str(time.month).zfill(2) + str(time.day).zfill(2)
-            # 读取预测协方差数据
-            # 首先判断该天是否在文件中
-            if not os.path.isfile('barra_data/CNE5S_100_Covariance.'+datestr):
-                continue
-            covmat = pd.read_csv('barra_data/CNE5S_100_Covariance.'+datestr, sep='|', header=2)[:-1]
-            factor_cov1 = covmat.pivot_table(index='!Factor1', columns='Factor2', values='VarCovar')
-            factor_cov2 = covmat.pivot_table(index='Factor2', columns='!Factor1', values='VarCovar')
-            factor_cov = factor_cov1.where(factor_cov1.notnull(), factor_cov2).div(10000)
-            # 读取股票的预测残余风险
-            asset_data = pd.read_csv('barra_data/CNE5S_100_Asset_Data.'+datestr, sep='|', header=2)[:-1]
-            spec_risk = asset_data.pivot_table(index='!Barrid', values='SpecRisk%')
-            spec_var = (spec_risk/100)**2
-            # 读取股票的实现残余收益
-            asset_return = pd.read_csv('barra_data/CNE5_100_Asset_DlySpecRet.'+datestr, sep='|', header=2)[:-1]
-            spec_return = asset_return.pivot_table(index='!Barrid', values='SpecificReturn')
-            spec_return /= 100
-            # 读取股票的因子暴露
-            asset_expo = pd.read_csv('barra_data/CNE5S_100_Asset_Exposure.'+datestr, sep='|', header=2)[:-1]
-            curr_factor_expo = asset_expo.pivot_table(index='!Barrid', columns='Factor', values='Exposure')
-
-            forecasted_cov_mat.ix[time] = factor_cov
-            spec_var.name = time
-            spec_return.name = time
-            forecasted_spec_var = forecasted_spec_var.join(spec_var, how='outer')
-            realized_spec_ret = realized_spec_ret.join(spec_return, how='outer')
-            curr_factor_expo = pd.Panel({time: curr_factor_expo})
-            factor_expo = factor_expo.join(curr_factor_expo, how='outer')
-
-            print(time)
-            pass
-
-        forecasted_spec_var = forecasted_spec_var.T.reindex(index=self.base_factor_return.index)
-        realized_spec_ret = realized_spec_ret.T.reindex(index=self.base_factor_return.index)
-        factor_expo = factor_expo.reindex(items=self.base_factor_return.index)
-        # 将年化的单位转为日度(收益), 月度(风险)
-        forecasted_cov_mat /= 12
-        forecasted_spec_var /= 12
-
-        # 储存结果
-        realized_factor_ret.to_hdf('barra_real_fac_ret', '123')
-        forecasted_cov_mat.to_hdf('barra_fore_cov_mat', '123')
-        realized_spec_ret.to_hdf('barra_real_spec_ret', '123')
-        forecasted_spec_var.to_hdf('barra_fore_spec_var', '123')
-        factor_expo.transpose(2, 0, 1).to_hdf('barra_factor_expo', '123')
-        pass
 
 
 

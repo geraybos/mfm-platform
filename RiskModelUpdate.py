@@ -1,7 +1,7 @@
 import sys
 import pandas as pd
 from datetime import datetime
-from barra_base_prod import barra_base_prod
+from xy_base_prod import xy_base_prod
 from database_prod import database_prod
 from db_engine import db_engine
 
@@ -62,10 +62,10 @@ if __name__ == '__main__':
     dbp = database_prod()
     dbp.update_data_from_db(start_date=update_start_time)
     for p in stock_pool:
-        bbp1 = barra_base_prod(stock_pool=p)
-        bbp2 = barra_base_prod(stock_pool=p)
-        bbp1.update_factor_base_data(start_date=update_start_time)
-        bbp2.update_risk_forecast(start_date=update_start_time)
+        xyp1 = xy_base_prod(stock_pool=p)
+        xyp2 = xy_base_prod(stock_pool=p)
+        xyp1.update_factor_base_data(start_date=update_start_time)
+        xyp2.update_risk_forecast(start_date=update_start_time)
         print('StockPool {0} has been updated!\n'.format(p))
 
     # 更新完成, 说明更新成功, 将UpdateIndicator中的latest valid date改成最近的有效更新日,

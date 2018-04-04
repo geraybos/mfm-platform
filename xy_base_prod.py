@@ -10,12 +10,13 @@ from data import data
 from strategy_data import strategy_data
 from factor_base import factor_base
 from barra_base import barra_base
+from xy_base import xy_base
 from db_engine import db_engine
 
-# 生产中的barra base类, 与barra base的主要不同是读取储存数据不是在本地, 而是在数据库
+# 生产中的xy base类, 与xy base的主要不同是读取储存数据不是在本地, 而是在数据库
 
-class barra_base_prod(barra_base):
-    """ Barra base class in production system.
+class xy_base_prod(xy_base):
+    """ xy base class in production system.
 
     foo
     """
@@ -143,7 +144,7 @@ class barra_base_prod(barra_base):
         self.rm_engine.engine.execute(sql)
 
     # 储存因子暴露数据
-    # 这里不储存行业暴露, 因为行业暴露简单, 又很多,很占地空间, 因此如果需要直接提取暴露数据,
+    # 这里不储存行业暴露, 因为行业暴露简单, 又很多,很占空间, 因此如果需要直接提取暴露数据,
     # 则需要从IndustryMark中提取原始数据, 然后像get_industry_expo函数这样自己做成dummy variable
     def save_factor_expo_to_sql(self):
         self.base_data.factor_expo.major_axis.rename('DataDate', inplace=True)
@@ -166,7 +167,7 @@ class barra_base_prod(barra_base):
                          var_name='FactorName', value_name='Value').dropna()
         sql_df['StockPool'] = self.base_data.stock_pool
         # 储存到数据库中
-        self.rm_engine.insert_df(sql_df, 'BarraBaseSpecificReturn')
+        self.rm_engine.insert_df(sql_df, 'BarraBaseFactorReturn')
         # 打印储存成功的提示
         print('FactorReturn has been successfully saved into sql database!\n')
 
@@ -177,7 +178,7 @@ class barra_base_prod(barra_base):
                          var_name='SecuCode', value_name='Value').dropna()
         sql_df['StockPool'] = self.base_data.stock_pool
         # 储存到数据库中
-        sql_df.to_sql('BarraBaseSpecificReturn', self.rm_engine.engine, if_exists='append', index=False)
+        self.rm_engine.insert_df(sql_df, 'BarraBaseSpecificReturn')
         # 打印储存成功的提示
         print('SpecificReturn has been successfully saved into sql database!\n')
 
@@ -248,6 +249,8 @@ class barra_base_prod(barra_base):
         print('get growth completed...\n')
         self.get_leverage()
         print('get leverage completed...\n')
+        self.get_short_reversal()
+        print('get short term reversal completed...\n')
         # 计算风格因子暴露之前再过滤一次
         self.base_data.discard_uninv_data()
         # 计算风格因子暴露
@@ -517,7 +520,6 @@ class barra_base_prod(barra_base):
         self.daily_spec_var = self.initial_daily_spec_vol.pow(2)
         self.save_daily_spec_var_to_sql()
 
-
         # 第二步是做vra, vra需要的数据长度是vra sample size, 数据为估计出的daily spec var, 以及specific return
         # 注意, 由于估计出的daily spec var是要用shift一天的, 因此这个数据要多取一天, 然后在vra的函数中会进行reindex
         sql_spec_vra_start_date = "select top " + str(vra_sample_size) + " DataDate from ( " \
@@ -620,50 +622,38 @@ class barra_base_prod(barra_base):
 
 
 if __name__ == '__main__':
-    pool = ['all', 'hs300', 'zz500']
-    # factor = ['lncap', 'beta', 'momentum', 'rv', 'nls', 'bp', 'liquidity', 'ey', 'growth', 'leverage']
+    pool = ['hs300', 'zz500']
 
-    # for p in pool:
-    #     bbp = barra_base_prod(stock_pool=p)
-    #     factor_name = [i + '_' + p for i in factor]
-    #     bbp.base_data.factor = data.read_data(factor_name, item_name=factor)
-    #     bbp.base_data.factor_expo = pd.read_hdf('RiskModelData/bb_factor_expo_'+p, '123')
-    #     bbp.base_factor_return = data.read_data(['bb_factor_return_'+p]).iloc[0]
-    #     bbp.specific_return = data.read_data(['bb_specific_return_'+p]).iloc[0]
-    #     bbp.get_factor_group_count()
-    #
-    #     bbp.base_data.factor.major_axis.rename('DataDate', inplace=True)
-    #     bbp.base_data.factor_expo.major_axis.rename('DataDate', inplace=True)
-    #     bbp.base_factor_return.index.rename('DataDate', inplace=True)
-    #     bbp.specific_return.index.rename('DataDate', inplace=True)
-    #
-    #     bbp.save_data()
-    #     bbp.save_factor_expo_to_sql()
+    for p in pool:
+        xyp = xy_base_prod(stock_pool=p)
+        xyp.base_data.factor_expo = data.read_data('xy_factor_expo_'+p)
+        xyp.base_factor_return = data.read_data('xy_factor_return_'+p)
+        xyp.specific_return = data.read_data('xy_specific_return_'+p)
+        xyp.get_factor_group_count()
 
+        xyp.base_data.factor.major_axis.rename('DataDate', inplace=True)
+        xyp.base_data.factor_expo.major_axis.rename('DataDate', inplace=True)
+        xyp.base_factor_return.index.rename('DataDate', inplace=True)
+        xyp.specific_return.index.rename('DataDate', inplace=True)
 
-        # bbp = barra_base_prod(stock_pool=p)
-        # bbp.eigen_adjusted_cov_mat = pd.read_hdf('RiskModelData/bb_riskmodel_covmat_'+p, '123')
-        # bbp.spec_var = pd.read_hdf('RiskModelData/bb_riskmodel_specvar_'+p, '123')
-        # bbp.initial_daily_spec_vol = pd.read_hdf('RiskModelData/bb_riskmodel_dailyspecvar_'+p, '123').pow(0.5)
-        # bbp.daily_var_forecast = pd.read_hdf('RiskModelData/bb_riskmodel_dailyfacvar_'+p, '123')
-        #
-        # bbp.spec_var.index.rename('DataDate', inplace=True)
-        # bbp.initial_daily_spec_vol.index.rename('DataDate', inplace=True)
-        # bbp.daily_var_forecast.index.rename('DataDate', inplace=True)
-        #
-        # bbp.save_daily_factor_var_to_sql()
-        # bbp.save_daily_spec_var_to_sql()
-        # bbp.save_cov_mat_to_sql()
-        # bbp.save_spec_var_to_sql()
+        xyp.save_data()
 
-        # bbp = barra_base_prod(stock_pool=p)
-        # bbp.update_factor_base_data(start_date=pd.Timestamp('2017-12-13'))
+        xyp.eigen_adjusted_cov_mat = data.read_data('bb_riskmodel_covmat_'+p)
+        xyp.spec_var = data.read_data('bb_riskmodel_specvar_'+p)
+        xyp.daily_spec_var = data.read_data('bb_riskmodel_dailyspecvar_'+p)
+        xyp.daily_var_forecast = data.read_data('bb_riskmodel_dailyfacvar_'+p)
 
-        # bbp = barra_base_prod(stock_pool=p)
-        # bbp.update_risk_forecast(start_date=pd.Timestamp('2017-12-13'))
-        #
-        # print(p+' has been completed!\n')
-        # pass
+        xyp.spec_var.index.rename('DataDate', inplace=True)
+        xyp.daily_spec_var.index.rename('DataDate', inplace=True)
+        xyp.daily_var_forecast.index.rename('DataDate', inplace=True)
+
+        xyp.save_daily_factor_var_to_sql()
+        xyp.save_daily_spec_var_to_sql()
+        xyp.save_cov_mat_to_sql()
+        xyp.save_spec_var_to_sql()
+
+        print(p+' has been completed!\n')
+        pass
 
 
 

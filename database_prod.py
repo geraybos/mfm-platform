@@ -62,7 +62,7 @@ class database_prod(database):
         sql_df['DataName'] = item
 
         # 储存到数据库中
-        sql_df.to_sql('RawData', self.rm_engine.engine, if_exists='append', index=False)
+        self.rm_engine.insert_df(sql_df, 'RawData')
         # 打印储存成功的提示
         print('Data: {0} has been successfully saved into sql database!\n'.format(item))
 
@@ -71,7 +71,7 @@ class database_prod(database):
         sql_df = pd.melt(self.data.raw_data['Industry'].reset_index(level=0), id_vars='trading_days',
                          var_name='SecuCode', value_name='Value').dropna()
         sql_df = sql_df.rename(columns={'trading_days': 'DataDate'})
-        sql_df.to_sql('IndustryMark', self.rm_engine.engine, if_exists='append', index=False)
+        self.rm_engine.insert_df(sql_df, 'IndustryMark')
         print('Industry mark has been successfully saved into sql database!\n')
 
     # 将常量数据储存到const data表中去
@@ -82,7 +82,7 @@ class database_prod(database):
         else:
             sql_df = self.data.const_data.reset_index(level=0).dropna().\
                 rename(columns={'trading_days': 'DataDate'})
-            sql_df.to_sql('ConstData', self.rm_engine.engine, if_exists='append', index=False)
+            self.rm_engine.insert_df(sql_df, 'ConstData')
             print('const data has been successfully saved into sql databse!\n')
 
 
@@ -210,11 +210,12 @@ class database_prod(database):
         whole_data['TotalLiability'] = whole_data['TotalLiability'].fillna(method='ffill')
         whole_data['TotalEquity'] = whole_data['TotalEquity'].fillna(method='ffill')
         whole_data['PB'] = whole_data['MarketValue']/whole_data['TotalEquity']
-        # 现在上市退市标记和指数权重数据只进行向前填充, 不再进行将所有nan填成0的步骤
-        whole_data['is_enlisted'] = whole_data['is_enlisted'].fillna(method='ffill')
-        whole_data['is_delisted'] = whole_data['is_delisted'].fillna(method='ffill')
+        # 上市退市标记还是需要把nan填成0
+        whole_data['is_enlisted'] = whole_data['is_enlisted'].fillna(method='ffill').fillna(0.0)
+        whole_data['is_delisted'] = whole_data['is_delisted'].fillna(method='ffill').fillna(0.0)
         # 权重数据稍有不同, 只能整行整行的fillna(), 而不能按个股fillna, 否则会把以前在指数中,
         # 现在不在指数中的那些股票的权重填到现在来, 这样是不对的, 只有当一行全是nan是才按行对这一行进行fillna
+        # 且指数权重数据只进行向前填充, 不再进行将所有nan填成0的步骤
         for item, df in whole_data.iteritems():
             if item.startswith('Weight_'):
                 whole_data[item] = df.dropna(how='all', axis=0).reindex(index=df.index, method='ffill')
@@ -267,9 +268,9 @@ class database_prod(database):
 
 
 
-# if __name__ == '__main__':
-    # import time
-    # start_time = time.time()
+if __name__ == '__main__':
+    import time
+    start_time = time.time()
     # db = database_prod()
     # db.is_update=False
     # db.get_data_from_db()
@@ -279,7 +280,7 @@ class database_prod(database):
     # db.get_list_status()
     # shyy_delisted = db.data.if_tradable.ix['is_delisted', :, ['600849']]
     # db.save_to_sql('is_delisted', shyy_delisted)
-    # dbp = database_prod()
+    dbp = database_prod()
     # dbp.get_data_from_db()
     # dbp.update_data_from_db()
     # dbp.create_rawdata_table()
@@ -306,10 +307,11 @@ class database_prod(database):
     # benchmark_price_name_list.remove('ClosePrice_adj_zzlt')
     # name_list += benchmark_price_name_list
 
-    # name_list = ['PB']
+    # name_list = ['is_enlisted', 'is_delisted', 'TotalEquity', 'PB', 'NetIncome_ttm',
+    #              'PE_ttm', 'NetIncome_ttm_growth_8q']
     # for curr_name in name_list:
     #     assert curr_name != 'Industry', 'Error: No Industry Data!\n'
-    #     curr_data = data.read_data(['RiskModelData/'+curr_name], [curr_name]).iloc[0]
+    #     curr_data = data.read_data(curr_name)
     #     curr_data.index.rename('trading_days', inplace=True)
     #     dbp.save_to_sql(curr_name, curr_data)
     #     print('Time: {0}\n'.format(time.time() - start_time))
